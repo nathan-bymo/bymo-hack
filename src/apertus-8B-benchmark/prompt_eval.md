@@ -2,6 +2,13 @@
 
 API Keera, modelli base, immagini a 512², temperatura 0. Codice: `src/common/prompt.py`.
 
+**Tutti i risultati:**
+
+- [Confronto sul set coverage, 2.532 immagini](prompt_eval_coverage.md): il più completo, con prompt-test e prompt condiviso.
+- [Analisi preliminare maestro–studente](teacher_student_zeroshot.md).
+- [Risultati per classe sulle prime 600 immagini](prompt_eval_per_class_600.md).
+- In questo file: riepilogo sulle 600 immagini, diagnosi e prove piccole.
+
 ## Come riprodurre
 
 Python 3.11, dati della competizione in `data/`, chiave in `.env`.
@@ -51,7 +58,68 @@ sopra). Script usato una tantum, non incluso nel repo. Macro F1:
 
 ## Limiti
 
-- La v2 è stata scelta guardando lo split prompt-dev. Lo split prompt-test non è ancora stato usato.
+- La v2 è stata scelta guardando lo split prompt-dev. Quando sono stati prodotti i numeri di questo file, prompt-test
+  non era ancora stato usato: il controllo è in `prompt_eval_coverage.md`.
 - Alcune classi hanno da 1 a 3 esempi nel campione: i loro valori per classe sono molto rumorosi.
 - `perspective` resta molto debole. In `text_language` la classe `none` ha recall 0.16.
 - Non ancora provati: contesto assente nella v2 completa, altre risoluzioni, calibrazione delle probabilità.
+
+## Diagnosi completa su `subject`
+
+Tutte le configurazioni provate sulle 103 immagini descritte sopra. Ogni cella è `accuratezza / macro F1`. Il campione
+è piccolo e bilanciato per classe: **non è confrontabile** con le altre tabelle. Script usati una tantum, non nel repo.
+
+Primo giro (risposta JSON, tranne dove indicato):
+
+| configurazione | 8B | 70B |
+|---|---|---|
+| 1. v1: sei dimensioni nel system prompt | 0.08 / 0.01 | 0.13 / 0.07 |
+| 2. come 1, senza contesto prodotto | 0.09 / 0.03 | 0.26 / 0.22 |
+| 3. sei dimensioni dopo l'immagine | 0.08 / 0.01 | 0.15 / 0.10 |
+| 4. solo subject con regole, nel system prompt | 0.08 / 0.01 | 0.10 / 0.04 |
+| 5. solo subject con regole, dopo l'immagine | 0.20 / 0.18 | 0.16 / 0.06 |
+| 6. come 5, senza regole | 0.45 / 0.39 | 0.39 / 0.34 |
+| 7. come 5, risposta a una lettera | 0.41 / 0.34 | 0.27 / 0.20 |
+
+Secondo giro (domanda dopo l'immagine, senza regole lunghe):
+
+| configurazione | 8B | 70B |
+|---|---|---|
+| nomi, senza contesto, testo libero | 0.51 / 0.45 | 0.48 / 0.44 |
+| nomi, con contesto, testo libero | 0.47 / 0.40 | 0.44 / 0.38 |
+| nomi, senza contesto, vincolato | 0.47 / 0.39 | 0.42 / 0.40 |
+| nomi, con contesto, vincolato | 0.46 / 0.39 | 0.42 / 0.37 |
+| una riga per classe, senza contesto | 0.47 / 0.41 | 0.50 / 0.48 |
+| una riga per classe, con contesto | 0.45 / 0.42 | 0.50 / 0.47 |
+| descrizione e una riga per classe, senza contesto | 0.59 / 0.54 | 0.65 / 0.63 |
+| descrizione e una riga per classe, con contesto | 0.53 / 0.49 | 0.64 / 0.62 |
+
+In questo campione il contesto prodotto non ha aiutato, e con l'8B a due passaggi il risultato era più basso. La v2
+usa comunque il contesto: l'ablation senza contesto sull'intera v2 **non è ancora stata fatta**.
+
+## Prove piccole di funzionamento
+
+Servivano a controllare parsing e probabilità. Con così poche immagini **i punteggi non permettono confronti**.
+
+| prova | variante | macro F1 | weighted F1 |
+|---|---|---|---|
+| 16 immagini di prompt-dev | 8B v1 breve JSON | 0.311 | 0.675 |
+| 16 immagini di prompt-dev | 8B v1 breve lettere | 0.285 | 0.421 |
+| 16 immagini di prompt-dev | 8B v1 completo JSON | 0.331 | 0.685 |
+| 16 immagini di prompt-dev | 8B v1 completo lettere | 0.324 | 0.480 |
+| 12 immagini di prompt-dev | 8B v2 descrizione, nomi | 0.463 | 0.771 |
+| 12 immagini di prompt-dev | 8B v2 separate, lettere | 0.465 | 0.752 |
+| 12 immagini di prompt-dev | 8B v2 descrizione, lettere | 0.540 | 0.798 |
+| 10 immagini di coverage | 8B prompt condiviso | 0.344 | 0.425 |
+| 10 immagini di coverage | 70B prompt condiviso | 0.443 | 0.607 |
+
+## Velocità del gateway, prova iniziale
+
+48 richieste per riga, un'immagine sintetica 512² ripetuta (la cache può aver aiutato), risposta breve.
+
+| modello | richieste in parallelo | richieste/s | latenza mediana (s) |
+|---|---|---|---|
+| 8B | 4 | 10.7 | 0.30 |
+| 8B | 16 | 22.5 | 0.51 |
+| 70B | 4 | 6.8 | 0.50 |
+| 70B | 16 | 19.2 | 0.64 |
