@@ -1,0 +1,10 @@
+{
+  "images": 5261,
+  "seconds": 550.8,
+  "images_per_second": 9.55,
+  "peak_memory_gb": 18.7,
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "batch_size": 32,
+  "context": true,
+  "checkpoint": "/tmp/work/data/run/model/last"
+}
