@@ -19,21 +19,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        settings.data_dir.mkdir(parents=True, exist_ok=True)
-        (settings.data_dir / "logs").mkdir(exist_ok=True)
+        from . import db as db_module
+        from .storage import Storage
+
+        app.state.storage = Storage(settings.data_dir)
+        app.state.storage.ensure()
         handler = logging.FileHandler(settings.data_dir / "logs" / "api.log")
         handler.setLevel(logging.INFO)
         logging.getLogger("demo_api").addHandler(handler)
+        app.state.db = db_module.Database(settings.data_dir / "demo.sqlite")
+        app.state.db.init()
         yield
+        app.state.db.close()
 
     app = FastAPI(title="Demo Image classification (AI)", version=VERSION, lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json")
     app.state.settings = settings
     errors.install(app)
 
-    from .routers import health, taxonomy
+    from .routers import health, sessions, taxonomy
 
-    for module in (health, taxonomy):
+    for module in (health, taxonomy, sessions):
         app.include_router(module.router, prefix="/api")
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
