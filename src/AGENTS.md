@@ -8,7 +8,23 @@ Questo progetto partecipa alla competizione Kaggle `hackapertus-galaxus`. Leggi 
 - `apertus-70B-benchmark/`: esperimenti e notebook per il benchmark Apertus 70B.
 - `apertus-8B-benchmark/`: esperimenti e notebook per il benchmark Apertus 8B.
 - `scripts/`: script condivisi. Conserva ogni esperimento nella propria cartella e documenta dipendenze, configurazione, dati, comandi e risultati in modo riproducibile.
-- `docs/system_prompt.txt`: prompt di classificazione condiviso per i benchmark standard 8B e 70B e, dove compatibile, per il visual adapter. Usalo come messaggio system; passa immagine e contesto prodotto nel messaggio utente. Confronta eventuali modifiche con la versione condivisa e registrale nei risultati.
+- `common/`: codice condiviso per prompt (`prompt.py`), preparazione delle immagini (`images.py`) e split dei dati (`splits.py`).
+
+## Prompt condiviso: v2
+
+Per i benchmark zero-shot di 8B e 70B usa la **v2** di `common/prompt.py`, variante `describe:codes`, a 512². Non ha un messaggio system:
+
+1. immagine e richiesta di descriverla (`describe_messages`);
+2. per ognuna delle sei dimensioni, una richiesta separata che riparte da quella descrizione, con il contesto prodotto e una riga per classe (`question_messages` con `answer="codes"`);
+3. risposta di una sola lettera, vincolata con `question_constraint` e letta con `parse_question`, che restituisce anche le probabilità.
+
+```sh
+.venv/bin/python src/scripts/eval_prompt.py 8b:describe:codes:512 70b:describe:codes:512 --split coverage
+```
+
+Sul set `coverage`, in zero-shot, la v2 ha macro F1 0.528 (8B) e 0.583 (70B), contro 0.229 e 0.304 di `docs/system_prompt.txt` (dettagli in `apertus-8B-benchmark/prompt_eval_coverage.md`). `docs/system_prompt.txt` resta nel repository solo come termine di confronto (variante `shared:json`).
+
+Per i modelli allenati (LoRA, visual adapter) il prompt non è ancora stato provato: la v2 richiede 7 richieste per immagine. Scegli il formato in fase 1, usa **lo stesso formato in training e in inferenza** e scrivilo nei risultati. Ogni modifica al testo della v2 va misurata contro la versione condivisa e registrata nei risultati.
 
 ## Dati per training e valutazione
 
