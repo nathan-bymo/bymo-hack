@@ -99,6 +99,7 @@ models:
     vram_estimate_gb: 24          # [STIMA] 18,4 GB pesi + VQ 0,87 GB + cache KV; da misurare
     measured:
       - {what: "img/s (solo generate, VQ escluso)", value: 18.0, conditions: "H200, batch 32, coverage",
+         gpu_label: "H200 (HF)", cost_eligible: false,   # non end-to-end: il costo non si calcola
          source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json:6"}
     evals:   # tutti riferiti all'adapter "final", NON a step-00738
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.734, weighted_f1: 0.879,
@@ -136,7 +137,7 @@ models:
     vram_estimate_gb: 22.0        # MISURATO: picco allocato, batch 32, H200 (results_full_h200.md:156)
     measured:
       - {what: "img/s (immagine → CSV)", value: 13.2, conditions: "H200, batch 32, coverage, caricamento escluso",
-         source: "src/apertus-8B-lora-heads/results_full_h200.md:156"}
+         source: "src/apertus-8B-lora-heads/results_full_h200.md:156", gpu_label: "H200 (HF)", cost_eligible: true}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.781, weighted_f1: 0.905,
          source: "src/apertus-8B-lora-heads/results_full_h200.md:23"}

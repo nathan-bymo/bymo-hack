@@ -45,6 +45,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from .adapters import recorded as recorded_module
 
         recorded_module.scan(app.state.db, app.state.storage.recorded_dir)
+        from .metrics.reported import import_reported
+
+        try:
+            import_reported(app.state.db, {k: v.raw for k, v in app.state.registry.models.items()}, settings.repo_root)
+        except Exception:  # noqa: BLE001 - la demo parte comunque, senza metriche riportate
+            logging.getLogger("demo_api").exception("import delle metriche riportate non riuscito")
         app.state.recorded_adapter = lambda entry: recorded_module.RecordedAdapter(entry.id, app.state.db)
         yield
         app.state.db.close()
@@ -57,9 +63,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.worker_adapter = _no_worker
     errors.install(app)
 
-    from .routers import health, images, models, predict, recorded, reviews, sessions, settings as settings_router, taxonomy
+    from .routers import (
+        health, images, metrics, models, predict, recorded, reviews, sessions, settings as settings_router, taxonomy,
+    )
 
-    for module in (health, taxonomy, sessions, images, models, predict, recorded, reviews, settings_router):
+    for module in (health, taxonomy, sessions, images, models, predict, recorded, reviews, settings_router, metrics):
         app.include_router(module.router, prefix="/api")
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
