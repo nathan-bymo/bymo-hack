@@ -78,6 +78,16 @@ test('percorso completo della demo', async ({ page }) => {
   await page.getByRole('link', { name: '← Queue' }).click()
   await expect(page.getByTestId('status-pill').filter({ hasText: 'Corrected' })).toHaveCount(1)
 
+  // 7b. anteprima storefront: regola illustrativa, la correzione umana pesa più della predizione
+  await page.getByRole('link', { name: 'Storefront preview' }).click()
+  await expect(page.getByTestId('rule-label')).toContainText('Illustrative rule (not the Galaxus rule)')
+  await expect(page.getByTestId('gallery-item')).toHaveCount(3)
+  await expect(page.locator('[data-testid="gallery-item"][data-position="1"]')).toBeVisible()
+  await expect(page.getByTestId('why-main')).toContainText('Rule "whole product"')
+  await shot(page, '07b-storefront')
+  await page.getByRole('link', { name: '← Queue' }).click()
+  await page.getByRole('link', { name: 'Performance' }).first().click()
+
   // 8. dashboard: banner coverage, linea 0.917, badge rosso del full FT, Kaggle dev solo dove c'è
   await page.getByRole('link', { name: 'Performance' }).first().click()
   await expect(page.getByTestId('coverage-banner')).toContainText('not to estimate the Kaggle leaderboard')

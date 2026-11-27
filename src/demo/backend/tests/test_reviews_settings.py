@@ -74,3 +74,19 @@ def test_image_list_carries_review_status(client, predicted):
                json={"prediction_id": pred["prediction_id"], "values": values_of(pred, background="color")})
     item = client.get("/api/images", params={"session_id": sid}).json()["images"][0]
     assert item["review_status"] == "corrected" and item["review_changed"] == ["background"]
+
+
+def test_settings_expose_read_only_storefront_rule(client):
+    rule = client.get("/api/settings").json()["storefront_rule"]
+    assert rule["label"].startswith("Illustrative") and rule["hide_if"] == {"subject": ["placeholder"]}
+    assert [r["name"] for r in rule["rank"]][0] == "main photo"
+    assert "storefront_rule" not in client.put("/api/settings", json={"usd_per_hour": 3}).json()
+
+
+def test_image_list_carries_review_values(client, predicted):
+    image_id, pred = predicted
+    sid = client.get(f"/api/images/{image_id}").json()["session_id"]
+    client.put(f"/api/images/{image_id}/review",
+               json={"prediction_id": pred["prediction_id"], "values": values_of(pred, perspective="left_side")})
+    item = client.get("/api/images", params={"session_id": sid}).json()["images"][0]
+    assert item["review_values"]["perspective"] == "left_side"

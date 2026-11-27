@@ -4,6 +4,7 @@ import ImageDetailPage from './pages/ImageDetailPage'
 import PerformancePage from './pages/PerformancePage'
 import ProductPage from './pages/ProductPage'
 import QueuePage from './pages/QueuePage'
+import StorefrontPage from './pages/StorefrontPage'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <Route path="/image-classification/compare" element={<ComparePage />} />
       <Route path="/image-classification/performance" element={<PerformancePage />} />
       <Route path="/image-classification/:imageId" element={<ImageDetailPage />} />
+      <Route path="/storefront-preview" element={<StorefrontPage />} />
       <Route path="*" element={<Navigate to="/product/DEMO-0001" replace />} />
     </Routes>
   )

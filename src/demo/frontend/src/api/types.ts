@@ -52,6 +52,7 @@ export interface ImageItem {
   thumbnail_url: string
   review_status?: 'reviewed' | 'corrected' | null
   review_changed?: string[]
+  review_values?: Record<string, string> | null
   predictions?: PredictionResult[]
   review?: Review | null
 }
@@ -122,6 +123,7 @@ export interface Settings {
   show_ground_truth: boolean
   default_use_context: boolean
   zero_shot_parallel_images: number
+  storefront_rule?: StorefrontRule
 }
 export interface Health { status: string; version: string; git_commit: string | null; gpu_local: boolean; guard: { loaded: boolean; entries: number } }
 
@@ -161,4 +163,11 @@ export interface Throughput {
   measured_in_demo: { job_id: string; model_id: string; images_per_second: number; ms_per_image: number; gpu_name: string; batch_size: number; mode: 'live' | 'recorded'; cost_per_1k_images_usd: number | null; cost_note: string | null }[]
   reported: { model_id: string; value: number; what: string; conditions: string | null; source: string; gpu_label: string | null; usd_per_hour: number | null; cost_per_1k_images_usd: number | null }[]
   gpu_prices: Record<string, number>
+}
+
+export interface StorefrontRule {
+  label: string
+  idea_source: string
+  hide_if: Record<string, string[]>
+  rank: { name: string; when: Record<string, string[]> }[]
 }

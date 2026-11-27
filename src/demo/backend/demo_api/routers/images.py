@@ -120,7 +120,7 @@ def list_images(request: Request, session_id: str):
     db = request.app.state.db
     rows = db.all("SELECT * FROM images WHERE session_id = ? ORDER BY created_at, rowid", (session_id,))
     status = {r["image_id"]: r for r in db.all(
-        "SELECT r.image_id, r.status, r.changed_json FROM reviews r JOIN (SELECT image_id, MAX(rowid) AS m "
+        "SELECT r.image_id, r.status, r.changed_json, r.values_json FROM reviews r JOIN (SELECT image_id, MAX(rowid) AS m "
         "FROM reviews GROUP BY image_id) x ON x.m = r.rowid JOIN images i ON i.image_id = r.image_id "
         "WHERE i.session_id = ?", (session_id,))}
     out = []
@@ -129,6 +129,7 @@ def list_images(request: Request, session_id: str):
         review = status.get(r["image_id"])
         item["review_status"] = review["status"] if review else None
         item["review_changed"] = json.loads(review["changed_json"]) if review else []
+        item["review_values"] = json.loads(review["values_json"]) if review else None
         out.append(item)
     return {"images": out}
 

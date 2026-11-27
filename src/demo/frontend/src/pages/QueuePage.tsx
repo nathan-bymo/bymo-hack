@@ -121,6 +121,7 @@ export default function QueuePage() {
         { to: `/image-classification${queueParam}`, label: 'Queue' },
         { to: `/image-classification/compare${queueParam}&models=${compareIds}`, label: 'Compare models' },
         { to: '/image-classification/performance?set=coverage', label: 'Performance' },
+        { to: `/storefront-preview${queueParam}${modelId ? `&model=${modelId}` : ''}`, label: 'Storefront preview' },
       ]} />
       <ActionToolbar>
         {modelList.length > 0 && <ModelSelect models={modelList} value={modelId} onChange={(id) => { setModelId(id); setMode(defaultMode(modelList.find((m) => m.model_id === id))) }} />}

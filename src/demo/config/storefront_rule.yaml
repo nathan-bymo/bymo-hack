@@ -1,0 +1,11 @@
+# Regola ILLUSTRATIVA per l'anteprima della galleria. NON è la regola Galaxus: serve solo a mostrare cosa
+# cambierebbe nel negozio con le classi di Image type. Idea da challenge_description.md:5-6.
+label: "Illustrative rule (not the Galaxus rule)"
+idea_source: "challenge_description.md:5-6"
+hide_if: {subject: [placeholder]}
+rank:   # vince il primo gruppo che corrisponde; a parità, confidenza minima più alta
+  - {name: "main photo", when: {subject: [full_product], background: [white], perspective: [front_head_on, front_angle_left, front_angle_right], text_classification: [none], individuals: [none]}}
+  - {name: "whole product", when: {subject: [full_product]}}
+  - {name: "lifestyle", when: {background: [scene_lifestyle]}}
+  - {name: "detail and packaging", when: {subject: [detail_closeup, multiview, package_and_product, packaging, delivery_scope, product_grouping, multipack_trade_unit, accessories]}}
+  - {name: "graphics and text", when: {subject: [infographic, energy_label, logo]}}

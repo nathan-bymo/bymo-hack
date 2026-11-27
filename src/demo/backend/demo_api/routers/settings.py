@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import yaml
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -25,6 +28,9 @@ def defaults(request: Request) -> dict:
             "zero_shot_parallel_images": 8}
 
 
+RULE_PATH = Path(__file__).resolve().parents[3] / "config" / "storefront_rule.yaml"
+
+
 def read_settings(request: Request) -> dict:
     out = defaults(request)
     for row in request.app.state.db.all("SELECT key, value_json FROM settings"):
@@ -35,7 +41,8 @@ def read_settings(request: Request) -> dict:
 
 @router.get("/settings")
 def get_settings(request: Request):
-    return read_settings(request)
+    # `storefront_rule` è di sola lettura (config/storefront_rule.yaml): non fa parte di PUT
+    return {**read_settings(request), "storefront_rule": yaml.safe_load(RULE_PATH.read_text(encoding="utf-8"))}
 
 
 @router.put("/settings")
