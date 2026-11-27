@@ -128,6 +128,8 @@ def parser():
     p.add_argument("--lora-dropout", type=float, default=0.0)
     p.add_argument("--head-hidden", type=int, default=512)
     p.add_argument("--head-dropout", type=float, default=0.3)
+    p.add_argument("--spatial", action="store_true", help="left-right and top-bottom differences of the VQ tokens")
+    p.add_argument("--attention-pool", action="store_true", help="learned queries over the VQ tokens with 2D positions")
     p.add_argument("--epochs", type=float, default=3.0, help="may be fractional")
     p.add_argument("--batch-size", type=int, default=8)
     p.add_argument("--accumulation", type=int, default=2)
@@ -183,7 +185,8 @@ def main(argv=None):
     settings = {name: getattr(args, name) for name in
                 ("layers", "lora_rank", "lora_alpha", "lora_dropout", "head_hidden", "head_dropout")}
     settings |= {"side": json.loads((args.cache / "meta.json").read_text())["side"], "model": E.MODEL_ID,
-                 "revision": E.MODEL_REVISION, "task": E.TASK}
+                 "revision": E.MODEL_REVISION, "task": E.TASK, "spatial": args.spatial,
+                 "attention_pool": args.attention_pool, "row_end_id": builder.eol}
     classifier = M.build(directory, settings, device)
     if args.grad_ckpt:
         classifier.language_model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
@@ -191,13 +194,16 @@ def main(argv=None):
     classifier.train()
 
     lora = [p for p in classifier.language_model.parameters() if p.requires_grad]
-    groups = [{"params": list(classifier.heads.parameters()), "lr": args.lr_heads, "weight_decay": 0.05}]
+    head_parameters = list(classifier.heads.parameters())
+    if classifier.pool is not None:
+        head_parameters += list(classifier.pool.parameters())
+    groups = [{"params": head_parameters, "lr": args.lr_heads, "weight_decay": 0.05}]
     if lora:
         groups.insert(0, {"params": lora, "lr": args.lr_lora, "weight_decay": 0.01})
     optimizer = torch.optim.AdamW(groups)
     trainable = [p for group in groups for p in group["params"]]
-    log(f"{args.layers} layers, LoRA r{args.lora_rank}: {sum(p.numel() for p in trainable) / 1e6:.1f} M trainable "
-        "parameters")
+    log(f"{args.layers} layers, LoRA r{args.lora_rank}, spatial {args.spatial}, attention pooling {args.attention_pool}: "
+        f"{sum(p.numel() for p in trainable) / 1e6:.1f} M trainable parameters")
 
     steps_per_epoch = math.ceil(len(items) / (args.batch_size * args.accumulation))
     total = args.max_steps or max(1, math.ceil(steps_per_epoch * args.epochs))

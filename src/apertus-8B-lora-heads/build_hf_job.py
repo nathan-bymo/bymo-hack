@@ -12,7 +12,9 @@ Environment of the job (-e NAME=value):
                        dev.csv; upload the predictions. Nothing is submitted
   SPLIT         small  train_1500 + validation_450 and coverage (default)
                 full   training_rows and coverage
-  TRAIN_ARGS    extra arguments for train.py
+  TRAIN_ARGS    extra arguments for train.py (also used by MODE=smoke)
+  SIDE          VQ image side, default 256
+  SMOKE_STEPS   training steps of MODE=smoke, default 3 (about 30 also measure the step time)
   MODEL_PATH    predict only: folder of the model in UPLOAD_REPO (default full-train/model/final)
 
   python src/apertus-8B-lora-heads/build_hf_job.py
@@ -79,7 +81,8 @@ MODE = os.environ.get("MODE", "train")
 SPLIT = os.environ.get("SPLIT", "small")
 UPLOAD_REPO = os.environ.get("UPLOAD_REPO", "")
 PREFIX = f"{SPLIT}-{MODE}"
-SIDE = "256"
+SIDE = os.environ.get("SIDE", "256")
+SMOKE_STEPS = os.environ.get("SMOKE_STEPS", "3")
 TRAIN_SHA256 = "@@TRAIN_SHA256@@"
 BUNDLE = "@@BUNDLE@@"
 
@@ -206,7 +209,8 @@ def smoke(train_csv):
     pd.read_csv(source, dtype=str, keep_default_na=False).head(96).to_csv(few, index=False)
     cache = DATA / "cache" / "smoke"
     run([f"{FOLDER}/encode.py", "--train-csv", few, "--out", cache, "--side", SIDE], "encode.log")
-    train_step(few, cache, DATA / "smoke_model", ["--max-steps", "3"], "smoke_train.log")
+    extra = shlex.split(os.environ.get("TRAIN_ARGS", ""))
+    train_step(few, cache, DATA / "smoke_model", [*extra, "--max-steps", SMOKE_STEPS], "smoke_train.log")
     local = DATA / "smoke_model" / "final"
     again = snapshot_download(UPLOAD_REPO, allow_patterns=[f"{PREFIX}/model/final/*"],
                               local_dir=DATA / "downloaded", force_download=True)
@@ -278,7 +282,7 @@ def main():
     if MODE == "smoke":
         return smoke(train_csv)
 
-    cache = DATA / "cache" / SPLIT
+    cache = DATA / "cache" / f"{SPLIT}_{SIDE}"
     rows = ["--train-csv", train_csv] if train_csv else ["--part", "training"]
     run([f"{FOLDER}/encode.py", *rows, "--out", cache, "--side", SIDE], "encode.log")
     out = RUN / "model"

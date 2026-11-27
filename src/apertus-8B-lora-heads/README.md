@@ -38,6 +38,18 @@ decay), 3 epoche, 16 immagini per passo, clipping, warmup e schedule, label uman
 Diversi: **uscita** (teste invece di JSON), **prompt** (il LoRA usa un system prompt breve; qui una richiesta dopo il
 contesto, senza system prompt nostro), ordine casuale dei batch, dettagli dell'implementazione.
 
+## Feature spaziali e attention pooling (opzionali)
+
+`--spatial` aggiunge, per i token VQ, la media della metà sinistra meno quella della destra e la media dell'alto
+meno quella del basso: con uno specchio cambiano segno, mentre la media resta uguale. `--attention-pool` aggiunge 8
+query allenabili sui token VQ, che portano la loro posizione 2D (feature di Fourier di riga e colonna). Metodo di
+Nathan (`apertus-8B-vadapter-lora-heads/model.py`), qui senza SigLIP e OCR. La larghezza della griglia si legge dal
+primo token di fine riga; i checkpoint senza queste chiavi si caricano come prima.
+
+Prova breve a 512² su H200 (27 novembre, 96 immagini, 30 passi, gradient checkpointing): 91,6 M parametri
+allenabili, 3,2 esempi/s in training, picco 41,3 GB; codifica VQ 5,5 immagini/s; salvataggio, download e
+ricaricamento con le stesse predizioni. A 256² senza checkpointing il training faceva 13,4 esempi/s.
+
 ## File
 
 | file | contenuto |

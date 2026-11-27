@@ -306,3 +306,82 @@ def test_held_out_fraction_keeps_the_best_checkpoint(tiny_world):
                          "--val-fraction", "0.3", "--batch-size", "4", "--accumulation", "1", "--device", "cpu",
                          "--grad-ckpt"])  # the fallback of the job when the GPU runs out of memory
     assert result == world / "run" / "best" and json.loads((result / "train_summary.json").read_text())["best"]
+
+
+# ---------------------------------------------------------------- spatial features and attention pooling
+
+
+def mirrored_grid(hidden, height, width):
+    """The same tokens with every row reversed: what the VQ grid of a mirrored image looks like."""
+    order = torch.arange(height * width).reshape(height, width).flip(1).flatten()
+    return hidden[:, order]
+
+
+def test_spatial_features_change_sign_with_the_mirror_and_means_do_not():
+    torch.manual_seed(0)
+    height, width = 3, 4
+    hidden = torch.randn(1, height * width, 8)
+    grids = [(torch.arange(height * width), width)]
+    plain, mirror = M.spatial_features(hidden, grids), M.spatial_features(mirrored_grid(hidden, height, width), grids)
+    assert torch.allclose(plain[0, :8], -mirror[0, :8], atol=1e-6), "left - right flips"
+    assert torch.allclose(plain[0, 8:], mirror[0, 8:], atol=1e-6), "top - bottom does not"
+    assert torch.allclose(hidden.mean(1), mirrored_grid(hidden, height, width).mean(1)), "the mean cannot tell"
+
+
+def test_grid_width_comes_from_the_first_end_of_row():
+    ids = torch.tensor([[1, 100, 101, 102, 5, 103, 104, 105, 6, 7]])
+    (positions, width), = M.image_grids(ids, (100, 200), row_end_id=5)
+    assert positions.tolist() == [1, 2, 3, 5, 6, 7] and width == 3
+
+
+def test_attention_pool_sees_positions():
+    torch.manual_seed(0)
+    pool = M.AttentionPool(8, width=16, queries=2, heads=2).eval()
+    hidden = torch.randn(1, 12, 8)
+    grids = [(torch.arange(12), 4)]
+    with torch.no_grad():
+        plain, mirror = pool(hidden, grids), pool(mirrored_grid(hidden, 3, 4), grids)
+        padded = pool(torch.cat([hidden, torch.randn(1, 5, 8)], 1), grids)  # extra tokens outside the grid
+    assert plain.shape == (1, 32) and not torch.allclose(plain, mirror)
+    assert torch.allclose(plain, padded, atol=1e-6)
+
+
+def test_old_checkpoint_settings_still_build_plain_heads():
+    decoder = tiny_decoder_for_unit_tests()
+    classifier = M.make_classifier(decoder, (100, 160), {"head_hidden": 16, "head_dropout": 0.0})
+    assert classifier.pool is None and not classifier.spatial and classifier.heads.spatial_size == 0
+    with pytest.raises(ValueError):
+        M.make_classifier(decoder, (100, 160), {"head_hidden": 16, "head_dropout": 0.0, "spatial": True})
+
+
+def tiny_decoder_for_unit_tests():
+    pytest.importorskip("transformers")
+    try:
+        return tiny_decoder(2)
+    except ImportError:
+        pytest.skip("needs the Transformers fork with Apertus 1.5")
+
+
+def test_end_to_end_with_spatial_features_and_attention_pooling(tiny_world):
+    world, cache, out = tiny_world, tiny_world / "cache", tiny_world / "run_pool"
+    encode.main(["--data-dir", str(world), "--train-csv", str(world / "small.csv"), "--out", str(cache),
+                 "--device", "cpu"])
+    result = train.main(["--data-dir", str(world), "--train-csv", str(world / "small.csv"), "--cache", str(cache),
+                         "--out", str(out), "--layers", "2", "--lora-rank", "4", "--epochs", "1", "--batch-size", "4",
+                         "--accumulation", "1", "--spatial", "--attention-pool", "--device", "cpu"])
+    settings = json.loads((result / "settings.json").read_text())
+    assert settings["spatial"] and settings["attention_pool"] and settings["row_end_id"] == FakeTokenizer.special["<|img_end_of_row|>"]
+    saved = torch.load(result / "heads.pt", weights_only=True)
+    assert "pool" in saved and any("shared_spatial" in k for k in saved["heads"])
+    # a sequence with a 2 x 2 image: the reloaded model predicts like itself, merged or not
+    ids, attention = E.collate([[3, 10, 101, 102, 5, 103, 104, 6, 20], [3, 101, 102, 5, 103, 104, 6, 30]], 0)
+    outputs = []
+    for merge in (True, False):
+        classifier, _ = M.load(str(world), result, "cpu", merge=merge)
+        assert classifier.pool is not None and classifier.spatial
+        with torch.inference_mode():
+            outputs.append(torch.cat(classifier(ids, attention), dim=1))
+    assert torch.allclose(outputs[0], outputs[1], atol=1e-5)
+    predict.main(["--checkpoint", str(result), "--data-dir", str(world), "--csv", str(world / "small.csv"),
+                  "--out", str(world / "pred_pool" / "small.csv"), "--batch-size", "4", "--device", "cpu"])
+    assert len(pd.read_csv(world / "pred_pool" / "small.csv")) == 9
