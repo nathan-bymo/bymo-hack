@@ -80,7 +80,7 @@ Nessuno screenshot di riferimento (Q1): **nessun confronto fedele** possibile. C
 Playwright (1440×900, densità Normale): barra titolo e linea d'accento, sidebar con voce attiva e pulsante viola inattivo,
 toolbar con menu, tabella dense, pannello "Image type" azzurro con robot e 6 tendine su due colonne (Cancel a sinistra, Save
 a destra), badge sempre visibile in tutte le schermate, nessun logo Galaxus, chip di confidenza con numero + icona.
-**Non verificati:** contrasto AA con uno strumento, densità Presentazione su TV, schermata 6 (storefront, stretch non fatto).
+**Non verificati:** contrasto AA con uno strumento, densità Presentazione su TV. La schermata 6 (storefront, regola illustrativa) è stata guardata sullo screenshot e coperta dall'E2E.
 
 ### Non verificato / bloccato
 | cosa | bloccato da |
