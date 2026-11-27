@@ -54,14 +54,14 @@ export type BadgeKind = 'held_out' | 'phase1_internal' | 'seen_in_training' | 'n
 export function MetricBadge({ kind }: { kind: BadgeKind }) {
   const cls: Record<BadgeKind, string> = {
     held_out: 'bg-toolbtn text-ink', phase1_internal: 'bg-conf-mid-bg text-conf-mid',
-    seen_in_training: 'bg-invalid-bg text-invalid ring-1 ring-invalid', na: 'bg-toolbtn text-muted',
+    seen_in_training: 'bg-toolbtn text-muted', na: 'bg-toolbtn text-muted',
     reported_only: 'bg-toolbtn text-muted', recomputed: 'bg-toolbtn text-ink', offline_script: 'bg-toolbtn text-ink',
     kaggle_user: 'bg-sky-100 text-blue-800',
   }
   return (
     <span data-testid={`badge-${kind}`} title={kind === 'seen_in_training' ? S.seenTooltip : undefined}
       className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${cls[kind]}`}>
-      {kind === 'seen_in_training' && '⛔ '}{S.badge[kind]}
+      {S.badge[kind]}
     </span>
   )
 }

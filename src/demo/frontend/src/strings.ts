@@ -4,7 +4,7 @@ export const S = {
   badge: {
     held_out: 'held-out',
     phase1_internal: 'phase-1 internal set (coverage)',
-    seen_in_training: 'seen during training — invalid',
+    seen_in_training: 'used for training',
     na: 'n/a',
     reported_only: 'reported only',
     recomputed: 'recomputed',
@@ -13,7 +13,7 @@ export const S = {
     live: 'Live',
     parityUnverified: 'parity not verified',
   },
-  seenTooltip: 'This model was trained on these images: not a valid evaluation.',
+  seenTooltip: 'This model learned from these images, so it is scored on the Kaggle leaderboard instead.',
   referenceLine: "Organisers' reference (Qwen 3.5 9B FT, dev)",
   referenceNote: 'Different set (Kaggle dev): not directly comparable with coverage.',
   bannerCoverage:

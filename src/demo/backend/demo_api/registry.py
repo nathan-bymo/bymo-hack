@@ -202,6 +202,7 @@ class Registry:
         out = {
             "model_id": entry.id, "display_name": raw["display_name"],
             "short_name": raw.get("short_name") or raw["display_name"], "featured": bool(raw.get("featured")),
+            "description": raw.get("description"),
             "family": raw["family"], "runtime": raw["runtime"], **self.status(entry),
             "confidence": raw.get("confidence"), "training": raw.get("training"),
             "training_label": raw.get("training_label") or (raw.get("training") or {}).get("data"),

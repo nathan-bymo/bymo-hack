@@ -31,7 +31,8 @@ models:
 
   - id: apertus-8b-vadapter-lora-heads-final
     display_name: "Apertus 8B · SigLIP 2 + OCR + LoRA + 6 heads, spatial features + attention pooling (final)"
-    short_name: "Final: vision adapter + OCR + LoRA + heads"
+    short_name: "Final model"
+    description: "Our best. Apertus 8B fine-tuned together with an image encoder (SigLIP 2) and a text reader (OCR), on 9,645 labelled images."
     featured: true
     family: vadapter_heads
     adapter: HeadsAdapter
@@ -73,7 +74,8 @@ models:
   - id: apertus-8b-zeroshot-v2
     parity: {verified: true, scope: "corpi delle 7 richieste identici a eval_prompt.run_variant (test, gateway finto); risposte live non confrontate"}
     display_name: "Apertus 8B · zero-shot · prompt v2"
-    short_name: "8B zero-shot (prompt v2)"
+    short_name: "Apertus 8B, no training"
+    description: "Apertus 8B as it comes. It first describes the image, then answers the six questions one by one."
     featured: true
     family: zeroshot_generative
     adapter: ZeroShotGenerativeAdapter
@@ -104,7 +106,8 @@ models:
   - id: apertus-70b-zeroshot-v2
     parity: {verified: true, scope: "corpi delle 7 richieste identici a eval_prompt.run_variant (test, gateway finto); risposte live non confrontate"}
     display_name: "Apertus 70B · zero-shot · prompt v2"
-    short_name: "70B zero-shot (prompt v2)"
+    short_name: "Apertus 70B, no training"
+    description: "The large Apertus 70B as it comes, with the same questions as the 8B."
     featured: true
     family: zeroshot_generative
     adapter: ZeroShotGenerativeAdapter
@@ -133,7 +136,8 @@ models:
 
   - id: apertus-8b-lora-p10
     display_name: "Apertus 8B · LoRA (P10, 1.500 immagini) · JSON"
-    short_name: "P10 LoRA, JSON output"
+    short_name: "LoRA, text answer (P10)"
+    description: "Early experiment: Apertus 8B with a light adapter (LoRA) that writes the answer as text. 1,500 training images."
     featured: false
     family: lora_generative
     adapter: LoraGenerativeAdapter
@@ -174,7 +178,8 @@ models:
 
   - id: apertus-8b-lora-heads-p11
     display_name: "Apertus 8B · LoRA + 6 heads, 256², 32 layers (P11, 9,344 images)"
-    short_name: "P11 LoRA + heads"
+    short_name: "LoRA + classifiers (P11)"
+    description: "Apertus 8B with a light adapter (LoRA) and six small classifiers on top. 9,344 training images."
     featured: true
     family: lora_heads
     adapter: HeadsAdapter
@@ -215,7 +220,8 @@ models:
 
   - id: apertus-8b-fullft-heads
     display_name: "Apertus 8B · full fine-tune 24 layers + 6 heads (all train)"
-    short_name: "Full fine-tune + heads"
+    short_name: "Full fine-tune"
+    description: "Every layer of Apertus 8B retrained, with six small classifiers on top. All 11,876 labelled images."
     featured: true
     family: fullft_heads
     adapter: HeadsAdapter
@@ -248,7 +254,8 @@ models:
 
   - id: apertus-8b-frozen-heads-p8
     display_name: "Apertus 8B congelato + teste (P8, cross-entropy, 1 seed)"
-    short_name: "P8 frozen + heads"
+    short_name: "Frozen + classifiers (P8)"
+    description: "Apertus 8B unchanged, six small classifiers on top. 1,500 training images."
     featured: false
     family: frozen_heads
     adapter: null
@@ -263,7 +270,8 @@ models:
 
   - id: apertus-8b-frozen-heads-p9
     display_name: "Apertus 8B congelato + teste (P9, cross-entropy pesi forti, media 5 seed)"
-    short_name: "P9 frozen + heads"
+    short_name: "Frozen + classifiers (P9)"
+    description: "Same as P8 with stronger weights for rare classes, average of 5 runs."
     featured: false
     family: frozen_heads
     adapter: null

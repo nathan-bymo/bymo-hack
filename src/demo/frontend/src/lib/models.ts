@@ -79,3 +79,14 @@ export function availability(model: ModelSummary): { text: string; tone: 'live' 
   if (model.runtime === 'remote_openai') return { text: 'Needs API key', tone: 'off' }
   return { text: 'Metrics only', tone: 'off' }
 }
+
+/** Ordine di presentazione: prima i modelli con punteggio Kaggle (dal migliore), poi gli altri per punteggio interno. */
+export function sortForShow(models: ModelSummary[]): ModelSummary[] {
+  const key = (m: ModelSummary) => {
+    const kaggle = m.scores.find((s) => s.set === 'kaggle_dev')?.macro_f1
+    if (kaggle != null) return 2 + kaggle
+    const internal = m.scores.find((s) => s.set === 'prompt-test')?.macro_f1 ?? m.scores[0]?.macro_f1 ?? 0
+    return (m.featured ? 1 : 0) + internal
+  }
+  return [...models].sort((a, b) => key(b) - key(a))
+}

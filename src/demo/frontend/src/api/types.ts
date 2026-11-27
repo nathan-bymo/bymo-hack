@@ -83,6 +83,7 @@ export interface ModelSummary {
   confidence: { kind: string; method: string } | null
   training: { data: string; phase: number | null; seen_sets?: string[] } | null
   short_name: string
+  description: string | null
   training_label: string | null
   featured: boolean
   weights: { repo?: string | null; revision?: string | null; subfolder?: string | null; size_gb?: number | null; local_path?: string | null; location_label?: string | null } | null

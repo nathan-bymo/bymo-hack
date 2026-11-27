@@ -17,7 +17,6 @@ const SETS = ['coverage', 'base', 'prompt-test', 'prompt-dev-600', 'validation_4
 
 function ModelCard({ model, block, thr, target }: { model: ModelSummary; block?: MetricBlock; thr?: Throughput; target: number }) {
   const valid = block?.results.find((r) => r.validity !== 'seen_in_training')
-  const invalid = block?.results.find((r) => r.validity === 'seen_in_training')
   const speed = thr?.reported.find((r) => r.model_id === model.model_id)
   const measured = thr?.measured_in_demo.find((m) => m.model_id === model.model_id)
   const kaggle = model.kaggle_dev?.score
@@ -30,11 +29,6 @@ function ModelCard({ model, block, thr, target }: { model: ModelSummary; block?:
           <div className="text-xs text-muted">macro F1 · weighted {valid.weighted_f1?.toFixed(3)}{valid.checkpoint ? ` · checkpoint ${valid.checkpoint}` : ''}</div>
           <div className="my-1"><ResultBadges result={valid} /></div>
         </>
-      ) : invalid ? (
-        <div className="my-1" data-testid="card-invalid">
-          <MetricBadge kind="seen_in_training" />
-          <p className="m-0 mt-1 text-xs text-invalid">{block?.contamination_note}</p>
-        </div>
       ) : (
         <div className="my-1 text-muted">n/a on this set</div>
       )}
@@ -50,7 +44,7 @@ function ModelCard({ model, block, thr, target }: { model: ModelSummary; block?:
         <dt className="text-muted">Kaggle dev</dt>
         <dd className="m-0">{kaggle != null ? <span data-testid="card-kaggle">{kaggle.toFixed(3)} <MetricBadge kind="kaggle_user" /> <span className="text-muted" title={model.kaggle_dev.note}>({model.kaggle_dev.submitted_at?.slice(0, 10)})</span></span> : 'n/a'}</dd>
       </dl>
-      {(valid ?? invalid) && <SourceFootnote source={(valid ?? invalid)!.source} set={block?.set} />}
+      {valid && <SourceFootnote source={valid.source} set={block?.set} />}
     </article>
   )
 }
@@ -129,22 +123,21 @@ function CostPanel({ thr }: { thr?: Throughput }) {
 export default function PerformancePage() {
   const [params, setParams] = useSearchParams()
   const set = SETS.includes(params.get('set') ?? '') ? params.get('set')! : 'coverage'
-  const [includeInvalid, setIncludeInvalid] = useState(false)
   const models = useModels()
   const list = useMemo(() => (models.data?.models ?? []).filter((m) => m.headline_eval || m.training?.seen_sets?.length), [models.data])
   const ids = list.map((m) => m.model_id).join(',')
   const metrics = useQuery({
     queryKey: ['metrics', set, ids], enabled: !!ids,
-    queryFn: () => api<{ models: Record<string, MetricBlock> }>(`/metrics/compare?models=${ids}&set=${set}&include_invalid=true`),
+    queryFn: () => api<{ models: Record<string, MetricBlock> }>(`/metrics/compare?models=${ids}&set=${set}&include_invalid=false`),
   })
   const thr = useQuery({ queryKey: ['throughput'], queryFn: () => api<Throughput>('/throughput') })
   const blocks = metrics.data?.models ?? {}
   const target = models.data?.throughput_target_images_per_second ?? 2
 
   const series = list.flatMap((m, i) => {
-    const r = blocks[m.model_id]?.results.find((x) => includeInvalid ? true : x.validity !== 'seen_in_training')
+    const r = blocks[m.model_id]?.results.find((x) => x.validity !== 'seen_in_training')
     if (!r || !Object.keys(r.per_dimension).length) return []
-    return [{ id: m.model_id, name: `${m.display_name.split('·').slice(0, 2).join('·').trim()}${r.validity === 'seen_in_training' ? ' (invalid)' : ''}`,
+    return [{ id: m.model_id, name: `${m.display_name.split('·').slice(0, 2).join('·').trim()}`,
       color: MODEL_COLORS[i % MODEL_COLORS.length], values: Object.fromEntries(Object.entries(r.per_dimension).map(([d, v]) => [d, v.macro_f1])) }]
   })
   const withClasses = list.filter((m) => blocks[m.model_id]?.results.some((r) => r.per_class))
@@ -167,12 +160,11 @@ export default function PerformancePage() {
               {SETS.map((s) => <option key={s}>{s}</option>)}
             </select>
           </label>
-          <label><input type="checkbox" checked={includeInvalid} onChange={(e) => setIncludeInvalid(e.target.checked)} /> include invalid results in the chart</label>
           <span className="text-xs text-muted">Numbers shown are reported by the team's own files, not recomputed here (badge on every number).</span>
         </div>
         {metrics.isError && <ErrorState error={metrics.error} />}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="model-cards">
-          {list.filter((m) => (blocks[m.model_id]?.results.length ?? 0) > 0).map((m) => <ModelCard key={m.model_id} model={m} block={blocks[m.model_id]} thr={thr.data} target={target} />)}
+          {list.filter((m) => blocks[m.model_id]?.results.some((r) => r.validity !== 'seen_in_training')).map((m) => <ModelCard key={m.model_id} model={m} block={blocks[m.model_id]} thr={thr.data} target={target} />)}
         </div>
 
         <Section title="Macro F1 per dimension" testId="section-dimensions">
