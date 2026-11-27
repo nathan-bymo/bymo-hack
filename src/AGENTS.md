@@ -8,6 +8,7 @@ Questo progetto partecipa alla competizione Kaggle `hackapertus-galaxus`. Leggi 
 - `apertus-70B-benchmark/`: esperimenti e notebook per il benchmark Apertus 70B.
 - `apertus-8B-benchmark/`: esperimenti e notebook per il benchmark Apertus 8B.
 - `scripts/`: script condivisi. Conserva ogni esperimento nella propria cartella e documenta dipendenze, configurazione, dati, comandi e risultati in modo riproducibile.
+- `scripts/system_prompt.txt`: prompt di classificazione condiviso per i benchmark standard 8B e 70B e, dove compatibile, per il visual adapter. Usalo come messaggio system; passa immagine e contesto prodotto nel messaggio utente. Confronta eventuali modifiche con la versione condivisa e registrale nei risultati.
 
 ## Esecuzione dei benchmark
 
