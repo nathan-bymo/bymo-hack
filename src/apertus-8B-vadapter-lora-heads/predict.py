@@ -101,9 +101,21 @@ def main():
             logits = classifier(input_ids.to("cuda:0"), attention.to("cuda:0"), siglip.to("cuda:0"))
         probs = [task_logits.float().softmax(-1).cpu() for task_logits in logits]
         if any(not torch.isfinite(p).all() for p in probs):
-            raise RuntimeError("non-finite probabilities: fp16 overflow despite the MLP guard")
+            if args.dtype != "float16" or getattr(classifier, "safe_fp32", False):
+                raise RuntimeError("non-finite probabilities")
+            with torch.autocast("cuda", dtype=dtype):
+                where = M.first_non_finite(classifier, input_ids.to("cuda:0"), attention.to("cuda:0"),
+                                           siglip.to("cuda:0"))
+            print("fp16 overflow; first non-finite modules:\n  " + "\n  ".join(where or ["(none found by hooks)"]),
+                  flush=True)
+            print(f"switching to the safe mode: {M.fp32_compute(classifier.language_model)} linear layers compute in "
+                  "float32 (weights stay float16 in memory)", flush=True)
+            classifier.safe_fp32 = True
+            fallback["used"], fallback["where"] = True, where
+            return forward(batch, encoded)
         return probs
 
+    fallback = {"used": False, "where": []}
     text_none = [D.TAXONOMY[d].index("none") for d in ("text_classification", "text_language")]
     text_tasks = [D.DIMENSIONS.index(d) for d in ("text_classification", "text_language")]
 
@@ -165,6 +177,7 @@ def main():
     report = {"images": len(rows), "seconds": round(seconds, 1), "images_per_second": round(len(rows) / seconds, 2),
               "peak_memory_gb": round(torch.cuda.max_memory_allocated() / 1024**3, 1),
               "gpu": torch.cuda.get_device_name(0), "gpus": torch.cuda.device_count(), "dtype": args.dtype,
+              "fp32_safe_mode": fallback["used"], "first_non_finite": fallback["where"],
               "batch_size": args.batch_size, "context": not args.no_context,
               "checkpoint": str(args.checkpoint), "tta_flip": args.tta_flip, "flipped_images": flip_counter[0],
               "seconds_per_stage": {k: round(v, 1) for k, v in {**encoder.seconds, **stage_seconds}.items()},

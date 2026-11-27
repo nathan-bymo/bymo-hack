@@ -196,6 +196,7 @@ class Classifier(nn.Module):
         super().__init__()
         self.language_model, self.projector, self.heads, self.pool = language_model, projector, heads, pool
         self.image_range, self.row_end_id, self.soft_side = image_range, row_end_id, soft_side
+        self.residual_dtype = None  # float32 on T4: fp16 weights, but a residual stream beyond the fp16 range
 
     def embed(self, input_ids, siglip):
         embeddings = self.language_model.get_input_embeddings()(input_ids.clamp(min=0))
@@ -205,14 +206,18 @@ class Classifier(nn.Module):
             if int(slots.sum()) != soft.shape[0] * soft.shape[1]:
                 raise ValueError("every row needs exactly one block of soft-token slots")
             embeddings = embeddings.masked_scatter(slots[..., None], soft.to(embeddings.dtype))
+        if self.residual_dtype is not None:  # under fp16 autocast the matmuls stay fp16, sums and norms run in fp32
+            embeddings = embeddings.to(self.residual_dtype)
         return embeddings
 
     def forward(self, input_ids, attention_mask, siglip):
         if not attention_mask[:, -1].all():
             raise ValueError("the last position is padding: left padding is required")
         position_ids = (attention_mask.cumsum(1) - 1).clamp(min=0)
-        hidden = self.language_model(inputs_embeds=self.embed(input_ids, siglip), attention_mask=attention_mask,
-                                     position_ids=position_ids, use_cache=False).last_hidden_state
+        embeds = self.embed(input_ids, siglip)
+        with torch.autocast("cuda", enabled=not getattr(self, "safe_fp32", False)):
+            hidden = self.language_model(inputs_embeds=embeds, attention_mask=attention_mask,
+                                         position_ids=position_ids, use_cache=False).last_hidden_state
         features = pooled_features(hidden, input_ids, attention_mask, self.image_range)
         spatial = pooled = None
         if self.heads.spatial_size:
@@ -350,18 +355,69 @@ def guard_fp16(decoder):
     return count
 
 
+def fp32_compute(decoder):
+    """Safe mode for T4: weights stay float16 in memory, every linear layer of the decoder computes in float32
+    (weights upcast on the fly) and autocast is off inside it. No fp16 overflow is possible; slower."""
+    import types
+
+    def forward(self, x):
+        with torch.autocast("cuda", enabled=False):
+            bias = None if self.bias is None else self.bias.float()
+            return F.linear(x.float(), self.weight.float(), bias)
+
+    count = 0
+    for module in decoder.modules():
+        if isinstance(module, nn.Linear):
+            module.forward = types.MethodType(forward, module)
+            count += 1
+    return count
+
+
+@torch.no_grad()
+def first_non_finite(classifier, *inputs):
+    """Names of the first modules whose output is not finite, with the largest |input| they got (diagnostics)."""
+    found, hooks = [], []
+
+    def hook(name):
+        def check(module, args, output):
+            out = output[0] if isinstance(output, (tuple, list)) else output
+            if torch.is_tensor(out) and out.is_floating_point() and not torch.isfinite(out).all() and len(found) < 8:
+                tensors = [a for a in args if torch.is_tensor(a) and a.is_floating_point()]
+                peak = max((float(a.float().abs().max()) for a in tensors), default=float("nan"))
+                found.append(f"{name} ({type(module).__name__}, input dtype {tensors[0].dtype if tensors else '-'}, "
+                             f"max |input| {peak:.3g})")
+        return check
+
+    for name, module in classifier.named_modules():
+        hooks.append(module.register_forward_hook(hook(name)))
+    try:
+        classifier(*inputs)
+    finally:
+        for h in hooks:
+            h.remove()
+    return found
+
+
 def load(directory, folder, device="cuda", merge=True, dtype=torch.bfloat16):
     """A saved checkpoint for inference; LoRA merged into the weights by default (no extra cost per image).
     dtype float16 (T4): the MLPs are guarded against overflow (guard_fp16)."""
     folder = Path(folder)
     settings = json.loads((folder / "settings.json").read_text())
-    decoder, image_range = load_language_model(directory, settings["layers"], device, dtype)
+    # float16 means a 16 GB T4: the whole Apertus (about 18 GB) does not fit. Load it into CPU memory, cut it to
+    # `layers`, merge LoRA there, and only then move the decoder (about 12.7 GB) to the GPU.
+    staging = "cpu" if dtype == torch.float16 else device
+    decoder, image_range = load_language_model(directory, settings["layers"], staging, dtype)
     if settings["lora_rank"]:
         from peft import PeftModel
 
         decoder = PeftModel.from_pretrained(decoder, str(folder / "lora"))
         if merge:
             decoder = decoder.merge_and_unload()
+    if staging != device:
+        decoder = decoder.to(device)
+        import gc
+
+        gc.collect()
     trainable = torch.load(folder / "trainable.pt", map_location="cpu", weights_only=True)
     classifier = assemble(decoder, image_range, settings)
     classifier.projector.load_state_dict(trainable["projector"])
@@ -370,4 +426,5 @@ def load(directory, folder, device="cuda", merge=True, dtype=torch.bfloat16):
         classifier.pool.load_state_dict(trainable["pool"])
     if dtype == torch.float16:
         guard_fp16(decoder)
+        classifier.residual_dtype = torch.float32  # the Apertus residual stream exceeds 65504 (seen on T4)
     return classifier.to(device).eval(), settings

@@ -585,3 +585,50 @@ def test_fp16_guard_prevents_mlp_overflow_on_the_real_decoder():
     result = run(guarded, torch.float16)
     assert torch.isfinite(result).all()
     assert torch.allclose(result, expected, atol=5e-2, rtol=5e-2), (result - expected).abs().max()
+
+
+def test_fp32_residual_stream_with_fp16_weights_on_the_real_decoder():
+    """On T4 the Apertus residual stream exceeds the fp16 range: fp16 weights with an fp32 residual must hold."""
+    text = pytest.importorskip("transformers.models.apertus1p5.modeling_apertus1p5")
+    from transformers.models.apertus1p5.configuration_apertus1p5 import Apertus1p5TextConfig
+    import copy
+
+    torch.manual_seed(0)
+    config = Apertus1p5TextConfig(vocab_size=64, hidden_size=32, intermediate_size=64, num_hidden_layers=2,
+                                  num_attention_heads=4, num_key_value_heads=2, head_dim=8)
+    reference = text.Apertus1p5TextModel(config).float().eval()
+    ids, attention = torch.randint(0, 64, (1, 12)), torch.ones(1, 12, dtype=torch.long)
+
+    def run(model, dtype, autocast):
+        with torch.no_grad(), torch.autocast("cpu", dtype=torch.float16, enabled=autocast):
+            embeds = (model.embed_tokens(ids).float() * 1e7).to(dtype)  # residual ~2e5, beyond 65504
+            return model(inputs_embeds=embeds, attention_mask=attention, use_cache=False).last_hidden_state.float()
+
+    half = copy.deepcopy(reference).half()
+    M.guard_fp16(half)
+    assert not torch.isfinite(run(half, torch.float16, True)).all()
+    result = run(half, torch.float32, True)
+    assert torch.isfinite(result).all() and torch.allclose(result, run(reference, torch.float32, False), atol=1e-2)
+
+
+def test_safe_mode_and_overflow_diagnostics():
+    """The T4 safe mode (fp32 linears over fp16 weights) gives finite outputs where fp16 overflows, and the
+    diagnostics name the first module that overflowed."""
+    model = full_classifier(hidden=8)
+    model.language_model.half()
+    with torch.no_grad():
+        model.language_model.mix.weight.fill_(3e4)  # the tiny decoder's linear overflows in fp16
+    ids, attention = E.collate([image_sequence([[1, 2], [3, 4]], [0, 1, 2, 3])], pad_id=0)
+    siglip = torch.randn(1, 4, 6)
+    with torch.no_grad():
+        hidden = model.language_model.mix(torch.ones(1, 8, dtype=torch.float16))
+    assert not torch.isfinite(hidden).all()
+    assert M.fp32_compute(model.language_model) == 1
+    with torch.no_grad():
+        safe = model.language_model.mix(torch.ones(1, 8, dtype=torch.float16))
+    assert torch.isfinite(safe).all() and safe.dtype == torch.float32
+    broken = full_classifier(hidden=8).float()
+    with torch.no_grad():
+        broken.heads.shared.weight.fill_(float("inf"))
+    where = M.first_non_finite(broken, ids, attention, siglip)
+    assert where and where[0].startswith("heads.shared")

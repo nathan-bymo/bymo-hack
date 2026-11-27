@@ -9,8 +9,9 @@ the decoder on the first GPU and VQ, SigLIP and OCR on the second. The checkpoin
 
 Then, once, in the Kaggle editor: Add-ons > Secrets > HF_TOKEN (read access to the gated Apertus and to the
 private repo), and Settings > Accelerator > GPU T4 x2. Targets:
-  check  the first 500 images of coverage, scored: compare with the H200 run of the same checkpoint (float16 vs bf16)
-  dev    dev.csv -> /kaggle/working/submission.csv, checked against sample_submission.csv (submitting stays manual)
+  check  the first 300 images of prompt-test, scored: compare with the H200 run of the same checkpoint (fp16 vs bf16)
+  dev    the same check, then dev.csv -> /kaggle/working/submission.csv, checked against sample_submission.csv
+         (submitting stays manual)
   final  the final images, once the passphrase is out: set FINAL_PASSPHRASE in the settings cell
 """
 
@@ -31,7 +32,7 @@ CHECKPOINT = "@@CHECKPOINT@@"        # folder of the private HF repo
 MODEL_REPO = "@@MODEL_REPO@@"
 TARGET = "@@TARGET@@"                # "check", "dev" or "final"
 FINAL_PASSPHRASE = ""                # published on Sat 28 Nov, 13:00 (Discord / Kaggle discussion)
-BATCH = 8                            # the fp16 decoder takes about 13 of the 15 GB of a T4
+BATCH = 4                            # the fp16 decoder takes about 12.7 of the 14.6 GB of a T4
 TRANSFORMERS = "transformers[vision] @ git+https://github.com/swiss-ai/transformers.git@3797303dda74844e3d1f8977ff5518bb91f818b4"
 PINS = ["peft==0.22.0", "accelerate==1.16.0", "python-doctr==1.1.0", "py7zr"]
 
@@ -39,6 +40,7 @@ CODE = Path("/kaggle/working/code")
 OUT = Path("/kaggle/working")
 SCRATCH = Path("/kaggle/tmp") if Path("/kaggle/tmp").exists() else Path("/tmp")
 os.environ["HF_HOME"] = str(SCRATCH / "hf")
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 FOLDER = CODE / "src" / "apertus-8B-vadapter-lora-heads"
 FOLDER.mkdir(parents=True, exist_ok=True)
 (CODE / "src" / "common").mkdir(parents=True, exist_ok=True)
@@ -101,10 +103,10 @@ FINAL = '''def final_rows():
 
 PREDICT = '''common = ["--checkpoint", CHECKPOINT_DIR, "--dtype", "float16", "--encoder-device", "cuda:1",
           "--batch-size", BATCH]
-if TARGET == "check":
-    run([sys.executable, FOLDER / "predict.py", *common, "--data-dir", DATA_DIR, "--part", "coverage", "--limit", 500,
-         "--out", OUT / "check_coverage500.csv"])
-elif TARGET == "dev":
+if TARGET in ("check", "dev"):  # float16 on T4 against bf16 on H200: the first 300 images of prompt-test
+    run([sys.executable, FOLDER / "predict.py", *common, "--data-dir", DATA_DIR, "--part", "test", "--limit", 300,
+         "--out", OUT / "check_test300.csv"])
+if TARGET == "dev":
     run([sys.executable, FOLDER / "predict.py", *common, "--data-dir", DATA_DIR, "--csv", DATA_DIR / "dev.csv",
          "--out", OUT / "submission.csv"])
 elif TARGET == "final":
@@ -157,6 +159,8 @@ def main():
     for path in CODE_FILES:
         target = f"/kaggle/working/code/src/{path.parent.name}/{path.name}"
         source = path.read_text() if path.exists() else ""
+        if not source.strip():  # Jupyter rejects an empty %%writefile cell
+            source = "# package marker\n"
         cells.append(code(f"%%writefile {target}\n{source}"))
     cells += [code(DOWNLOAD), code(FINAL), code(PREDICT), code(VERIFY)]
     notebook = {"cells": cells, "nbformat": 4, "nbformat_minor": 5,

@@ -18,6 +18,7 @@ Environment of the job (-e NAME=value):
   EPOCHS           phase 2 only: the epochs chosen in phase 1
   SIDE             VQ image side, default 256
   INIT_PROJECTOR   optional "<repo>:<file>" of a projector of apertus-vadapter-benchmark, read with HF_TOKEN
+  DEV_ONLY         1 with PREDICT_FROM: only dev.csv -> predictions/dev_submission.csv (no training images)
   PREDICT_DEV      1 to also predict dev.csv (a file in the private repo; nothing is submitted)
   NO_CONTEXT_CHECK 1 to also predict coverage without product context (about 3 more GPU minutes)
   PREDICT_TTA      1 to also predict coverage with the mirror test-time augmentation (predict.py --tta-flip)
@@ -148,7 +149,10 @@ def download_data():
         from huggingface_hub import HfApi, hf_hub_download
 
         assert HfApi().repo_info(DATA_REPO, repo_type="dataset").private, f"{DATA_REPO} is not private"
-        for name in ("train.csv", "dev.csv", "metric.py", "train_images.tar", "dev_images.tar"):
+        names = ("train.csv", "dev.csv", "metric.py", "train_images.tar", "dev_images.tar")
+        if os.environ.get("DEV_ONLY"):  # dev predictions only: the training images are not needed
+            names = tuple(n for n in names if n != "train_images.tar")
+        for name in names:
             path = Path(hf_hub_download(DATA_REPO, name, repo_type="dataset", local_dir=DATA))
             if name.endswith(".tar"):
                 with tarfile.open(path) as archive:
@@ -315,6 +319,12 @@ def predict_only():
     folder = fetch_checkpoint(PREDICT_FROM)
     predict = [f"{FOLDER}/predict.py", "--checkpoint", folder]
     outputs = RUN / "predictions"
+    if os.environ.get("DEV_ONLY"):  # dev.csv -> dev_submission.csv only (nothing is submitted)
+        run([*predict, "--csv", DATA / "dev.csv", "--out", outputs / "dev_submission.csv"], "predict_dev.log")
+        upload(outputs, "predictions", ["dev_submission*"])
+        upload(RUN, "logs", ["*.log"])
+        log("ALL DONE")
+        return
     run([*predict, "--part", "validation", "--out", outputs / "validation.csv"], "predict_validation.log")
     run([*predict, "--part", "coverage", "--out", outputs / "coverage.csv"], "predict_coverage.log")
     upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])  # saved before the optional steps
