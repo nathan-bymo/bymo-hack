@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 
 from .. import images_io
+from .. import predictions as P
 from ..db import now_iso
 from ..errors import ApiError
 
@@ -125,7 +126,7 @@ def list_images(request: Request, session_id: str):
 def get_image(image_id: str, request: Request):
     db = request.app.state.db
     out = image_dict(get_image_row(db, image_id))
-    out["predictions"], out["review"] = [], None
+    out["predictions"], out["review"] = P.latest_per_model(db, image_id), None
     return out
 
 
