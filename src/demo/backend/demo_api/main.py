@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -12,10 +13,6 @@ from fastapi.staticfiles import StaticFiles
 
 from . import errors
 from .settings import VERSION, Settings
-
-
-def _no_worker(entry):
-    raise errors.ApiError("MODEL_UNAVAILABLE", "No GPU worker is available for this model.", {"model_id": entry.id})
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -42,6 +39,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from .jobs import JobManager
 
         app.state.jobs = JobManager(app.state.db)
+        from .adapters.worker_proxy import WorkerProxy
+        from .memory import ResidentSet
+
+        app.state.residents = ResidentSet(app.state.jobs.is_busy, int(os.environ.get("DEMO_MAX_RESIDENT", "1")))
+        app.state.proxies = {}
+
+        def proxy_for(entry):
+            if entry.id not in app.state.proxies:
+                app.state.proxies[entry.id] = WorkerProxy(entry, app.state.registry, settings, app.state.residents,
+                                                          lambda victim: app.state.proxies[victim].unload())
+            return app.state.proxies[entry.id]
+
+        app.state.worker_adapter = proxy_for
         from .adapters import recorded as recorded_module
 
         recorded_module.scan(app.state.db, app.state.storage.recorded_dir)
@@ -60,7 +70,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.adapters = {}
     app.state.zero_shot_parallel = 8
-    app.state.worker_adapter = _no_worker
     errors.install(app)
 
     from .routers import (
