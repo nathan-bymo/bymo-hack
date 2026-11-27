@@ -130,6 +130,9 @@ export default function QueuePage() {
             <option value="live">Live</option><option value="recorded">Recorded</option>
           </select>
         )}
+        {model && mode === 'live' && model.modes.includes('live') && !model.parity.verified && (
+          <span data-testid="parity-badge" title={model.parity.scope} className="rounded bg-conf-low-bg px-2 py-0.5 text-xs font-semibold text-conf-low">{S.badge.parityUnverified}</span>
+        )}
         <ToolbarButton testId="run-classification" onClick={onRun} disabled={!runnable || run.running || !images.data?.length}
           title={!runnable ? 'Model not available in this mode' : undefined}>
           ▶ Run classification

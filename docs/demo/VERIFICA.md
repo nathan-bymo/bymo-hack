@@ -52,8 +52,8 @@ Commit di riferimento: ramo `feat/demo-app`. Nessun push, job, download di pesi 
 ### Test (solo conteggi ed esiti)
 | cosa | esito |
 |---|---|
-| pytest backend (`make -C src/demo test`) | **89 passati**, 0 falliti |
-| E2E Playwright (Chrome installato, fixture sintetiche, registrazioni **segnaposto** solo nel test) | **1 test, 8 passi, passato** (~7 s): badge, menu, upload di 3 immagini + 1 file non valido (rifiuto `UNSUPPORTED_MEDIA_TYPE` mostrato), run modello A, cambio modello B **senza nuovo `POST /api/images`**, confronto con disaccordo evidenziato e filtro, dettaglio con correzione → `Corrected` nella coda, dashboard (banner, linea 0.917 con etichetta, badge rosso del full FT, Kaggle dev solo per P11, matrice, calibrazione n/a, costo) |
+| pytest backend (`make -C src/demo test`) | **106 passati**, 0 falliti |
+| E2E Playwright (Chrome installato, fixture sintetiche, registrazioni **segnaposto** solo nel test) | **1 test, 9 passi, passato** (~7 s): badge, menu, upload di 3 immagini + 1 file non valido (rifiuto `UNSUPPORTED_MEDIA_TYPE` mostrato), run modello A, cambio modello B **senza nuovo `POST /api/images`**, confronto con disaccordo evidenziato e filtro, dettaglio con correzione → `Corrected` nella coda, anteprima storefront (regola illustrativa, valori rivisti), dashboard (banner, linea 0.917 con etichetta, badge rosso del full FT, Kaggle dev solo per P11, matrice, calibrazione n/a, costo) |
 | `npm run build` (tsc + vite) | ok |
 | `make -C src/demo demo`-equivalente: API su :8010 serve il build; `/`, `/image-classification`, `/image-classification/performance` rispondono 200 HTML; `/api/*` inesistente → JSON `NOT_FOUND` | ok |
 | Guardia dev/final: copia identica di un file di `dev_images` → 422 `FORBIDDEN_IMAGE`, 0 file salvati; indice di 5.260 hash unici (5.261 file) | ok |
@@ -87,7 +87,8 @@ a destra), badge sempre visibile in tutte le schermate, nessun logo Galaxus, chi
 |---|---|
 | Zero-shot **live** end-to-end (M1.6 manuale) | `LLM_API_KEY` non in `.env`: codice e parità dei corpi verificati solo con gateway finto |
 | Modelli allenati in modalità **registrato** con risultati veri; piano B (M7.4) | serve un host GPU (o un collega) per `record.py` e un ok |
-| Worker GPU, adapter P10/P11/full FT, parità (M3.*, M6.2), `evaluate.py` (M4.5), `record.py` (M3.5), misure di velocità (M6.5) | GPU + ok esplicito (scope C) |
+| Esecuzione reale di worker, `record.py`, `evaluate.py`, `parity.py`, misure di velocità (M6.5) | GPU/gateway + ok esplicito (scope C). Verificati solo con la famiglia finta: protocollo worker↔proxy (token, load/predict/unload, errori), LRU/budget VRAM, rifiuti di `evaluate.py` (dev/final/contaminati), catena export→record→rescan→predict, calcolo metriche su un dataset sintetico |
 | P11 pesi (Q3), repo HF non noto | accesso |
 | Confidenza e matrici di confusione ricalcolate; calibrazione | predizioni per immagine su set etichettato |
-| Anteprima storefront (M5.4, stretch) | non implementata |
+| Adapter reali P10/P11/full FT (scritti dai file del repo, **mai eseguiti**) | GPU; restano "parity not verified" |
+| `parity.py` per P11/full FT (scritto, non eseguito); P10 non implementato | GPU + ok |

@@ -208,6 +208,7 @@ export default function ImageDetailPage() {
             <h2 className="m-0 flex items-center gap-1 text-base font-semibold"><RobotIcon /> Image type</h2>
             {modelList.length > 0 && <ModelSelect id="detail-model" models={modelList} value={modelId} onChange={setModel} />}
             {pred && <ModeBadge mode={pred.mode} recorded={pred.recorded} />}
+            {pred?.mode === 'live' && model && !model.parity.verified && <span data-testid="parity-badge" title={model.parity.scope} className="rounded bg-conf-low-bg px-2 py-0.5 text-xs font-semibold text-conf-low">{S.badge.parityUnverified}</span>}
             {pred?.timing.total_ms != null && <span className="text-xs text-muted">{Math.round(pred.timing.total_ms)} ms</span>}
           </div>
 

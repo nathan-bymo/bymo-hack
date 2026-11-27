@@ -81,3 +81,10 @@ def test_worker_family_without_placeholders_needs_worker_url(settings, monkeypat
     assert reg.live_status(reg.get("apertus-8b-lora-p10"))[0] == "unavailable"
     settings.worker_urls["lora_generative"] = "http://127.0.0.1:8011"
     assert reg.live_status(reg.get("apertus-8b-lora-p10")) == ("not_loaded", None)
+
+
+def test_parity_flag_in_summary(client):
+    by = {m["model_id"]: m for m in client.get("/api/models").json()["models"]}
+    assert by["apertus-8b-zeroshot-v2"]["parity"]["verified"] is True
+    for mid in ("apertus-8b-lora-p10", "apertus-8b-lora-heads-p11", "apertus-8b-fullft-heads"):
+        assert by[mid]["parity"]["verified"] is False and "parity" in by[mid]["parity"]["scope"]

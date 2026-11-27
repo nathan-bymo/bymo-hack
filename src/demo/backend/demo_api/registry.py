@@ -166,6 +166,7 @@ class Registry:
             "vram_estimate_kind": "measured" if (raw["id"] == "apertus-8b-lora-heads-p11" or measured) else "estimate",
             "headline_eval": self.headline_eval(raw),
             "kaggle_dev": raw.get("kaggle_dev") or {"score": None},
+            "parity": raw.get("parity") or {"verified": False, "scope": "parity test not run (needs a GPU host: scripts/parity.py)"},
         }
         return out
 

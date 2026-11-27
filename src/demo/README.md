@@ -28,7 +28,10 @@ cd src/demo/frontend && npm ci
 `src/demo/models.yaml` è il registro: ogni valore ha una fonte, i campi ignoti valgono `[DA VERIFICARE]` e rendono il
 modello `unavailable`. **Nessun peso viene scaricato in automatico.** Il full fine-tune si legge da un worktree
 (`git worktree add ../hack-apertus-fullft feat/apertus-8b-fullft-heads`, variabile `DEMO_FULLFT_SRC`). I worker GPU
-(`demo_worker`, uno per famiglia) non sono ancora implementati: richiedono un host GPU e un ok esplicito.
+(`python -m demo_worker.server --family <lora_generative|lora_heads|fullft_heads> --port <p>`, uno per famiglia) sono
+scritti e il **protocollo** è testato con una famiglia finta (`--dry`, solo test); gli adapter reali **non sono stati
+mai eseguiti** (nessuna GPU in sviluppo): restano "parity not verified" finché `scripts/parity.py` non passa su un host
+GPU. Pesi: `scripts/fetch_weights.py --model <id>` stampa il piano e scarica solo con `--yes`.
 
 ## 5. `kaggle_dev.score`
 Si compila **solo a mano** in `models.yaml`, con `source`, data e nota. Oggi solo P11 (0.796, da
@@ -45,16 +48,18 @@ modalità *registrato*.
 
 ## 7. Modalità registrato
 `scripts/export_session.py --session <id>` crea `data/demo/export/<id>/` (immagini + `manifest.json` senza nomi) →
-su un host GPU si producono `recorded/<modello>/<run>/{run.json,predictions.jsonl}` (script `record.py`: **da fare**
-con la GPU) → si copiano in `data/demo/recorded/` e si fa `POST /api/recorded/rescan` (o si riavvia). La UI mostra
+su un host GPU `scripts/record.py --model <id> --export data/demo/export/<id>` produce
+`recorded/<modello>/<run>/{run.json,predictions.jsonl}` (catena export → record → rescan → predict verificata con la
+famiglia finta) → si copiano in `data/demo/recorded/` e si fa `POST /api/recorded/rescan` (o si riavvia). La UI mostra
 "Recorded <data> on <GPU>" ovunque compaia un risultato registrato. Lookup per sha256 + hash del contesto: se manca,
 `RECORDED_MISSING`.
 
 ## 8. Metriche
 Numeri riportati dai file del repo, riletti con la loro riga (`scripts/import_reported.py`); ogni numero ha set,
 fonte, dati di training e badge (validità + provenienza). `dev` e `final` sono rifiutati. Il full fine-tune mostra
-"seen during training — invalid". `evaluate.py` (ricalcolo con `metric.py` ufficiale) **non è ancora scritto**:
-richiede GPU o chiave e un ok esplicito.
+"seen during training — invalid". `scripts/evaluate.py --model <id> --set <set>` ricalcola con il `metric.py` ufficiale (rifiuta dev/final, rifiuta
+i set visti in training salvo `--allow-contaminated`); l'API legge `data/demo/eval/` all'avvio e mostra questi numeri
+per primi (badge "recomputed"). Usa la GPU o il gateway: **solo con ok esplicito**, mai 13:00–14:30 di sabato.
 
 ## 9. Immagini
 Mai immagini dev o final (guardia sugli sha256: `scripts/build_guard_index.py`). Test con immagini sintetiche.

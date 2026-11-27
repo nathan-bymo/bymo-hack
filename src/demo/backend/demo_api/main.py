@@ -61,6 +61,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             import_reported(app.state.db, {k: v.raw for k, v in app.state.registry.models.items()}, settings.repo_root)
         except Exception:  # noqa: BLE001 - la demo parte comunque, senza metriche riportate
             logging.getLogger("demo_api").exception("import delle metriche riportate non riuscito")
+        from .metrics.offline import import_offline
+
+        import_offline(app.state.db, settings.data_dir / "eval")   # risultati di evaluate.py (priorità 2)
         app.state.recorded_adapter = lambda entry: recorded_module.RecordedAdapter(entry.id, app.state.db)
         yield
         app.state.db.close()

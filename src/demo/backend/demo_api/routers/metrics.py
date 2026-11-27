@@ -56,7 +56,8 @@ def block(request: Request, model_id: str, set_name: str, include_invalid: bool)
     entry = registry.get(model_id)
     if entry is None:
         raise ApiError("MODEL_NOT_FOUND", "Model not found.", {"model_id": model_id})
-    rows = db.all("SELECT * FROM eval_results WHERE model_id = ? AND set_name = ? ORDER BY validity, rowid",
+    rows = db.all("SELECT * FROM eval_results WHERE model_id = ? AND set_name = ? ORDER BY CASE provenance "
+                  "WHEN 'offline_script' THEN 0 WHEN 'recomputed' THEN 0 ELSE 1 END, validity, rowid",
                   (model_id, set_name))
     valid = [r for r in rows if r["validity"] != "seen_in_training"]
     shown = rows if include_invalid else valid

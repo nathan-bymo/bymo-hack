@@ -26,6 +26,7 @@ defaults:
 models:
 
   - id: apertus-8b-zeroshot-v2
+    parity: {verified: true, scope: "corpi delle 7 richieste identici a eval_prompt.run_variant (test, gateway finto); risposte live non confrontate"}
     display_name: "Apertus 8B · zero-shot · prompt v2"
     family: zeroshot_generative
     adapter: ZeroShotGenerativeAdapter
@@ -53,6 +54,7 @@ models:
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
   - id: apertus-70b-zeroshot-v2
+    parity: {verified: true, scope: "corpi delle 7 richieste identici a eval_prompt.run_variant (test, gateway finto); risposte live non confrontate"}
     display_name: "Apertus 70B · zero-shot · prompt v2"
     family: zeroshot_generative
     adapter: ZeroShotGenerativeAdapter

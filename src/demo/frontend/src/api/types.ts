@@ -86,6 +86,7 @@ export interface ModelSummary {
   vram_estimate_gb: number | null
   headline_eval: EvalSummary | null
   kaggle_dev: { score: number | null; submitted_at?: string | null; note?: string }
+  parity: { verified: boolean; scope: string }
 }
 export interface ModelsResponse {
   models: ModelSummary[]
