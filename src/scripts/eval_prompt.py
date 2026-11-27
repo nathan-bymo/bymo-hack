@@ -3,7 +3,8 @@
 The splits are described in src/common/splits.py: "dev", "test", "base" (both) and "coverage" (base plus extra
 products so that every class has enough examples). With "coverage" the results are shown three times: on all rows,
 on "base" (the natural class distribution) and on "test" alone (never used to choose a prompt before 2026-11-27).
-Keep the whole coverage set out of any finetuning.
+Keep the whole coverage set out of any finetuning. --rows scores any csv with the columns of train.csv instead,
+for example a prototype validation split.
 
 Variants are written model:layout:answer:side[:nocontext], for example 8b:describe:names:512. Layouts "split" and
 "describe" take the answers "names" or "codes"; "minimal" and "full" take "json" or "codes"; "shared" is the
@@ -251,6 +252,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("variants", nargs="+")
     parser.add_argument("--split", choices=("dev", "test", "base", "coverage"), default="dev")
+    parser.add_argument("--rows", type=Path, help="csv with the columns of train.csv, used instead of --split")
     parser.add_argument("--limit", type=int, default=0, help="number of images, 0 for the whole split")
     parser.add_argument("--concurrency", type=int, default=16)
     parser.add_argument("--bootstrap", type=int, default=300)
@@ -260,7 +262,12 @@ def main():
     if not all(spec.endswith(".csv") for spec in arguments.variants):
         load_env()
     metric = load_metric()
-    rows = load_split(arguments.split, arguments.limit)
+    if arguments.rows:
+        arguments.split = arguments.rows.stem
+        rows = pd.read_csv(arguments.rows, dtype=str, keep_default_na=False)
+        rows = (rows.head(arguments.limit) if arguments.limit else rows).reset_index(drop=True)
+    else:
+        rows = load_split(arguments.split, arguments.limit)
     solution = solution_frame(rows)
     print(f"split {arguments.split}: {len(rows)} images, {rows.product_id.nunique()} products")
 

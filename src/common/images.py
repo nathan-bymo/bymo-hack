@@ -3,7 +3,7 @@
 import base64
 import io
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 PATCH = 16  # Apertus v1.5 makes one image token per 16 x 16 pixels.
 MAX_ASPECT = 8
@@ -26,10 +26,22 @@ def target_size(width, height, side):
     return tuple(max(PATCH, round(side * factor / PATCH) * PATCH) for factor in (aspect**0.5, aspect**-0.5))
 
 
-def data_url(path, side=512):
-    """The prepared image as a base64 JPEG data URL."""
+def prepared_jpeg(path, side=512, mirrored=False):
+    """The image as the model gets it, as JPEG bytes: on white, mirrored if asked, resized."""
     with Image.open(path) as image:
         rgb = opaque_rgb_on_white(image)
+    if mirrored:
+        rgb = ImageOps.mirror(rgb)
     buffer = io.BytesIO()
     rgb.resize(target_size(*rgb.size, side), Image.LANCZOS).save(buffer, format="JPEG", quality=JPEG_QUALITY)
-    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
+    return buffer.getvalue()
+
+
+def prepared_image(path, side=512, mirrored=False):
+    """The prepared JPEG decoded again: exactly the pixels the API gets, for local models."""
+    return Image.open(io.BytesIO(prepared_jpeg(path, side, mirrored))).convert("RGB")
+
+
+def data_url(path, side=512):
+    """The prepared image as a base64 JPEG data URL."""
+    return "data:image/jpeg;base64," + base64.b64encode(prepared_jpeg(path, side)).decode()
