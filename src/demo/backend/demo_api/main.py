@@ -37,9 +37,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     errors.install(app)
 
-    from .routers import health, sessions, taxonomy
+    from .routers import health, images, sessions, taxonomy
 
-    for module in (health, taxonomy, sessions):
+    for module in (health, taxonomy, sessions, images):
         app.include_router(module.router, prefix="/api")
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
