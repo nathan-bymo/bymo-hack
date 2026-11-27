@@ -1,5 +1,5 @@
 # Comandi della demo. Uso: make -C src/demo <comando>
-PY      := ../../.venv/bin/python
+PY      := $(abspath $(CURDIR)/../../.venv/bin/python)
 PORT    ?= 8010
 
 .PHONY: help dev demo test e2e check clean-data
