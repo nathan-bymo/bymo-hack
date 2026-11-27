@@ -31,9 +31,10 @@ export default function StorefrontPage() {
 
   return (
     <div className="min-h-screen bg-white text-ink" data-testid="storefront">
-      <header className="flex items-center gap-4 bg-titlebar px-4 py-2">
+      <div aria-hidden="true" style={{ height: 3, background: 'linear-gradient(90deg,#e5533d 0 25%,#5db85c 25% 50%,#8e6fd0 50% 75%,#4a90d9 75%)' }} />
+      <header className="flex items-center gap-4 bg-white px-4 py-3">
         <Wordmark variant="store" />
-        <input aria-label="Search" placeholder="Wonach suchst du?" className="w-full max-w-md rounded-full border-0 bg-white px-4 py-1.5 text-sm" />
+        <input aria-label="Search" placeholder="Wonach suchst du?" className="w-full max-w-2xl rounded-full border border-fieldline bg-white px-4 py-1.5 text-sm" />
         <div className="ml-auto"><DemoBadge /></div>
       </header>
       <div className="mx-auto max-w-6xl p-6">
@@ -62,16 +63,16 @@ export default function StorefrontPage() {
             <ol className="m-0 flex list-none flex-wrap gap-3 p-0" data-testid="gallery">
               {placed.map((p) => (
                 <li key={p.image.image_id} data-position={p.position ?? 'hidden'} data-testid="gallery-item"
-                  className={`w-40 rounded-xl border border-line p-2 ${p.position === null ? 'opacity-50 grayscale' : ''}`}>
+                  className={`w-40 border-r border-line p-3 ${p.position === null ? 'opacity-50 grayscale' : ''}`}>
                   <div className="mb-1 text-xs font-semibold">{p.position === 1 ? '#1 MAIN' : p.position ? `#${p.position}` : 'hidden'}</div>
-                  <img src={p.image.thumbnail_url} alt={p.image.original_filename} className="h-32 w-full rounded-lg object-cover" />
+                  <img src={p.image.thumbnail_url} alt={p.image.original_filename} className="h-32 w-full object-cover" />
                   <div className="mt-1 text-xs text-muted">{p.group ?? '—'}</div>
                 </li>
               ))}
             </ol>
             <div className="mt-4 text-sm">
               <div className="text-muted">Brand · Price n/a · Demo product · ☆☆☆☆☆ n/a</div>
-              <button type="button" disabled className="mt-2 rounded-full bg-black px-6 py-2 text-white opacity-90" title="Not active in this demo">Mehr anzeigen</button>
+              <button type="button" disabled className="mt-2 rounded-full px-6 py-2 text-white opacity-90" style={{ background: 'var(--c-store-pill)' }} title="Not active in this demo">Mehr anzeigen</button>
             </div>
             <section className="mt-6" data-testid="rule-explainer">
               <h2 className="section-title m-0 mb-1 text-sm">Why this order</h2>

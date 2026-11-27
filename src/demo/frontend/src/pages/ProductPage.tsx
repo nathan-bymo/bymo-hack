@@ -18,7 +18,7 @@ export default function ProductPage() {
   )
   return (
     <ErpShell rightColumn={right}>
-      <TitleBar title="Products — Demo product" id="DEMO-0001" />
+      <TitleBar prefix="Products" title="Demo product" id="DEMO-0001" />
       <SubLinks links={[{ to: '/product/DEMO-0001', label: 'Search' }, { to: '/product/DEMO-0001', label: 'Advanced search' }]} />
       <ActionToolbar>
         <ToolbarDropdown label="Enrich Product" items={[

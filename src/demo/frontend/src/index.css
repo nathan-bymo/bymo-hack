@@ -8,6 +8,9 @@
   --color-imagetype: var(--c-imagetype-bg);
   --color-imagetype-border: var(--c-imagetype-border);
   --color-switch: var(--c-switch-now);
+  --color-frame: var(--c-panel-frame);
+  --color-sect: var(--c-section-title);
+  --color-fieldline: var(--c-field-border);
   --color-link: var(--c-link);
   --color-app: var(--c-app-bg);
   --color-panel: var(--c-panel-bg);
@@ -29,4 +32,6 @@
 body { margin: 0; background: var(--c-app-bg); color: var(--c-text); font-family: var(--font-sans); font-size: var(--fs-value); }
 a { color: var(--c-link); }
 :focus-visible { outline: 2px solid var(--c-link); outline-offset: 1px; }
-.section-title { font-size: var(--fs-section); font-weight: 700; text-decoration: underline; }
+.section-title { font-size: var(--fs-section); font-weight: 700; text-decoration: underline; color: var(--c-section-title); }
+.erp-select { height: 26px; border: 1px solid var(--c-field-border); border-radius: var(--radius-field); background: #fff; font-size: var(--fs-value); }
+.erp-cancel { border: 1px solid var(--c-field-border); border-radius: var(--radius-btn); background: linear-gradient(#f4f4f6, #e2e3e6); box-shadow: 0 1px 1px rgba(0,0,0,.15); padding: 3px 12px; font-size: var(--fs-value); }

@@ -50,9 +50,9 @@ def test_order_and_letters():
 
 
 def test_erp_labels_known_and_auto():
-    assert taxonomy.erp_label("subject", "full_product") == ("Full Product View", "prompt")
+    assert taxonomy.erp_label("subject", "full_product") == ("Full Product View", "screenshot")
     assert taxonomy.erp_label("subject", "detail_closeup") == ("Detail Closeup", "auto")
-    assert taxonomy.erp_label("text_language", "none") == ("-", "prompt")
+    assert taxonomy.erp_label("text_language", "none") == ("-", "screenshot")
     assert taxonomy.erp_label("text_language", "German") == ("German", "auto")
     assert taxonomy.erp_label("perspective", "front_angle_left")[0] == "Front – Angled Left"
 

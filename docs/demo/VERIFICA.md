@@ -36,7 +36,7 @@ Nota per il team: con `epoch-2` disponibile, Q4 potrebbe preferire `epoch-2` com
 | M0.3: installati nel `.venv` con `uv` (il venv non ha `pip`): fastapi 0.165.0, uvicorn 0.54.0, python-multipart 0.0.34, pytest 9.2.0, pytest-asyncio 1.5.0. pandas 3.1.1, pillow 13.0.0, pydantic 2.14.4 invariati (verificato con `--dry-run` e dopo l'installazione) | ok |
 | M0.4: Vite 8 + React 19 + TypeScript + Tailwind 4 (`@tailwindcss/vite`), versioni esatte nel lockfile; `npm run build` ok, `dist/` ignorato; `npm run dev` serve la pagina (HTTP 200, `DemoBadge` presente nel modulo e nel bundle) | ok |
 | Verifica **visiva** del badge nel browser | **non fatta**: estensione Chrome non connessa; Playwright non ha i browser scaricati (download non autorizzato) |
-| Token di design | tutti di **ripiego** Tailwind (Q1: nessuno screenshot); in `tokens.css` solo 5 token per ora, il resto in M2.0 |
+| Token di design | prima di ripiego Tailwind; ora **descritti** dalla descrizione degli screenshot (vedi l'ultimo aggiornamento) |
 
 ## M2.0 — token di design (27/11)
 
@@ -92,3 +92,19 @@ a destra), badge sempre visibile in tutte le schermate, nessun logo Galaxus, chi
 | Confidenza e matrici di confusione ricalcolate; calibrazione | predizioni per immagine su set etichettato |
 | Adapter reali P10/P11/full FT (scritti dai file del repo, **mai eseguiti**) | GPU; restano "parity not verified" |
 | `parity.py` per P11/full FT (scritto, non eseguito); P10 non implementato | GPU + ok |
+
+
+## Aggiornamento — token e stile dalla descrizione degli screenshot (27/11, sera)
+
+L'utente ha incollato una **descrizione** degli screenshot A–D (foto da telefono di un televisore: colori ±10–15%,
+verde/viola/rosso i meno affidabili; risoluzione 1920×1080 non confermata). Applicata a `tokens.css` (ogni riga
+`descritto:`; **non** misurata con D.1.1) e al guscio: linea d'accento di 3 px in alto, header bianco di 56 px con ricerca
+arrotondata, pannello principale incorniciato di verde con barra titolo `Products` (18 px, sottolineato), toolbar
+allineata a destra, sezioni separate da linea scura di 2 px, colonna destra a schede quadrate, pannello "Image type"
+con bordo superiore scuro di 3 px e righe `#A9BCD6`, cornice grigia scura di 8 px attorno all'anteprima, `Cancel`
+con gradiente, tendine da 26 px con raggio 2 px; storefront con linea multicolore e pillola nera.
+Etichette ERP: confermate come "descritte" le 4 note (Full Product View, Lifestyle Scene, Front – Angled Left,
+Person(s) Present) e `-` per Overlay/Language; **ancora ignoto** il valore `none` di Individuals (resta `-`, proposta).
+Non applicabile: il pulsante di salvataggio ha etichetta illeggibile nello screenshot (usato "Save"); nessuna voce di
+sidebar risulta evidenziata nell'originale (da noi evidenziata quella nuova). Test: 106 pytest e E2E passati dopo la modifica.
+La verifica visiva resta **contro una descrizione**, non contro gli screenshot originali.

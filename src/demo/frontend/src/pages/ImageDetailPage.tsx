@@ -46,7 +46,7 @@ function DimensionDropdown({ dimension, taxonomy, pred, value, onChange, selectR
       <select id={`dd-${dimension}`} ref={selectRef} data-testid={`dd-${dimension}`} aria-label={DIMENSION_NAMES[dimension]}
         value={value} onChange={(e) => onChange(e.target.value)}
         title={notApplicable ? S.notApplicable : value ? `internal value: ${value}` : S.invalidOutput}
-        className={`min-w-44 rounded border px-2 py-1 text-sm ${edited ? 'border-conf-mid ring-1 ring-conf-mid' : 'border-line'} ${notApplicable ? 'bg-toolbtn text-muted' : 'bg-panel'}`}>
+        className={`erp-select min-w-44 px-2 ${edited ? 'ring-2 ring-conf-mid' : ''} ${notApplicable ? 'bg-toolbtn text-muted' : ''}`}>
         {value === '' && <option value="">— choose —</option>}
         {top.length > 0 && (
           <optgroup label="Model top 3">
@@ -180,12 +180,12 @@ export default function ImageDetailPage() {
       </div>
 
       {img && (
-        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="flex items-start justify-center rounded border border-line bg-panel p-2">
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
+          <div className="flex items-start justify-center bg-app p-4" style={{ border: '8px solid var(--c-panel-frame)' }}>
             <img src={img.file_url} alt={img.original_filename} data-testid="detail-image" onClick={() => setZoom((z) => !z)}
               className={`${zoom ? 'max-h-none cursor-zoom-out' : 'max-h-96 cursor-zoom-in'} max-w-full object-contain`} />
           </div>
-          <div className="rounded border border-line bg-panel p-3">
+          <div className="border border-line bg-panel p-3">
             <div className="section-title mb-2">Metadata</div>
             <LabelValueGrid rows={[
               { label: 'Manually uploaded', value: 'Yes (uploaded in the demo)', info: 'The image was uploaded to the demo session by a person.' },
@@ -203,9 +203,9 @@ export default function ImageDetailPage() {
 
       {img && taxonomy.data && (
         <section className="mx-4 mb-6 rounded border p-3" data-testid="image-type-panel"
-          style={{ background: 'var(--c-imagetype-bg)', borderColor: pred && !pred.valid ? 'var(--c-invalid)' : 'var(--c-imagetype-border)', borderRadius: 'var(--radius-card)' }}>
+          style={{ background: 'var(--c-imagetype-bg)', border: `1px solid ${pred && !pred.valid ? 'var(--c-invalid)' : 'var(--c-imagetype-border)'}`, borderTop: `3px solid ${pred && !pred.valid ? 'var(--c-invalid)' : 'var(--c-panel-frame)'}` }}>
           <div className="mb-2 flex flex-wrap items-center gap-3">
-            <h2 className="m-0 flex items-center gap-1 text-base font-semibold"><RobotIcon /> Image type</h2>
+            <h2 className="m-0 flex items-center gap-1 font-bold" style={{ fontSize: 16 }}>Image type <RobotIcon /></h2>
             {modelList.length > 0 && <ModelSelect id="detail-model" models={modelList} value={modelId} onChange={setModel} />}
             {pred && <ModeBadge mode={pred.mode} recorded={pred.recorded} />}
             {pred?.mode === 'live' && model && !model.parity.verified && <span data-testid="parity-badge" title={model.parity.scope} className="rounded bg-conf-low-bg px-2 py-0.5 text-xs font-semibold text-conf-low">{S.badge.parityUnverified}</span>}
@@ -259,7 +259,7 @@ export default function ImageDetailPage() {
                 <div className="px-4"><ConfidenceMethodNote method={Object.values(pred.dimensions).find((d) => d.confidence_method)?.confidence_method} /></div>
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <ToolbarButton onClick={reset} testId="cancel">✕ Cancel</ToolbarButton>
+                <button type="button" onClick={reset} data-testid="cancel" className="erp-cancel">✕ Cancel</button>
                 <ToolbarButton onClick={save} disabled={!complete} testId="save">Save</ToolbarButton>
               </div>
             </>
