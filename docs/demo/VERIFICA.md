@@ -25,3 +25,15 @@ Solo conteggi, esiti e decisioni: nessun ID di immagine, nessuna predizione, nes
 | job HF `6b09cdb46c5d61fff189842a` | RUNNING, a100-large | RUNNING, a100-large, creato 18:36 UTC | nessuna |
 
 Nota per il team: con `epoch-2` disponibile, Q4 potrebbe preferire `epoch-2` come checkpoint intermedio; la scelta resta aperta.
+
+## M0 — setup (27/11)
+
+| cosa | esito |
+|---|---|
+| Branch `feat/demo-app` da `main` (2ea85b1); `git diff --name-only main` tocca solo `src/demo/`, `docs/demo/`, `.gitignore` | ok |
+| `.gitignore` + `check_no_data.py`: `git check-ignore -v` stampa una regola per i 3 percorsi di prova; lo script fallisce su CSV, PNG, ID e chiave finti messi in stage (4 casi su 4), passa sullo stage pulito | ok |
+| `check_no_data.py --all` segnala `challenge_description.md` (2 occorrenze del formato ID, file del template già tracciato, non nostro): non modificato | nota |
+| M0.3: installati nel `.venv` con `uv` (il venv non ha `pip`): fastapi 0.165.0, uvicorn 0.54.0, python-multipart 0.0.34, pytest 9.2.0, pytest-asyncio 1.5.0. pandas 3.1.1, pillow 13.0.0, pydantic 2.14.4 invariati (verificato con `--dry-run` e dopo l'installazione) | ok |
+| M0.4: Vite 8 + React 19 + TypeScript + Tailwind 4 (`@tailwindcss/vite`), versioni esatte nel lockfile; `npm run build` ok, `dist/` ignorato; `npm run dev` serve la pagina (HTTP 200, `DemoBadge` presente nel modulo e nel bundle) | ok |
+| Verifica **visiva** del badge nel browser | **non fatta**: estensione Chrome non connessa; Playwright non ha i browser scaricati (download non autorizzato) |
+| Token di design | tutti di **ripiego** Tailwind (Q1: nessuno screenshot); in `tokens.css` solo 5 token per ora, il resto in M2.0 |
