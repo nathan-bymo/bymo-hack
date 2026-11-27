@@ -204,6 +204,7 @@ class Registry:
             "short_name": raw.get("short_name") or raw["display_name"], "featured": bool(raw.get("featured")),
             "family": raw["family"], "runtime": raw["runtime"], **self.status(entry),
             "confidence": raw.get("confidence"), "training": raw.get("training"),
+            "training_label": raw.get("training_label") or (raw.get("training") or {}).get("data"),
             "weights": {k: weights.get(k) for k in ("repo", "revision", "subfolder", "size_gb", "local_path",
                                                     "location_label")} if weights else None,
             "vram_estimate_gb": vram,

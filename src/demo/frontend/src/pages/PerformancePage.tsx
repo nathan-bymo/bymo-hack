@@ -10,6 +10,7 @@ import {
 } from '../components/dashboard'
 import { ErpShell, SubLinks, TitleBar } from '../components/shell'
 import { ErrorState, MetricBadge } from '../components/ui'
+import { weightsText } from '../lib/models'
 import { S } from '../strings'
 
 const SETS = ['coverage', 'base', 'prompt-test', 'prompt-dev-600', 'validation_450']
@@ -39,7 +40,7 @@ function ModelCard({ model, block, thr, target }: { model: ModelSummary; block?:
       )}
       <dl className="m-0 mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
         <dt className="text-muted">Training</dt><dd className="m-0">{model.training?.data ?? 'n/a'}</dd>
-        <dt className="text-muted">Weights</dt><dd className="m-0">{!model.weights ? 'remote (gateway)' : model.weights.repo.includes('DA VERIFICARE') ? 'not accessible yet (repo to be confirmed)' : `${model.weights.repo}@${model.weights.revision?.slice(0, 7)} · ${model.weights.subfolder}`}</dd>
+        <dt className="text-muted">Weights</dt><dd className="m-0">{weightsText(model)}</dd>
         <dt className="text-muted">Speed</dt>
         <dd className="m-0">
           {measured ? `${measured.images_per_second.toFixed(2)} img/s measured (${measured.mode === 'recorded' ? 'recorded run' : measured.gpu_name})`
@@ -157,7 +158,7 @@ export default function PerformancePage() {
   return (
     <ErpShell>
       <TitleBar title="Performance — Apertus models" />
-      <SubLinks links={[{ to: '/image-classification', label: 'Queue' }, { to: '/image-classification/performance?set=coverage', label: 'Performance' }]} />
+      <SubLinks links={[{ to: '/image-classification', label: 'Queue' }, { to: '/image-classification/try', label: 'Try a model' }, { to: '/image-classification/models', label: 'Models' }, { to: '/image-classification/performance?set=coverage', label: 'Performance' }]} />
       <div className="space-y-3 p-4">
         <CoverageWarningBanner />
         <div className="flex flex-wrap items-center gap-4 text-sm">

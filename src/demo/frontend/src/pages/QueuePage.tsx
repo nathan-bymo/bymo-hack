@@ -120,6 +120,8 @@ export default function QueuePage() {
       <SubLinks links={[
         { to: `/image-classification${queueParam}`, label: 'Queue' },
         { to: `/image-classification/compare${queueParam}&models=${compareIds}`, label: 'Compare models' },
+        { to: `/image-classification/try${queueParam}`, label: 'Try a model' },
+        { to: `/image-classification/models${queueParam}`, label: 'Models' },
         { to: '/image-classification/performance?set=coverage', label: 'Performance' },
         { to: `/storefront-preview${queueParam}${modelId ? `&model=${modelId}` : ''}`, label: 'Storefront preview' },
       ]} />

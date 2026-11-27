@@ -78,7 +78,7 @@ export default function ComparePage() {
   return (
     <ErpShell>
       <TitleBar title="Compare models" />
-      <SubLinks links={[{ to: `/image-classification${back}`, label: 'Queue' }, { to: `/image-classification/compare${back}`, label: 'Compare models' }, { to: '/image-classification/performance?set=coverage', label: 'Performance' }]} />
+      <SubLinks links={[{ to: `/image-classification${back}`, label: 'Queue' }, { to: `/image-classification/compare${back}`, label: 'Compare models' }, { to: `/image-classification/try${back}`, label: 'Try a model' }, { to: `/image-classification/models${back}`, label: 'Models' }, { to: '/image-classification/performance?set=coverage', label: 'Performance' }]} />
       <ActionToolbar>
         <div className="flex flex-wrap items-center gap-3" data-testid="model-toggles">
           {modelList.map((m) => {
