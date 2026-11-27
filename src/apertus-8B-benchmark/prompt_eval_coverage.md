@@ -1,5 +1,20 @@
 # Confronto sul set coverage: 2.532 immagini (27 novembre 2026)
 
+Elenco di tutte le prove: [RISULTATI.md](../RISULTATI.md).
+
+## Scheda della prova P4: prompt zero-shot sul set coverage
+
+| voce | |
+|---|---|
+| **Domanda** | Quale prompt zero-shot classifica meglio? La v2 regge su immagini non usate per sceglierla? |
+| **Modelli** | Apertus 1.5 8B e 70B base, **nessun training**, via API Keera |
+| **Varianti** | 8B prompt breve v1; 8B e 70B con `docs/system_prompt.txt`; 8B e 70B con la v2 a descrizione |
+| **Valutazione** | 2.532 immagini `coverage`; viste `base` (2.363) e `prompt-test` (1.193), dal train etichettato |
+| **Impostazioni** | immagini a 512², contesto prodotto incluso, temperatura 0, risposta vincolata (JSON o una lettera) |
+| **Metrica** | `metric.py` ufficiale, solo label umane in celle rilevanti |
+| **Cosa non dice** | nulla sui modelli allenati; non è un punteggio Kaggle |
+
+
 Cinque varianti zero-shot sul train etichettato, API Keera, modelli base, immagini a 512², temperatura 0, risposta
 vincolata. Punteggio di `metric.py`, solo celle con label umana e rilevanti. Nessuna richiesta fallita e nessuna
 risposta non valida. Split in `src/common/splits.py`.
