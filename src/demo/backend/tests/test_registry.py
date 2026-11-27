@@ -117,3 +117,19 @@ def test_final_model_prompt_test_read_from_italian_report(client):
     assert r["per_dimension"]["perspective"]["macro_f1"] == 0.755
     cov = client.get("/api/metrics/apertus-8b-vadapter-lora-heads-final", params={"set": "coverage", "include_invalid": True}).json()
     assert [x["validity"] for x in cov["results"]] == ["seen_in_training"]
+
+
+def test_final_model_has_a_worker_family_without_gpu():
+    """Il modello finale ha la sua famiglia di worker; senza GPU il caricamento fallisce con un errore chiaro."""
+    import pytest as _pytest
+
+    from demo_worker.families import get_family
+    from demo_worker.families.base import WorkerError
+
+    family = get_family("vadapter_heads", False)
+    assert family.name == "vadapter_heads" and family.loaded() == []
+    torch = _pytest.importorskip("torch")
+    if torch.cuda.is_available():
+        _pytest.skip("GPU presente: il caricamento reale si verifica con scripts/parity.py")
+    with _pytest.raises(WorkerError):
+        family.load("apertus-8b-vadapter-lora-heads-final", {"weights": {}, "base": {}}, lambda s, m: None)

@@ -3,7 +3,7 @@
 
     python src/demo/scripts/parity.py --model apertus-8b-lora-heads-p11 --n 20      # su host GPU, solo con ok esplicito
 
-- P11 / full fine-tune: lancia `predict.py` / `ft_predict.py` (`--part coverage --limit N --batch-size N`) e confronta
+- P11 / full fine-tune / modello finale: lancia `predict.py` / `ft_predict.py` (`--part coverage --limit N --batch-size N`) e confronta
   con l'adapter sulle stesse immagini: label identiche su tutte le celle, probabilità con differenza massima ≤ 1e-3.
 - zero-shot: confronto dei corpi di richiesta con `eval_prompt.run_variant` (senza rete, gateway finto).
 - P10: serve il confronto con `evaluate.py` e i codici di `encode.py`: NON ancora implementato (esce con un errore).
@@ -50,12 +50,14 @@ def heads(settings: Settings, registry: Registry, model_id: str, n: int) -> dict
     train = pd.read_csv(settings.kaggle_dir / "train.csv", dtype=str, keep_default_na=False)
     rows = splits_module().split_rows(train, "coverage").head(n)
     folder = (settings.fullft_src if model_id == "apertus-8b-fullft-heads" else settings.repo_root / "src")
-    script = folder / ("apertus-8B-fullft-heads/ft_predict.py" if model_id == "apertus-8b-fullft-heads"
-                       else "apertus-8B-lora-heads/predict.py")
+    script = folder / {"fullft_heads": "apertus-8B-fullft-heads/ft_predict.py",
+                       "vadapter_heads": "apertus-8B-vadapter-lora-heads/predict.py"}.get(
+        raw["family"], "apertus-8B-lora-heads/predict.py")
+    extra = ["--data-dir", str(settings.kaggle_dir)] if raw["family"] == "vadapter_heads" else []
     with tempfile.TemporaryDirectory() as tmp:
         ref = Path(tmp) / "ref.csv"
         subprocess.run([sys.executable, str(script), "--checkpoint", str(checkpoint), "--part", "coverage",
-                        "--limit", str(n), "--batch-size", str(n), "--out", str(ref)], check=True)
+                        "--limit", str(n), "--batch-size", str(n), "--out", str(ref), *extra], check=True)
         reference = torch.load(ref.with_suffix(".probs.pt"))
     fields = [k for k, _ in prompt_module().CONTEXT_FIELDS]
     items = [{"image_id": r["image_id"], "sha256": r["image_id"], "path": settings.kaggle_dir / r["image_path"],
@@ -90,7 +92,7 @@ def main() -> None:
     family = entry.raw["family"]
     if family == "zeroshot_generative":
         out = zeroshot(registry, args.model)
-    elif family in ("lora_heads", "fullft_heads"):
+    elif family in ("lora_heads", "fullft_heads", "vadapter_heads"):
         out = heads(settings, registry, args.model, args.n)
     else:
         raise SystemExit("parità di P10 non ancora implementata: serve il confronto con evaluate.py e i codici di encode.py")

@@ -96,7 +96,7 @@ def main() -> None:
     import uvicorn
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--family", required=True, choices=("lora_generative", "lora_heads", "fullft_heads"))
+    parser.add_argument("--family", required=True, choices=("lora_generative", "lora_heads", "fullft_heads", "vadapter_heads"))
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--dry", action="store_true", help="solo test del protocollo (DEMO_WORKER_ALLOW_DRY=1)")
