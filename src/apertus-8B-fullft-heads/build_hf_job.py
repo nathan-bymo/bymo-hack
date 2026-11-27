@@ -18,7 +18,11 @@ Environment of the job (-e NAME=value):
   ENCODE_WORKERS   VQ processes sharing the GPU, default 3
   PREDICT_DEV      1 to also predict dev.csv in phase 1 (a file in the private repo; nothing is submitted)
   NO_CONTEXT_CHECK 1 to also predict coverage without product context
+  JOB_TIMEOUT_MINUTES  the --timeout of the job, in minutes: training ends (and saves) RESERVE_MINUTES before
+                   it, so a slow run never loses its weights. Without it only TRAIN_ARGS --max-minutes limits training.
   CHECK_ONLY       1 to only check secrets, data and model access and the real tokenizer (a CPU is enough)
+
+Phase 2 also saves a checkpoint at the end of every epoch (epoch-1, epoch-2, uploaded in the background).
 
 Hardware: one GPU with bf16 and >= 80 GB (about 60 GB used). Default rtx-pro-6000 (96 GB, 2.75 $/h on 27
 November 2026, `hf jobs hardware`); a100-large (80 GB, 2.50 $/h) also fits. The job timeout caps the cost.
@@ -27,8 +31,8 @@ November 2026, `hf jobs hardware`); a100-large (80 GB, 2.50 $/h) also fits. The 
   export HF_TOKEN=$(cat ~/.cache/huggingface/token) KAGGLE_API_TOKEN=$(cat ~/.kaggle/access_token)
   hf jobs uv run --flavor cpu-upgrade --timeout 20m --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \\
       -e CHECK_ONLY=1 data/hf_jobs/hf_job_fullft.py
-  hf jobs uv run --flavor rtx-pro-6000 --timeout 5h --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \\
-      -e UPLOAD_REPO=<user>/apertus-8b-galaxus-fullft -e TRAIN_ARGS="--max-minutes 230" \\
+  hf jobs uv run --flavor a100-large --timeout 420m --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \\
+      -e JOB_TIMEOUT_MINUTES=420 -e UPLOAD_REPO=<user>/apertus-8b-galaxus-fullft \\
       data/hf_jobs/hf_job_fullft.py
 """
 
@@ -84,6 +88,8 @@ PHASE = os.environ.get("PHASE", "1")
 SIDE = os.environ.get("SIDE", "256")
 WORKERS = int(os.environ.get("ENCODE_WORKERS", "3"))
 UPLOAD_REPO = os.environ.get("UPLOAD_REPO", "")
+JOB_TIMEOUT = float(os.environ.get("JOB_TIMEOUT_MINUTES", "0"))
+RESERVE_MINUTES = 35  # after training: uv start-up before START, final upload, predictions, logs
 PREFIX = f"phase{PHASE}"
 TRAIN_SHA256 = "@@TRAIN_SHA256@@"
 BUNDLE = "@@BUNDLE@@"
@@ -254,7 +260,10 @@ def main():
     run([*train, "--out", DATA / "smoke", "--limit", "96", "--max-steps", "3", "--evals-per-epoch", "1"], "smoke.log")
     shutil.rmtree(DATA / "smoke", ignore_errors=True)
     out = RUN / "model"
-    run([*train, "--out", out, "--upload-repo", UPLOAD_REPO, "--upload-prefix", f"{PREFIX}/model"], "train.log")
+    deadline = ["--deadline", str(START + 60 * (JOB_TIMEOUT - RESERVE_MINUTES))] if JOB_TIMEOUT else []
+    log("training deadline:", f"{JOB_TIMEOUT - RESERVE_MINUTES:.0f} min after start" if JOB_TIMEOUT else "none")
+    run([*train, "--out", out, "--upload-repo", UPLOAD_REPO, "--upload-prefix", f"{PREFIX}/model", *deadline],
+        "train.log")
     checkpoint = out / ("best" if PHASE == "1" else "last")
     upload(RUN, "logs", ["*.log"])
 

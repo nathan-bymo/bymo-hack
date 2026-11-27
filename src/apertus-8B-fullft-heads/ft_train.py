@@ -26,6 +26,7 @@ import json
 import math
 import random
 import sys
+import threading
 import time
 from contextlib import nullcontext
 from pathlib import Path
@@ -43,6 +44,7 @@ ROOT = HERE.parents[1]
 PROBE = (10, 30)  # steps between which the step time is measured (after the first, slower, steps)
 MAX_MISSING = 20  # variants the cache may lack (unreadable images) before training refuses to start
 MAX_BAD_STEPS = 5  # steps with a non-finite loss that are skipped before the run stops
+SAVE_RESERVE = 300  # seconds kept free before the budget ends: final save of ~10 GB and slack
 
 
 def log(*parts):
@@ -123,6 +125,9 @@ def main():
     parser.add_argument("--max-minutes", type=float, default=0,
                         help="safety budget: after a few steps the schedule is fitted into it, so the learning rate "
                              "still decays to 0 (the log says how many epochs fit)")
+    parser.add_argument("--deadline", type=float, default=0,
+                        help="unix time by which training must have ended and saved (the job timeout minus the time "
+                             "for upload and prediction); the schedule is fitted into it like --max-minutes")
     parser.add_argument("--tiny", action="store_true", help="random miniature Apertus on the CPU, to test the code")
     # model
     parser.add_argument("--layers", type=int, default=24, help="Apertus layers kept (of 32)")
@@ -236,6 +241,27 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     history, best, bad_steps = [], {"score": -1.0}, 0
     started, step, stop, times = time.time(), 0, False, {}
+    budget = args.max_minutes * 60 if args.max_minutes else math.inf  # seconds of training, from `started`
+    if args.deadline:
+        budget = min(budget, args.deadline - started - SAVE_RESERVE)
+        log(f"deadline: at most {budget / 60:.0f} min of training, then save and upload")
+        if budget <= 0:
+            sys.exit("no time left before the deadline")
+    pending_upload = None  # epoch checkpoints are uploaded in the background while training goes on
+
+    def save_epoch(epoch):
+        """No validation (phase 2): a checkpoint per epoch, so a stopped job keeps the epochs already done."""
+        nonlocal pending_upload
+        saving = time.time()
+        folder = args.out / f"epoch-{epoch}"
+        M.save(classifier, settings, folder)
+        log(f"epoch {epoch} checkpoint saved in {time.time() - saving:.0f} s")
+        if args.upload_repo:
+            if pending_upload:
+                pending_upload.join()
+            pending_upload = threading.Thread(target=upload, args=(args.upload_repo, folder,
+                                                                   f"{args.upload_prefix}/epoch-{epoch}"))
+            pending_upload.start()
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats()
 
@@ -268,23 +294,27 @@ def main():
                 bad_steps += 1
                 log(f"step {step + 1}: non-finite loss, step skipped ({bad_steps}/{MAX_BAD_STEPS})")
                 if bad_steps >= MAX_BAD_STEPS:
-                    sys.exit("too many non-finite losses: stopping (the best checkpoint is kept)")
+                    if not len(validation):
+                        M.save(classifier, settings, args.out / "last")
+                        upload(args.upload_repo, args.out / "last", f"{args.upload_prefix}/last")
+                    sys.exit("too many non-finite losses: stopping (the best or last checkpoint is kept)")
             schedule.step()
             optimizer.zero_grad(set_to_none=True)
             step += 1
             times[step] = time.time()
-            if step == PROBE[1] and args.max_minutes and not args.max_steps:
+            if step == PROBE[1] and math.isfinite(budget) and not args.max_steps:
                 per_step = (times[PROBE[1]] - times[PROBE[0]]) / (PROBE[1] - PROBE[0])
                 per_eval_step = len(validation) * per_step / (args.batch_size * args.accumulation) / 3 / eval_every
-                left = args.max_minutes * 60 - (time.time() - started)
+                saves = 2 * 60 * (math.ceil(args.epochs) - 1) if not len(validation) else 0  # epoch checkpoints
+                left = budget - (time.time() - started) - saves
                 fitted = max(step + 1, min(plan["total"], step + int(left / (per_step + per_eval_step))))
                 if fitted < plan["total"]:
-                    log(f"{per_step:.2f} s per step: only {fitted} of {plan['total']} steps fit in {args.max_minutes} "
-                        f"min ({fitted / steps_per_epoch:.2f} epochs); the schedule ends there")
+                    log(f"{per_step:.2f} s per step: only {fitted} of {plan['total']} steps fit in the budget of "
+                        f"{budget / 60:.0f} min ({fitted / steps_per_epoch:.2f} epochs); the schedule ends there")
                     plan["total"] = total = fitted
                 else:
-                    log(f"{per_step:.2f} s per step: all {plan['total']} steps fit in {args.max_minutes} min "
-                        f"(about {per_step * plan['total'] / 60:.0f} min of training)")
+                    log(f"{per_step:.2f} s per step: all {plan['total']} steps fit in the budget of {budget / 60:.0f} "
+                        f"min (about {per_step * plan['total'] / 60:.0f} min of training)")
             if step % 10 == 0 and losses_seen:
                 per_task = [sum(v[t] for v in losses_seen if v[t] is not None)
                             / max(1, sum(v[t] is not None for v in losses_seen)) for t in range(len(D.DIMENSIONS))]
@@ -292,7 +322,7 @@ def main():
                 log(f"epoch {epoch} step {step}/{total} loss " + " ".join(f"{x:.3f}" for x in per_task)
                     + f" | lr {schedule.get_last_lr()[0]:.2e} | {rate:.1f} items/s, peak {peak():.1f} GB")
             last_of_epoch = start + args.accumulation >= len(micro)
-            timeout = args.max_minutes and time.time() - started > args.max_minutes * 60 * 1.05
+            timeout = time.time() - started > budget
             stop = step >= total or bool(timeout)
             if len(validation) and (step % eval_every == 0 or last_of_epoch or stop):
                 score, per_dimension = evaluate(classifier, val_batches, validation, metric, 2 * args.batch_size,
@@ -310,6 +340,8 @@ def main():
                 break
         if stop:
             break
+        if not len(validation) and epoch < math.ceil(args.epochs):
+            save_epoch(epoch)
     if not len(validation):
         M.save(classifier, settings, args.out / "last")
 
@@ -322,6 +354,8 @@ def main():
                "args": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}}
     (args.out / "train_summary.json").write_text(json.dumps(summary, indent=2))
     checkpoint = "best" if len(validation) else "last"
+    if pending_upload:
+        pending_upload.join()
     upload(args.upload_repo, args.out / checkpoint, f"{args.upload_prefix}/{checkpoint}")
     upload(args.upload_repo, args.out, args.upload_prefix, ["train_summary.json"])
     if len(validation):
