@@ -8,6 +8,8 @@ Questo progetto partecipa alla competizione Kaggle `hackapertus-galaxus`. Leggi 
 - `apertus-70B-benchmark/`: esperimenti e notebook per il benchmark Apertus 70B.
 - `apertus-8B-benchmark/`: esperimenti e notebook per il benchmark Apertus 8B.
 - `apertus-8B-lora-heads/`: LoRA su Apertus 8B e 6 teste allenati insieme, senza adapter; comando per le predizioni, file Kaggle e job H200. Risultato sul training completo in `results_full_h200.md`.
+- `apertus-8B-vadapter-lora-heads/`: modello combinato SigLIP 2 → projector → Apertus 8B troncato con LoRA → 6 teste di classificazione (focal loss), training su tutto il train e job per H200.
+- `apertus-8B-fullft-heads/`: fine-tuning completo di Apertus 8B (24 layer, niente LoRA) con 6 teste; job Hugging Face e risultato sul dev in `results_phase2.md`.
 - `scripts/`: script condivisi. Conserva ogni esperimento nella propria cartella e documenta dipendenze, configurazione, dati, comandi e risultati in modo riproducibile.
 - `common/`: codice condiviso per prompt (`prompt.py`), preparazione delle immagini (`images.py`) e split dei dati (`splits.py`).
 
