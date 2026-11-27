@@ -54,6 +54,38 @@ Pesi finali di GradNorm (somma 6):
 | cross-entropy + GradNorm | 24 | 23 | subject 1.09, background 1.21, perspective 1.39, individuals 0.79, text_classification 0.74, text_language 0.79 |
 | focal + GradNorm | 28 | 13 | subject 0.70, background 1.50, perspective 1.37, individuals 1.11, text_classification 0.61, text_language 0.71 |
 
+## Configurazione del training delle teste
+
+| impostazione | valore |
+|---|---|
+| Apertus | congelato, nessuna epoca: un forward per immagine |
+| feature per layer | ultimo token del prompt e media dei token immagine, standardizzate sulle immagini di training |
+| layer provati | 12, 16, 20, 24, 28, 32 |
+| modello | strato condiviso da 512 (GELU, dropout 0.3) e una testa lineare per dimensione |
+| modelli allenati | 24 (6 layer × 4 varianti) |
+| epoche | massimo 30 per modello; si tiene quella migliore sulla validazione interna |
+| batch | 256 su 1.199 immagini: 5 passi per epoca, al massimo 150 |
+| ottimizzatore | AdamW, learning rate 0.001, weight decay 0.05, andamento a coseno |
+| gradient clipping | norma 1.0, in tutte le varianti |
+| focal | γ = 2, senza pesi per classe |
+| GradNorm | α = 1.5, learning rate dei pesi 0.025 |
+| seed | 3407, uno solo |
+
+Epoche tenute: cross-entropy 22 (110 passi), focal 16, cross-entropy + GradNorm 23, focal + GradNorm 13. I passi sono
+pochi, in particolare per GradNorm, che impara anche i pesi delle sei loss: l'effetto di questo **non è stato
+verificato**. Con 30 epoche massime tutte le epoche tenute vengono prima dell'ultima; non è stato provato un massimo
+diverso. Download, estrazione, training e valutazione: 7,4 minuti; training dei 24 modelli circa 1,4 minuti.
+
+Dettaglio per classe e matrici di confusione di tutte le varianti: [results_small_h200_per_class.md](results_small_h200_per_class.md).
+
+## Osservazioni sul dettaglio per classe (cross-entropy)
+
+- Le classi più frequenti nel training vengono scelte spesso: `full_product` 194 volte (85 esempi veri), `none` del
+  testo 274 (170), `English` 162 (85). Il training segue circa la distribuzione originale, le 450 sono bilanciate.
+  **Ipotesi da verificare:** dare più peso alle classi rare può aiutare.
+- Pochi esempi pesano ma non spiegano tutto: `certification_seal` (3 esempi visti) non viene mai trovata, `placeholder`
+  (20) va bene, `front_angle_left` (102) viene scambiata per `front_angle_right` 18 volte su 30.
+
 ## F1 per classe
 
 `n`: esempi della classe nelle celle valutate (⚠ sotto 10). `-`: classe senza esempi e mai predetta.
