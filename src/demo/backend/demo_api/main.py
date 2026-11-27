@@ -29,6 +29,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logging.getLogger("demo_api").addHandler(handler)
         app.state.db = db_module.Database(settings.data_dir / "demo.sqlite")
         app.state.db.init()
+        from .guard import Guard
+
+        app.state.guard = Guard.load(app.state.storage.guard_index)
         yield
         app.state.db.close()
 

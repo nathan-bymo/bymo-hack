@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from pathlib import Path
@@ -72,6 +73,8 @@ def upload_images(
         name = upload.filename or f"file-{index}"
         try:
             data = upload.file.read(max_bytes + 1)
+            if guard is not None:
+                guard.check(hashlib.sha256(data).hexdigest())  # byte originali, prima di un eventuale EXIF
             item = images_io.ingest(data, upload.content_type, max_bytes, settings.max_pixels)
             if guard is not None:
                 guard.check(item.sha256)
