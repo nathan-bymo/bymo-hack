@@ -80,7 +80,8 @@ dev e final.
 - `MODE=check` su Hugging Face (CPU): accesso ai dati e al modello, tokenizer, chat template e image processor veri.
 - `MODE=smoke` su H200: 3 passi, upload, download, ricaricamento, stesse predizioni su 16 immagini.
 - Training completo e predizione di coverage su H200: vedi [results_full_h200.md](results_full_h200.md).
-- **Non ancora provate:** predizioni su dev e final con il modello vero, ripresa di un job interrotto.
+- `MODE=predict` su H200: modello riscaricato, stesse risposte su coverage, 5.261 immagini dev predette; dev pubblico Kaggle 0.796.
+- **Non ancora provate:** predizioni sulle immagini final, ripresa di un job interrotto.
 
 ```sh
 python -m pytest -q src/apertus-8B-lora-heads/test_pipeline.py

@@ -7,7 +7,7 @@ Aggiornato al 27 novembre 2026. Serve per il report finale. Ogni report ha in ci
 1. Ogni numero vale sul proprio set di immagini: **non confrontare set diversi**.
 2. "Zero-shot": nessun training. "Teste": Apertus congelato, si allenano solo le teste. "LoRA": Apertus adattato.
 3. La macro F1 è la media delle sei dimensioni, ognuna media delle sue classi.
-4. Nessuno di questi è un punteggio della classifica Kaggle.
+4. Nessuno di questi è un punteggio della classifica Kaggle, salvo la sezione "Kaggle" qui sotto.
 
 ## Set di valutazione
 
@@ -65,6 +65,15 @@ Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagi
 | P4 | 70B zero-shot, v2 | 0.583 |
 | P10 | 8B + LoRA con JSON, allenato su 1.500 immagini | 0.734 |
 | **P11** | **8B + LoRA + teste, allenato su 9.344 immagini** | **0.781** (base 0.786, prompt-test 0.791) |
+
+## Kaggle (dev, classifica pubblica)
+
+| modello | dev pubblico |
+|---|---|
+| Qwen 3.5 9B finetunato (baseline) | 0.917 |
+| Gemini 4 Argon zero-shot | 0.834 |
+| Gemini 3.8 Flash zero-shot | 0.806 |
+| **P11, LoRA + teste** | **0.796** |
 
 ## Cosa sappiamo
 

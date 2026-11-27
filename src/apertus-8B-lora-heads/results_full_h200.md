@@ -147,6 +147,23 @@ Righe: label. Colonne: c1 = front_head_on, c2 = front_angle_left, c3 = front_ang
 - Destra e sinistra in `perspective` restano il punto debole (`front_angle_left` 0.59, `front_angle_right` 0.52).
 - La memoria di training è arrivata a 139 GB su 141: margine quasi nullo con queste impostazioni.
 
+## Punteggio Kaggle (dev, classifica pubblica)
+
+Inviato il 27 novembre alle 21:30 CET (submission 59018375), dall'account di un membro del team. Righe final
+costanti come in `sample_submission.csv` (le immagini final non sono ancora disponibili).
+
+| modello | dev pubblico |
+|---|---|
+| Qwen 3.5 9B finetunato (baseline Galaxus) | 0.917 |
+| Gemini 4 Argon zero-shot | 0.834 |
+| Gemini 3.8 Flash zero-shot | 0.806 |
+| **LoRA + teste (P11)** | **0.796** |
+
+Il modello è **sotto Gemini 3.8 Flash** sul dev: oggi sarebbe nella fascia di performance più bassa.
+
+Le predizioni dev vengono dal modello **riscaricato** dal repository privato (`MODE=predict` del job): su coverage dà
+le stesse risposte del job di training per tutte le 2.532 immagini (macro F1 0.781), 13,35 immagini/s su H200.
+
 ## Velocità, memoria e costo
 
 | fase | misura |

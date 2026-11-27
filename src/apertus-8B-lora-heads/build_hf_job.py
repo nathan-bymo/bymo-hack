@@ -8,9 +8,12 @@ Environment of the job (-e NAME=value):
   MODE          check  secrets, data and model access, real tokenizer and image processor (a CPU is enough)
                 smoke  3 training steps on 96 images, upload, download into a new folder, reload, same predictions
                 train  encode, train, upload the model, predict and score (default)
+                predict download MODEL_PATH from UPLOAD_REPO, predict coverage (scored, to check the reload) and
+                       dev.csv; upload the predictions. Nothing is submitted
   SPLIT         small  train_1500 + validation_450 and coverage (default)
                 full   training_rows and coverage
   TRAIN_ARGS    extra arguments for train.py
+  MODEL_PATH    predict only: folder of the model in UPLOAD_REPO (default full-train/model/final)
 
   python src/apertus-8B-lora-heads/build_hf_job.py
   export HF_TOKEN=$(cat ~/.cache/huggingface/token) KAGGLE_API_TOKEN=$(cat ~/.kaggle/access_token)
@@ -18,6 +21,7 @@ Environment of the job (-e NAME=value):
       -e MODE=check -e UPLOAD_REPO=<user>/galaxus-lora-heads-private data/hf_jobs/hf_job_lora_heads.py
   hf jobs uv run --flavor h200 --timeout 20m ... -e MODE=smoke ...
   hf jobs uv run --flavor h200 --timeout 1h ... -e MODE=train ...
+  hf jobs uv run --flavor h200 --timeout 40m ... -e MODE=predict -e SPLIT=full ...
 
 The timeout caps the cost: the job is stopped when it expires.
 """
@@ -218,10 +222,32 @@ def smoke(train_csv):
     log("SMOKE OK: trained, saved, uploaded, downloaded and reloaded; same predictions")
 
 
+def predict_dev():
+    """The saved model, downloaded again: coverage (to compare with the predictions of the training job) and dev."""
+    from huggingface_hub import snapshot_download
+
+    model_path = os.environ.get("MODEL_PATH", "full-train/model/final")
+    folder = snapshot_download(UPLOAD_REPO, allow_patterns=[f"{model_path}/*"], local_dir=DATA / "model_download")
+    checkpoint = Path(folder) / model_path
+    assert (checkpoint / "heads.pt").exists() and (checkpoint / "settings.json").exists(), f"no model in {model_path}"
+    log("model downloaded from the private repository:", model_path)
+    outputs = RUN / "predictions"
+    run([f"{FOLDER}/predict.py", "--checkpoint", checkpoint, "--part", "coverage", "--out", outputs / "coverage.csv"],
+        "predict_coverage.log")
+    upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])
+    run(["src/scripts/eval_prompt.py", outputs / "coverage.csv", "--split", "coverage", "--bootstrap", "0"],
+        "scores_coverage.log")
+    run([f"{FOLDER}/predict.py", "--checkpoint", checkpoint, "--csv", DATA / "dev.csv", "--out", outputs / "dev.csv"],
+        "predict_dev.log")
+    upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])
+    upload(RUN, "logs", ["*.log"])
+    log("ALL DONE")
+
+
 def main():
     unpack()
     assert os.environ.get("HF_TOKEN") and os.environ.get("KAGGLE_API_TOKEN"), "secrets HF_TOKEN and KAGGLE_API_TOKEN"
-    assert MODE in ("check", "smoke", "train") and SPLIT in ("small", "full")
+    assert MODE in ("check", "smoke", "train", "predict") and SPLIT in ("small", "full")
     assert UPLOAD_REPO, "set UPLOAD_REPO: without it the model is lost when the job ends"
     if MODE == "check":
         return check()
@@ -247,6 +273,8 @@ def main():
         thread.join()
     assert not errors, errors
     train_csv, validation_csv = prepare_splits()
+    if MODE == "predict":
+        return predict_dev()
     if MODE == "smoke":
         return smoke(train_csv)
 
