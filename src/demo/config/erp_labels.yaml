@@ -1,0 +1,27 @@
+# Etichette "stile ERP" delle classi. Fonte di verità = stringhe interne di src/common/prompt.py (TAXONOMY).
+# Solo poche etichette sono note: le 4 viste nello screenshot C (descrizione dell'utente del 27/11, non verificate
+# sull'originale) e `-` per Overlay e Language. Resta ignoto il valore `none` di Individuals (proposta `-`, Q13).
+# Per tutte le altre vale la regola automatica `auto` (snake_case -> Title Case), dichiarata come tale in UI.
+# Nessuna etichetta di questo file va presentata come etichetta Galaxus.
+auto_rule: title_case
+dimensions:
+  subject: Subject
+  background: Background
+  perspective: Perspective
+  individuals: Individuals
+  text_classification: Overlay
+  text_language: Language
+labels:
+  subject:
+    full_product: {label: "Full Product View", source: screenshot}
+  background:
+    scene_lifestyle: {label: "Lifestyle Scene", source: screenshot}
+  perspective:
+    front_angle_left: {label: "Front – Angled Left", source: screenshot}
+  individuals:
+    individual_present: {label: "Person(s) Present", source: screenshot}
+    none: {label: "-", source: proposal}          # Q13: default proposto, da verificare
+  text_classification:
+    none: {label: "-", source: screenshot}
+  text_language:
+    none: {label: "-", source: screenshot}

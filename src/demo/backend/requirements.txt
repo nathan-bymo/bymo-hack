@@ -1,0 +1,12 @@
+# API della demo (CPU). Si installa nel .venv del repo: uv pip install --python .venv/bin/python -r src/demo/backend/requirements.txt
+# pandas e pillow alle versioni di src/requirements.txt:1-2; pydantic è quello già nel .venv.
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.34
+pyyaml==6.0.4
+httpx==0.29.0
+pydantic==2.14.4
+pandas==3.1.1
+pillow==13.0.0
+pytest==9.2.0
+pytest-asyncio==1.5.0

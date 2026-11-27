@@ -1,0 +1,50 @@
+/* Token di design della demo (allegato D, D.1.2).
+   Valori DESCRITTI da una descrizione degli screenshot di riferimento (foto da telefono di un televisore, angolate,
+   con riflessi e dominante blu: colori ±10–15%, verde/viola/rosso i meno affidabili; risoluzione probabile 1920×1080).
+   NON sono misurati con la procedura D.1.1. Per i colori esatti servono gli screenshot diretti o le variabili CSS.
+   Il commento `descritto:` indica il valore dichiarato; `ripiego:` un valore nostro; `nostro:` colori non Galaxus. */
+:root {
+  --c-titlebar-bg: #2f5e4a;      /* descritto: barra titolo verde */
+  --c-titlebar-fg: #ffffff;      /* descritto */
+  --c-accent-line: #e5533d;      /* descritto: linea d'accento, ~3px */
+  --c-imagetype-bg: #d7e7f6;     /* descritto: pannello "Image type" */
+  --c-imagetype-border: #a9bcd6; /* descritto: linee di riga del pannello */
+  --c-panel-frame: #4b4b55;      /* descritto: bordo superiore del pannello (3px) e cornice grigia scura della vista dettaglio */
+  --c-switch-now: #7b5ce6;       /* descritto: pulsante "Switch now" (bianco su viola) */
+  --c-link: #1f4fa8;             /* descritto: link sottolineati */
+  --c-section-title: #1d2f5e;    /* descritto: titoli di sezione */
+  --c-app-bg: #eef0f6;           /* descritto: sfondo app e sidebar */
+  --c-panel-bg: #ffffff;         /* descritto */
+  --c-border: #dce0e5;           /* descritto: separatori di riga 1px (#DCDFE5) */
+  --c-section-rule: #3a3a40;     /* descritto: linea tra le sezioni, 2px */
+  --c-field-border: #9a9ea6;     /* descritto: bordo di tendine e pulsante Cancel */
+  --c-text: #222222;             /* descritto */
+  --c-text-muted: #6b6f78;       /* descritto */
+  --c-toolbar-btn-bg: #ecedf0;   /* descritto: pulsanti della toolbar */
+  --c-toolbar-btn-border: #b8bcc4; /* descritto */
+  --c-status-red: #d9443a;       /* descritto */
+  --c-status-blue: #2f4fb0;      /* descritto */
+  --c-store-pill: #111111;       /* descritto: pulsante a pillola dello storefront */
+  --c-store-price: #111111;      /* descritto */
+  /* chip di confidenza: colori NOSTRI (non Galaxus), scelti per contrasto AA su sfondi -50 */
+  --c-conf-high: #047857;  --c-conf-high-bg: #ecfdf5;   /* nostro: emerald-700 su emerald-50 */
+  --c-conf-mid: #b45309;   --c-conf-mid-bg: #fffbeb;    /* nostro: amber-700 su amber-50 */
+  --c-conf-low: #b91c1c;   --c-conf-low-bg: #fef2f2;    /* nostro: red-700 su red-50 */
+  --c-invalid: #b91c1c;    --c-invalid-bg: #fef2f2;     /* nostro: red-700 su red-50 */
+  --font-sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; /* descritto: grotesca neutra (Helvetica/Arial/Inter); font di sistema, niente download */
+  --fs-label: 11px;        /* descritto */
+  --fs-value: 12px;        /* descritto */
+  --fs-title: 14px;        /* descritto: 13–14px grassetto */
+  --fs-title-main: 18px;   /* descritto: "Products" 18px grassetto sottolineato */
+  --fs-section: 13px;      /* descritto: grassetto, sottolineato */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; /* ripiego; righe 20–22px, padding sezioni ~12px descritti */
+  --radius-field: 2px;     /* descritto: tendine */
+  --radius-search: 18px;   /* descritto: ricerca ERP */
+  --radius-btn: 3px;       /* descritto */
+  --radius-switch: 4px;    /* descritto */
+  --radius-card: 0px;      /* descritto: schede quadrate */
+  --shadow: none;          /* descritto: nessuna ombra */
+}
+/* Densità: Normale (laptop) e Presentazione (TV 1080p, 125%) */
+html { font-size: 100%; }
+html[data-density="presentation"] { font-size: 125%; }

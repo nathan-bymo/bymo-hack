@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+@theme {
+  --color-titlebar: var(--c-titlebar-bg);
+  --color-titlebar-fg: var(--c-titlebar-fg);
+  --color-accent: var(--c-accent-line);
+  --color-imagetype: var(--c-imagetype-bg);
+  --color-imagetype-border: var(--c-imagetype-border);
+  --color-switch: var(--c-switch-now);
+  --color-frame: var(--c-panel-frame);
+  --color-sect: var(--c-section-title);
+  --color-fieldline: var(--c-field-border);
+  --color-link: var(--c-link);
+  --color-app: var(--c-app-bg);
+  --color-panel: var(--c-panel-bg);
+  --color-line: var(--c-border);
+  --color-ink: var(--c-text);
+  --color-muted: var(--c-text-muted);
+  --color-toolbtn: var(--c-toolbar-btn-bg);
+  --color-conf-high: var(--c-conf-high);
+  --color-conf-high-bg: var(--c-conf-high-bg);
+  --color-conf-mid: var(--c-conf-mid);
+  --color-conf-mid-bg: var(--c-conf-mid-bg);
+  --color-conf-low: var(--c-conf-low);
+  --color-conf-low-bg: var(--c-conf-low-bg);
+  --color-invalid: var(--c-invalid);
+  --color-invalid-bg: var(--c-invalid-bg);
+  --font-sans: var(--font-sans);
+}
+
+body { margin: 0; background: var(--c-app-bg); color: var(--c-text); font-family: var(--font-sans); font-size: var(--fs-value); }
+a { color: var(--c-link); }
+:focus-visible { outline: 2px solid var(--c-link); outline-offset: 1px; }
+.section-title { font-size: var(--fs-section); font-weight: 700; text-decoration: underline; color: var(--c-section-title); }
+.erp-select { height: 26px; border: 1px solid var(--c-field-border); border-radius: var(--radius-field); background: #fff; font-size: var(--fs-value); }
+.erp-cancel { border: 1px solid var(--c-field-border); border-radius: var(--radius-btn); background: linear-gradient(#f4f4f6, #e2e3e6); box-shadow: 0 1px 1px rgba(0,0,0,.15); padding: 3px 12px; font-size: var(--fs-value); }
