@@ -32,6 +32,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from .guard import Guard
 
         app.state.guard = Guard.load(app.state.storage.guard_index)
+        from .registry import Registry
+
+        app.state.registry = Registry(settings, app.state.db)  # fallisce all'avvio se models.yaml non è valido
         yield
         app.state.db.close()
 
@@ -40,9 +43,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     errors.install(app)
 
-    from .routers import health, images, sessions, taxonomy
+    from .routers import health, images, models, sessions, taxonomy
 
-    for module in (health, taxonomy, sessions, images):
+    for module in (health, taxonomy, sessions, images, models):
         app.include_router(module.router, prefix="/api")
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)

@@ -1,0 +1,200 @@
+# src/demo/models.yaml — registro dei modelli della demo (dal piano del 27/11/2026; HF riverificato alle ~21:30 UTC).
+# Regole: ogni valore ha una fonte; i campi ignoti valgono "[DA VERIFICARE]" e rendono il modello "unavailable".
+# Nessuna metrica è stimata. kaggle_dev.score si compila SOLO a mano con il punteggio letto su Kaggle.
+schema_version: 1
+verified_at: "2026-11-27T20:08:00Z"
+
+defaults:
+  base_model:
+    repo: swiss-ai/Apertus-v1.5-8B
+    revision: 1519de0ae7f3d114879291810a58259966f64c99      # src/apertus-8B-lora-heads/encoders.py:19-20
+    size_gb: 18.4                                             # model.safetensors.index.json total_size 18396023436
+  transformers_fork: "git+https://github.com/swiss-ai/transformers.git@3797303dda74844e3d1f8977ff5518bb91f818b4"
+  reference_line:
+    value: 0.917
+    label: "Organisers' reference (Qwen 3.5 9B FT, dev)"
+    source: "challenge_description.md:143"
+  throughput_target_images_per_second: 2                      # challenge_description.md:67
+  cost:
+    default: {gpu_label: "A100 80GB (HF a100-large)", usd_per_hour: 2.50,
+              source: "feat/apertus-8b-fullft-heads:src/apertus-8B-fullft-heads/README.md:71"}
+    alternatives:
+      - {gpu_label: "H200 (HF)", usd_per_hour: 5.00, source: "src/apertus-8B-lora-heads/results_full_h200.md:157"}
+      - {gpu_label: "RTX PRO 6000 (HF)", usd_per_hour: 2.75, source: "feat/apertus-8b-fullft-heads:src/apertus-8B-fullft-heads/README.md:70"}
+      - {gpu_label: "L40S (HF)", usd_per_hour: 1.80, source: "FAQ.md:22"}
+
+models:
+
+  - id: apertus-8b-zeroshot-v2
+    display_name: "Apertus 8B · zero-shot · prompt v2"
+    family: zeroshot_generative
+    adapter: ZeroShotGenerativeAdapter
+    runtime: remote_openai
+    endpoint: {base_url_env: LLM_BASE_URL, api_key_env: LLM_API_KEY, model_name: apertus-v1-5-8b,
+               default_base_url: "https://gateway.keera.ch/api/v1"}   # src/AGENTS.md:58-65
+    prompt: {version: v2, spec: "8b:describe:codes:512", layout: describe, answer: codes, side: 512,
+             use_context_default: true, system_message: false}        # src/AGENTS.md:16-24
+    confidence: {kind: full_distribution, method: letter_logprob}
+    training: {data: none, phase: null, seen_sets: []}
+    vram_estimate_gb: null                                            # remoto
+    measured:
+      - {what: "img/s", value: 3.8, conditions: "gateway Keera condiviso, 32 in parallelo, coverage",
+         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:97"}
+      - {what: "latenza mediana s/immagine", value: 8.0, source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:97"}
+    evals:
+      - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.528, weighted_f1: 0.705,
+         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:45",
+         note: "prompt scelto sulle prime 600 di prompt-dev, che sono dentro coverage"}
+      - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.513, weighted_f1: 0.708,
+         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:57"}
+      - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.502, weighted_f1: 0.703,
+         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:69", note: "non usato per scegliere il prompt"}
+    per_class_source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:107-400"
+    kaggle_dev: {score: null, submitted_at: null, note: ""}
+
+  - id: apertus-70b-zeroshot-v2
+    display_name: "Apertus 70B · zero-shot · prompt v2"
+    family: zeroshot_generative
+    adapter: ZeroShotGenerativeAdapter
+    runtime: remote_openai
+    endpoint: {base_url_env: LLM_BASE_URL, api_key_env: LLM_API_KEY, model_name: apertus-v1-5-70b,
+               default_base_url: "https://gateway.keera.ch/api/v1"}
+    prompt: {version: v2, spec: "70b:describe:codes:512", layout: describe, answer: codes, side: 512,
+             use_context_default: true, system_message: false}
+    confidence: {kind: full_distribution, method: letter_logprob}
+    training: {data: none, phase: null, seen_sets: []}
+    vram_estimate_gb: null
+    measured:
+      - {what: "img/s", value: 2.8, conditions: "gateway Keera condiviso, 32 in parallelo, coverage",
+         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:99"}
+      - {what: "latenza mediana s/immagine", value: 11.1, source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:99"}
+    evals:
+      - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.583, weighted_f1: 0.739,
+         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:47", note: "prompt scelto su prompt-dev ⊂ coverage"}
+      - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.587, weighted_f1: 0.742,
+         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:59"}
+      - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.590, weighted_f1: 0.740,
+         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:71"}
+    per_class_source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:107-400"
+    kaggle_dev: {score: null, submitted_at: null, note: ""}
+
+  - id: apertus-8b-lora-p10
+    display_name: "Apertus 8B · LoRA (P10, 1.500 immagini) · JSON"
+    family: lora_generative
+    adapter: LoraGenerativeAdapter
+    runtime: worker_gpu
+    weights:
+      repo: StoryofLegend/apertus-8b-galaxus-lora          # privato
+      revision: be79276586ea5610d3a96a081988da8d977e7af3
+      subfolder: prototype-256/adapters/step-00738         # "final" perso: solo adapter_config.json
+      size_gb: 0.319
+      requires_base: true
+      base_revision_note: "[DA VERIFICARE] revisione base non fissata nel codice P10; si usa quella di defaults"
+    code: {root: "src/apertus-8B-benchmark/lora", reference: "evaluate.py:94-193"}
+    prompt: {version: "lora-json-short", system_prompt_source: "src/apertus-8B-benchmark/lora/apertus_lora.py:31-35",
+             side: 256, use_context_default: true, decoding: {max_new_tokens: 96, do_sample: false}}
+    dtype: bfloat16
+    confidence: {kind: chosen_only, method: sequence_prob, stretch_method: constrained_scoring}
+    training: {data: "prototype train_1500 (dentro training_rows)", phase: 1, seen_sets: [train_1500]}
+    vram_estimate_gb: 24          # [STIMA] 18,4 GB pesi + VQ 0,87 GB + cache KV; da misurare
+    measured:
+      - {what: "img/s (solo generate, VQ escluso)", value: 18.0, conditions: "H200, batch 32, coverage",
+         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json:6"}
+    evals:   # tutti riferiti all'adapter "final", NON a step-00738
+      - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.734, weighted_f1: 0.879,
+         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json", checkpoint: final,
+         note: "21 risposte non valide su 2.532"}
+      - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.721, weighted_f1: 0.885,
+         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json", checkpoint: final}
+      - {set: prompt-test, validity: phase1_internal, provenance: reported_only, macro_f1: 0.711, weighted_f1: 0.881,
+         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json", checkpoint: final,
+         note: "valore esatto 0.7115; docs/context/EXPERIMENTS.md sul branch scrive 0.712"}
+      - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.696, weighted_f1: 0.747,
+         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_prototype_validation.json", checkpoint: final,
+         note: "set bilanciato, non rappresentativo"}
+    per_class_source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json"
+    kaggle_dev: {score: null, submitted_at: null, note: ""}
+
+  - id: apertus-8b-lora-heads-p11
+    display_name: "Apertus 8B · LoRA + 6 teste (P11, 9.344 immagini)"
+    family: lora_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      repo: "[DA VERIFICARE] <utente>/galaxus-lora-heads-private"     # results_full_h200.md:169
+      revision: "[DA VERIFICARE]"
+      subfolder: "full-train/model/final"                            # [DA VERIFICARE] da build_hf_job.py:77,182,207-209
+      local_path: null                                               # alternativa: cartella final/ copiata a mano
+      files: ["lora/adapter_model.safetensors", "lora/adapter_config.json", "heads.pt", "settings.json"]  # model.py:129-139
+      requires_base: true
+    code: {root: "src/apertus-8B-lora-heads", reference: "predict.py:65-179"}
+    prompt: {version: "heads-task", task_source: "src/apertus-8B-lora-heads/encoders.py:21-22", side: 256,
+             use_context_default: true, system_message: false}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: cross_entropy}
+    training: {data: "training_rows (9.344)", phase: 1, seen_sets: [training_rows]}
+    vram_estimate_gb: 22.0        # MISURATO: picco allocato, batch 32, H200 (results_full_h200.md:156)
+    measured:
+      - {what: "img/s (immagine → CSV)", value: 13.2, conditions: "H200, batch 32, coverage, caricamento escluso",
+         source: "src/apertus-8B-lora-heads/results_full_h200.md:156"}
+    evals:
+      - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.781, weighted_f1: 0.905,
+         source: "src/apertus-8B-lora-heads/results_full_h200.md:23"}
+      - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.786, weighted_f1: 0.913,
+         source: "src/apertus-8B-lora-heads/results_full_h200.md:24"}
+      - {set: prompt-test, validity: phase1_internal, provenance: reported_only, macro_f1: 0.791, weighted_f1: 0.915,
+         source: "src/apertus-8B-lora-heads/results_full_h200.md:25"}
+    per_class_source: "src/apertus-8B-lora-heads/results_full_h200.md:46-120"
+    confusion_source: {dimension: perspective, set: coverage, source: "src/apertus-8B-lora-heads/results_full_h200.md:122-136"}
+    caveats: ["comportamento senza contesto prodotto non misurato (results_full_h200.md:17)"]
+    kaggle_dev: {score: null, submitted_at: null, note: ""}
+
+  - id: apertus-8b-fullft-heads
+    display_name: "Apertus 8B · full fine-tune 24 layer + 6 teste (fase 2, tutto il train)"
+    family: fullft_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      repo: StoryofLegend/apertus-8b-galaxus-fullft         # privato
+      revision: 711018b7a25dc130d04074331f1aa6946f727e23     # 20:52 UTC (riverificato 27/11); cambierà con last
+      subfolder: phase2/model/epoch-1                       # Q4: `last` se esiste, altrimenti epoch-1 "intermedio"; epoch-2 esiste dalle 20:52 UTC (stessa dimensione, file di epoch-1 invariati)
+      files: ["decoder.safetensors", "heads.pt", "settings.json"]
+      size_gb: 10.486                                       # 10,469 + 0,017
+      requires_base: true                                   # embedding congelati dal modello base (ft_model.py:117-122)
+      job: {id: 6b09cdb46c5d61fff189842a, flavor: a100-large, status_at_verification: RUNNING, env: {PHASE: "2", EPOCHS: "3"}}
+    code: {root_env: DEMO_FULLFT_SRC, branch: feat/apertus-8b-fullft-heads, commit: 9145fca,
+           reference: "src/apertus-8B-fullft-heads/ft_predict.py:34-109"}
+    prompt: {version: "heads-task", task_source: "src/apertus-8B-vadapter-lora-heads/encoders.py:30-31 (branch)",
+             side: 256, use_context_default: true, prefix_tokens: 0}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
+    training: {data: "tutto train.csv (11.876)", phase: 2, seen_sets: [train_all, coverage, base, prompt-test, validation_450, train_1500]}
+    vram_estimate_gb: 24          # [STIMA] picco al caricamento; da misurare
+    measured: []
+    evals: []                     # nessun set locale valido: tutto il train è stato visto
+    contamination_note: "Allenato su tutte le 11.876 immagini: ogni metrica su sottoinsiemi del train è 'seen during training — invalid'."
+    kaggle_dev: {score: null, submitted_at: null, note: "unico numero valido per questo modello"}
+
+  - id: apertus-8b-frozen-heads-p8
+    display_name: "Apertus 8B congelato + teste (P8, cross-entropy, 1 seed)"
+    family: frozen_heads
+    adapter: null
+    runtime: none
+    status_override: {status: unavailable, reason: "manca un predittore end-to-end e i pesi non sono su questa macchina"}
+    training: {data: "train_1500: 1.199 fit + 301 scelta", phase: 1, seen_sets: [train_1500]}
+    evals:
+      - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.542, weighted_f1: 0.612,
+         source: "src/confronto_lora.md:35", note: "set bilanciato, non confrontabile con coverage"}
+    kaggle_dev: {score: null}
+
+  - id: apertus-8b-frozen-heads-p9
+    display_name: "Apertus 8B congelato + teste (P9, cross-entropy pesi forti, media 5 seed)"
+    family: frozen_heads
+    adapter: null
+    runtime: none
+    status_override: {status: unavailable, reason: "manca un predittore end-to-end e i pesi non sono su questa macchina"}
+    training: {data: "train_1500: 1.199 fit + 301 scelta", phase: 1, seen_sets: [train_1500]}
+    evals:
+      - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.557, weighted_f1: 0.629,
+         source: "src/confronto_lora.md:36", note: "media di 5 seed; set bilanciato"}
+    kaggle_dev: {score: null}
