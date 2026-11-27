@@ -1,5 +1,17 @@
 # Analisi preliminare maestro–studente: 70B e 8B zero-shot (27 novembre 2026)
 
+Elenco di tutte le prove: [RISULTATI.md](../RISULTATI.md).
+
+## Scheda della prova P5: accordo tra 70B e 8B (analisi preliminare alla distillazione)
+
+| voce | |
+|---|---|
+| **Domanda** | Dove il 70B potrebbe fare da maestro all'8B? |
+| **Modelli** | 70B e 8B base zero-shot con la v2; **nessun training, nessuna distillazione** |
+| **Dati** | le risposte salvate della prova P4: nessuna nuova chiamata |
+| **Cosa non dice** | non dimostra che la distillazione funzioni; riguarda l'8B non allenato |
+
+
 **Non è un test di distillazione:** nessun modello è stato allenato. Serve a vedere dove il 70B potrebbe aiutare o
 danneggiare. Le conclusioni riguardano l'8B zero-shot; dopo un LoRA i suoi errori saranno diversi. Entrambi usano il
 prompt v2 con descrizione. Le percentuali sono sulle celle valutate e sono dominate dalle classi frequenti: non

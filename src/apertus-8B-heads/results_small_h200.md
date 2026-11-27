@@ -1,5 +1,22 @@
 # Teste su Apertus 8B congelato: primo test su H200 (27 novembre 2026)
 
+Elenco di tutte le prove: [RISULTATI.md](../RISULTATI.md).
+
+## Scheda della prova P8: teste di classificazione su Apertus 8B congelato (H200)
+
+| voce | |
+|---|---|
+| **Domanda** | Le teste sulle rappresentazioni interne di Apertus funzionano? Focal loss e GradNorm aiutano? |
+| **Modello** | Apertus 1.5 8B base **congelato, senza LoRA** |
+| **Cosa si allena** | solo uno strato condiviso e 6 teste lineari |
+| **Training** | `train_1500.csv` di Nathan: 1.199 immagini per i pesi, 301 per scegliere layer ed epoca |
+| **Valutazione** | `validation_450.csv` di Nathan (450 immagini bilanciate per classe, mai usate per scegliere) |
+| **Varianti** | cross-entropy, focal (γ=2, senza pesi per classe), ciascuna con e senza GradNorm |
+| **Impostazioni** | immagini a 512², contesto prodotto incluso, un solo seed |
+| **Esecuzione** | Hugging Face Jobs, H200, 27 novembre |
+| **Cosa non dice** | non confrontabile con i punteggi su `coverage`; non misura le teste su un modello con LoRA |
+
+
 Apertus v1.5 8B base, **congelato, senza LoRA**; si allenano solo lo strato condiviso e le sei teste. Split di Nathan:
 1.500 immagini di training (1.199 per allenare, 301 per scegliere layer ed epoca) e 450 di valutazione. Immagini a
 512², contesto prodotto incluso. Un solo seed. Hugging Face Jobs, 1× H200, batch 16.
@@ -232,3 +249,5 @@ Modello `swiss-ai/Apertus-v1.5-8B`, revisione `1519de0ae7f3d114879291810a5825996
 - Un solo seed, una sola configurazione di focal (γ = 2) e di GradNorm (α = 1.5), nessuna ricerca di iperparametri.
 - Poco training (1.199 immagini); alcune classi hanno pochissimi esempi e nella validazione non c'è `Dutch`.
 - Le conclusioni su focal e GradNorm valgono per questa prova.
+- **Aggiornamento (prova P9, 5 seed):** la focal resta non migliore della cross-entropy, ma la differenza senza pesi
+  è −0.006 e il suo intervallo tocca zero: vedi [results_weights_small.md](results_weights_small.md).

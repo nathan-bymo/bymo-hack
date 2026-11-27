@@ -1,5 +1,18 @@
 # Prompt zero-shot: valutazione del 2026-11-27
 
+Elenco di tutte le prove: [RISULTATI.md](../RISULTATI.md).
+
+## Scheda della prova P0 e P2: velocità iniziale del gateway, diagnosi del prompt e prove di funzionamento
+
+| voce | |
+|---|---|
+| **Domanda** | P0: il gateway cosa supporta e quanto è veloce? P2: perché la v1 risponde quasi sempre `full_product`? |
+| **Modelli** | Apertus 1.5 8B e 70B base, **nessun training**, via API Keera |
+| **Dati** | P0: immagine sintetica. P2: 103 immagini di `prompt-dev`, al massimo 8 per classe di `subject`, solo `subject`. Prove di funzionamento: 10, 12 e 16 immagini |
+| **Contenuto del file** | riepilogo di P1 e P3, diagnosi completa P2, prove piccole, velocità P0 |
+| **Cosa non dice** | il campione di P2 è piccolo e bilanciato: serve a trovare la causa, non a misurare la qualità |
+
+
 API Keera, modelli base, immagini a 512², temperatura 0. Codice: `src/common/prompt.py`.
 
 **Tutti i risultati:**

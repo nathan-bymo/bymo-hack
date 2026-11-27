@@ -23,18 +23,38 @@ class SharedHeads(nn.Module):
         return [head(hidden) for head in self.heads]
 
 
-def focal_loss(logits, targets, gamma):
-    """Mean of -(1 - p_t)^gamma * log(p_t) over the rows. gamma = 0 is the plain cross entropy."""
+MAX_CLASS_WEIGHT = 10.0
+
+
+def class_weights(labels, class_count, power):
+    """Weight of each class, proportional to (1 / training examples) ** power. This is the alpha of the focal loss.
+
+    labels: the labeled training targets of one task. power 0 gives no weighting, 0.5 a moderate one, 1 the full
+    inverse frequency. The weights are scaled so that their mean over the training rows is 1 (the loss keeps its
+    scale), then capped so that a class with one or two examples cannot dominate. Classes without examples get 0.
+    """
+    counts = torch.bincount(labels, minlength=class_count).float()
+    weights = torch.where(counts > 0, counts.clamp(min=1) ** -power, torch.zeros_like(counts))
+    weights *= counts.sum() / (weights * counts).sum()
+    return weights.clamp(max=MAX_CLASS_WEIGHT)
+
+
+def focal_loss(logits, targets, gamma, weights=None):
+    """Mean of -alpha_y * (1 - p_t)^gamma * log(p_t) over the rows. gamma = 0 is the (weighted) cross entropy."""
     log_pt = F.log_softmax(logits, dim=-1).gather(1, targets[:, None]).squeeze(1)
-    return (-((1 - log_pt.exp()).clamp(min=0) ** gamma) * log_pt).mean()
+    losses = -((1 - log_pt.exp()).clamp(min=0) ** gamma) * log_pt
+    if weights is not None:
+        losses = losses * weights[targets]
+    return losses.mean()
 
 
-def task_losses(logits, labels, gamma):
+def task_losses(logits, labels, gamma, weights=None):
     """One focal loss per dimension over its labeled rows only (label -1: not scored). None if a batch has none."""
     losses = []
     for task, task_logits in enumerate(logits):
         known = labels[:, task] >= 0
-        losses.append(focal_loss(task_logits[known], labels[known, task], gamma) if known.any() else None)
+        losses.append(focal_loss(task_logits[known], labels[known, task], gamma,
+                                 None if weights is None else weights[task]) if known.any() else None)
     return losses
 
 

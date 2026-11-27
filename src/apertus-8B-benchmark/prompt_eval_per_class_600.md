@@ -1,5 +1,18 @@
 # Risultati per classe: prime 600 immagini di prompt-dev
 
+Elenco di tutte le prove: [RISULTATI.md](../RISULTATI.md).
+
+## Scheda della prova P1 e P3: tutte le varianti di prompt sulle prime 600 immagini
+
+| voce | |
+|---|---|
+| **Domanda** | P1: contano regole dettagliate e risposta a lettere (v1)? P3: conta il disegno a domande separate (v2)? |
+| **Modelli** | Apertus 1.5 8B (7 varianti) e 70B (2 varianti) base, **nessun training**, via API Keera |
+| **Valutazione** | 600 immagini (363 prodotti) di `prompt-dev`, dal train etichettato |
+| **Impostazioni** | immagini a 512², contesto prodotto incluso, temperatura 0, risposta vincolata |
+| **Cosa non dice** | la v2 è stata scelta guardando queste immagini: valori forse ottimistici; classi con 1-3 esempi non affidabili |
+
+
 600 immagini di 363 prodotti, dal train etichettato. API Keera, immagini a 512², temperatura 0. Punteggio di `metric.py`,
 solo sulle celle con label umana e rilevanti. Le varianti sono descritte in `prompt_eval.md` e in `src/common/prompt.py`.
 

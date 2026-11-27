@@ -1,5 +1,22 @@
 # Teste su H200, split piccolo: dettaglio per classe di tutte le varianti
 
+Elenco di tutte le prove: [RISULTATI.md](../RISULTATI.md).
+
+## Scheda della prova P8: teste di classificazione su Apertus 8B congelato (H200)
+
+| voce | |
+|---|---|
+| **Domanda** | Le teste sulle rappresentazioni interne di Apertus funzionano? Focal loss e GradNorm aiutano? |
+| **Modello** | Apertus 1.5 8B base **congelato, senza LoRA** |
+| **Cosa si allena** | solo uno strato condiviso e 6 teste lineari |
+| **Training** | `train_1500.csv` di Nathan: 1.199 immagini per i pesi, 301 per scegliere layer ed epoca |
+| **Valutazione** | `validation_450.csv` di Nathan (450 immagini bilanciate per classe, mai usate per scegliere) |
+| **Varianti** | cross-entropy, focal (γ=2, senza pesi per classe), ciascuna con e senza GradNorm |
+| **Impostazioni** | immagini a 512², contesto prodotto incluso, un solo seed |
+| **Esecuzione** | Hugging Face Jobs, H200, 27 novembre |
+| **Cosa non dice** | non confrontabile con i punteggi su `coverage`; non misura le teste su un modello con LoRA |
+
+
 Integra [results_small_h200.md](results_small_h200.md). Valutazione sulle 450 immagini bilanciate. Solo conteggi aggregati.
 
 - **Esempi visti:** esempi valutati della classe nelle 1.199 immagini con cui si allenano i pesi delle teste.

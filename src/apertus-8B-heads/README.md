@@ -16,6 +16,9 @@ feature di un layer -> strato condiviso (512) -> 6 teste -> 6 classi
   condivisi. Con Apertus congelato e teste separate non ci sarebbero pesi condivisi: per questo c'è lo strato comune.
 - **Gradient clipping** a norma 1 in tutte le varianti.
 - **Ablation:** `ce`, `focal`, `ce+gradnorm`, `focal+gradnorm`.
+- **Pesi per classe (alpha della focal):** suffisso `+wsqrt` (pesi proporzionali all'inverso della radice della
+  frequenza) o `+winv` (inverso della frequenza), media 1 e limite 10. Valgono per `ce` e `focal`.
+- **Più seed:** `--seeds 3407,1,2`; il layer si sceglie sulla media della validazione interna.
 - **Dati (fase 1):** solo `training_rows`. Un decimo dei suoi prodotti, scelto con un hash, è la validazione interna
   per scegliere layer ed epoca (8.471 immagini per il training, 873 per la validazione). `coverage` (2.532) viene
   solo predetto alla fine. La standardizzazione delle feature usa solo le immagini di training.
@@ -129,6 +132,7 @@ comandi sono nella sua docstring. `CHECK_ONLY=1` su CPU verifica accessi e proce
 ## Cosa manca
 
 - Confronto con l'8B v2 zero-shot sulle stesse 450 immagini.
+- Prova P9 (pesi per classe, 5 seed): fatta, vedi [results_weights_small.md](results_weights_small.md).
 - Test sul set completo (`SPLIT=full`).
 - Predizioni su dev e final per una eventuale submission.
 - Fase 2 (riallenamento su tutte le immagini), solo dopo aver scelto la struttura finale.
