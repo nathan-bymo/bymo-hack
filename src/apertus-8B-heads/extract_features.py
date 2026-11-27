@@ -108,7 +108,7 @@ def main():
         sys.exit(f"the model does not fit on the GPUs, part of it went to {sorted(offloaded)}")
 
     def conversation(row):
-        image = images.prepared_jpeg(arguments.images_root / row["image_path"], arguments.side)
+        image = images.prepared_image(arguments.images_root / row["image_path"], arguments.side)
         return [{"role": "user", "content": [
             {"type": "image", "image": image},
             {"type": "text", "text": instruction(row, not arguments.no_context)},
