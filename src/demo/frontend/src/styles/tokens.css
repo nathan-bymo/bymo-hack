@@ -1,0 +1,11 @@
+/* Token di design della demo. Nessun valore è misurato: gli screenshot di riferimento non ci sono (Q1).
+   Ogni riga dichiara il ripiego usato; M2.0 completa la tabella (docs/demo/piano/D_interfaccia.md, D.1.2).
+   I ripiego sono colori della palette Tailwind, NON colori Galaxus. */
+:root {
+  --c-titlebar-bg: var(--color-emerald-900);   /* ripiego: tailwind emerald-900 */
+  --c-titlebar-fg: #fff;                       /* ripiego: tailwind white */
+  --c-accent-line: var(--color-orange-600);    /* ripiego: tailwind orange-600 */
+  --c-app-bg: var(--color-slate-50);           /* ripiego: tailwind slate-50 */
+  --c-text: var(--color-slate-900);            /* ripiego: tailwind slate-900 */
+  --font-sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; /* font di sistema, nessun font scaricato */
+}

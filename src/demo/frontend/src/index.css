@@ -1,0 +1,18 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+@theme {
+  --color-titlebar: var(--c-titlebar-bg);
+  --color-titlebar-fg: var(--c-titlebar-fg);
+  --color-accent-line: var(--c-accent-line);
+  --color-app-bg: var(--c-app-bg);
+  --color-ink: var(--c-text);
+  --font-sans: var(--font-sans);
+}
+
+body {
+  margin: 0;
+  background: var(--c-app-bg);
+  color: var(--c-text);
+  font-family: var(--font-sans);
+}
