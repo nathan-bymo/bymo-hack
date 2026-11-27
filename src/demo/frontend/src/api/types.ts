@@ -124,3 +124,41 @@ export interface Settings {
   zero_shot_parallel_images: number
 }
 export interface Health { status: string; version: string; git_commit: string | null; gpu_local: boolean; guard: { loaded: boolean; entries: number } }
+
+/* ---- metriche (allegato C, C.7) ---- */
+export interface PerClassEntry { precision?: number | null; recall?: number | null; f1?: number | null; support?: number | null }
+export interface ConfusionData { labels: string[]; columns: string[]; matrix: number[][]; set: string; source: string }
+export interface MetricResult {
+  eval_id: string
+  validity: 'held_out' | 'phase1_internal' | 'seen_in_training' | 'na'
+  provenance: 'recomputed' | 'offline_script' | 'reported_only' | 'kaggle_user' | 'na'
+  badges: string[]
+  badge_tooltip: string | null
+  source: string
+  checkpoint: string | null
+  trained_on: string | null
+  macro_f1: number | null
+  weighted_f1: number | null
+  per_dimension: Record<string, { macro_f1: number | null; weighted_f1: number | null; support: number | null }>
+  per_class: Record<string, Record<string, PerClassEntry>> | null
+  per_class_source: string | null
+  confusion: Record<string, ConfusionData> | null
+  confidence_calibration: unknown
+  notes: string[]
+}
+export interface MetricBlock {
+  model_id: string
+  set: string
+  display_name: string
+  results: MetricResult[]
+  excluded_invalid: number
+  contamination_note: string | null
+  training: { data: string; phase: number | null } | null
+  kaggle_dev: { score: number | null; badge: string; submitted_at?: string | null; source?: string | null; note?: string | null }
+}
+export interface Throughput {
+  target_images_per_second: number
+  measured_in_demo: { job_id: string; model_id: string; images_per_second: number; ms_per_image: number; gpu_name: string; batch_size: number; mode: 'live' | 'recorded'; cost_per_1k_images_usd: number | null; cost_note: string | null }[]
+  reported: { model_id: string; value: number; what: string; conditions: string | null; source: string; gpu_label: string | null; usd_per_hour: number | null; cost_per_1k_images_usd: number | null }[]
+  gpu_prices: Record<string, number>
+}
