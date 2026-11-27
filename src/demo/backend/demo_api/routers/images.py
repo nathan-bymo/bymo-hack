@@ -119,7 +119,18 @@ def upload_images(
 def list_images(request: Request, session_id: str):
     db = request.app.state.db
     rows = db.all("SELECT * FROM images WHERE session_id = ? ORDER BY created_at, rowid", (session_id,))
-    return {"images": [image_dict(r) for r in rows]}
+    status = {r["image_id"]: r for r in db.all(
+        "SELECT r.image_id, r.status, r.changed_json FROM reviews r JOIN (SELECT image_id, MAX(rowid) AS m "
+        "FROM reviews GROUP BY image_id) x ON x.m = r.rowid JOIN images i ON i.image_id = r.image_id "
+        "WHERE i.session_id = ?", (session_id,))}
+    out = []
+    for r in rows:
+        item = image_dict(r)
+        review = status.get(r["image_id"])
+        item["review_status"] = review["status"] if review else None
+        item["review_changed"] = json.loads(review["changed_json"]) if review else []
+        out.append(item)
+    return {"images": out}
 
 
 @router.get("/images/{image_id}")

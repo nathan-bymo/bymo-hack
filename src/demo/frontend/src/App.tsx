@@ -1,10 +1,20 @@
-import { DemoBadge } from './components/shell/DemoBadge'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import ComparePage from './pages/ComparePage'
+import ImageDetailPage from './pages/ImageDetailPage'
+import PerformancePage from './pages/PerformancePage'
+import ProductPage from './pages/ProductPage'
+import QueuePage from './pages/QueuePage'
 
-// Pagina segnaposto di M0.4: il guscio ERP vero arriva con M2.1.
 export default function App() {
   return (
-    <header className="bg-titlebar px-4 py-3">
-      <DemoBadge />
-    </header>
+    <Routes>
+      <Route path="/" element={<Navigate to="/product/DEMO-0001" replace />} />
+      <Route path="/product/:productId" element={<ProductPage />} />
+      <Route path="/image-classification" element={<QueuePage />} />
+      <Route path="/image-classification/compare" element={<ComparePage />} />
+      <Route path="/image-classification/performance" element={<PerformancePage />} />
+      <Route path="/image-classification/:imageId" element={<ImageDetailPage />} />
+      <Route path="*" element={<Navigate to="/product/DEMO-0001" replace />} />
+    </Routes>
   )
 }

@@ -64,3 +64,13 @@ def test_settings_defaults_and_partial_update(client):
     s2 = client.put("/api/settings", json={"usd_per_hour": 5.0, "gpu_label": "H200"}).json()
     assert s2["usd_per_hour"] == 5.0 and s2["gpu_label"] == "H200" and s2["presentation_mode"] is False
     assert client.put("/api/settings", json={"bogus": 1}).status_code == 422
+
+
+def test_image_list_carries_review_status(client, predicted):
+    image_id, pred = predicted
+    sid = client.get(f"/api/images/{image_id}").json()["session_id"]
+    assert client.get("/api/images", params={"session_id": sid}).json()["images"][0]["review_status"] is None
+    client.put(f"/api/images/{image_id}/review",
+               json={"prediction_id": pred["prediction_id"], "values": values_of(pred, background="color")})
+    item = client.get("/api/images", params={"session_id": sid}).json()["images"][0]
+    assert item["review_status"] == "corrected" and item["review_changed"] == ["background"]
