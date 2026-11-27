@@ -95,7 +95,8 @@ Validazione interna (sceglie l'epoca): ce 0.327, focal 0.338, ce+gradnorm 0.326,
 - Maschera: le celle non valutate non cambiano la loss.
 - GradNorm: i pesi sommano a 6 (numero di task); un task con gradiente gonfiato perde peso.
 - Estrazione: provata con le classi Apertus del fork su un modello **in miniatura con pesi casuali** e un processor
-  simulato. Batch con padding e immagini singole coincidono. **Non ancora provata con pesi e processor veri.**
+  simulato. Batch con padding e immagini singole coincidono. Poi eseguita con pesi e processor veri su H200
+  (vedi results_small_h200.md).
 - Pipeline completa su tutto il train con feature finte (sotto).
 
 ### Controllo con soli pixel (non è un risultato di Apertus)
