@@ -251,3 +251,4 @@ Modello `swiss-ai/Apertus-v1.5-8B`, revisione `1519de0ae7f3d114879291810a5825996
 - Le conclusioni su focal e GradNorm valgono per questa prova.
 - **Aggiornamento (prova P9, 5 seed):** la focal resta non migliore della cross-entropy, ma la differenza senza pesi
   è −0.006 e il suo intervallo tocca zero: vedi [results_weights_small.md](results_weights_small.md).
+  Anche il vantaggio della focal in `perspective` visto qui (0.267 contro 0.230) non si ripete su 5 seed.
