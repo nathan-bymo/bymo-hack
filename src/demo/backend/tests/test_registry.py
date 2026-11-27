@@ -129,6 +129,7 @@ def test_final_model_has_a_worker_family_without_gpu():
     family = get_family("vadapter_heads", False)
     assert family.name == "vadapter_heads" and family.loaded() == []
     torch = _pytest.importorskip("torch")
+    _pytest.importorskip("transformers")
     if torch.cuda.is_available():
         _pytest.skip("GPU presente: il caricamento reale si verifica con scripts/parity.py")
     with _pytest.raises(WorkerError):
