@@ -93,6 +93,11 @@ class Registry:
                 if not (self.settings.repo_root / relative).exists():
                     raise RegistryError(
                         f"models.yaml: {model_id}: la fonte '{relative}' non esiste nel repo (evals[*].source)")
+        kaggle = raw.get("kaggle_dev") or {}
+        if kaggle.get("score") is not None:
+            relative = str(kaggle.get("source", "")).split(":")[0]
+            if not relative or not (self.settings.repo_root / relative).exists():
+                raise RegistryError(f"models.yaml: {model_id}: kaggle_dev.score richiede `source` (file esistente nel repo)")
         for key in ("per_class_source",):
             if raw.get(key):
                 relative = str(raw[key]).split(":")[0]

@@ -320,7 +320,7 @@ Non elencato nel prompt di partenza: è il **migliore misurato su coverage** (sr
 | coverage / base / prompt-test | P11 | src/apertus-8B-lora-heads/results_full_h200.md:21-25 (per dimensione), :46-120 (per classe solo coverage), :122-136 (confusione perspective) | no (held-out, fase 1) | sì per coverage | no: "predizioni scaricate" sulla macchina del collega (:16) |
 | validation_450 | P8, P9 teste congelate | src/apertus-8B-heads/results_small_h200.md, results_small_h200_per_class.md, results_weights_small.md; src/confronto_lora.md:30-36 | no | sì (markdown) | no |
 | coverage | full FT fase 2 | nessun file | **sì: contaminato** | — | — |
-| Kaggle dev | tutti | nessuno: nessun punteggio Kaggle registrato (src/RISULTATI.md:90) | no | no | no |
+| Kaggle dev | tutti | **P11: 0.796** (dev pubblico, submission del 27/11 alle 21:30 CET, src/apertus-8B-lora-heads/results_full_h200.md:150-162, commit 5e66333 delle 21:31); gli altri modelli: nessuno | no | no | no |
 | riferimento | Qwen 3.5 9B FT | challenge_description.md:143 (dev 0.917); holdout 600 del notebook src/README.md:133-143 (set diverso) | — | no | no |
 
 Riepilogo: **nessuna predizione per immagine** è disponibile su questa macchina per nessun modello. Le uniche
@@ -359,7 +359,7 @@ quella di perspective di P11.
 | G6 | pesi di P11 in un repo privato di un collega | il modello migliore non è caricabile | chiedere accesso o modalità "registrato" prodotta dal collega |
 | G7 | pesi e predittore end-to-end di P8/P9 assenti | non eseguibili | solo metriche riportate, fuori MVP |
 | G8 | nessuna predizione per immagine in locale | niente confusioni (tranne perspective P11), niente calibrazione | `evaluate.py` offline su GPU, solo con ok |
-| G9 | nessun punteggio Kaggle dev | l'unico numero valido del full FT manca | campo inserito a mano dall'utente in `models.yaml`, mai stimato |
+| G9 | Kaggle dev: solo P11 (0.796, results_full_h200.md:150-162; il piano del 27/11 lo dava assente); il full FT non ne ha | l'unico numero valido del full FT manca | campo inserito a mano dall'utente in `models.yaml`, mai stimato |
 | G10 | `.env` assente | zero-shot non eseguibile | l'utente configura `LLM_API_KEY` localmente |
 | G11 | nessuna GPU utilizzabile qui | nessun modello locale | worker su host GPU o modalità "registrato" |
 | G12 | `eval_prompt.py` cerca `data/train.csv`, `data/metric.py`, `data/train_images/` ma i file sono in `data/hackapertus-galaxus/` (docs/context/PROJECT_CONTEXT.md:220-223 sul branch) | lo script del repo non gira com'è | symlink locali in `data/` (ignorati) oppure percorsi configurabili nella demo |

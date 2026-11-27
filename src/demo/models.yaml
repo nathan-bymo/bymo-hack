@@ -132,7 +132,7 @@ models:
              use_context_default: true, system_message: false}
     dtype: bfloat16
     confidence: {kind: full_distribution, method: head_softmax, training_loss: cross_entropy}
-    training: {data: "training_rows (9.344)", phase: 1, seen_sets: [training_rows]}
+    training: {data: "training_rows (9.344)", phase: 1, seen_sets: [training_rows, validation_450]}   # validation_450 è dentro training_rows (piano §9.3)
     vram_estimate_gb: 22.0        # MISURATO: picco allocato, batch 32, H200 (results_full_h200.md:156)
     measured:
       - {what: "img/s (immagine → CSV)", value: 13.2, conditions: "H200, batch 32, coverage, caricamento escluso",
@@ -147,7 +147,8 @@ models:
     per_class_source: "src/apertus-8B-lora-heads/results_full_h200.md:46-120"
     confusion_source: {dimension: perspective, set: coverage, source: "src/apertus-8B-lora-heads/results_full_h200.md:122-136"}
     caveats: ["comportamento senza contesto prodotto non misurato (results_full_h200.md:17)"]
-    kaggle_dev: {score: null, submitted_at: null, note: ""}
+    kaggle_dev: {score: 0.796, submitted_at: "2026-11-27T21:30:00+01:00", source: "src/apertus-8B-lora-heads/results_full_h200.md:150-162",
+                 note: "dev pubblico, submission 59018375 con righe final costanti; letto dal file del team, DA CONFERMARE su Kaggle"}
 
   - id: apertus-8b-fullft-heads
     display_name: "Apertus 8B · full fine-tune 24 layer + 6 teste (fase 2, tutto il train)"

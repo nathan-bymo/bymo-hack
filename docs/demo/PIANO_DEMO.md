@@ -142,8 +142,8 @@ fissa l'indice delle teste e la lettera del prompt v2. Tabella completa con indi
 
 **Artefatti di valutazione** ([A.5](piano/A_inventario.md#a5-artefatti-di-valutazione)): nessuna predizione per
 immagine su questa macchina; metriche complete leggibili da macchina solo per P10 (JSON); il resto è markdown;
-unica matrice di confusione: perspective di P11 su coverage (results_full_h200.md:122-136); nessun punteggio Kaggle
-dev registrato (src/RISULTATI.md:90).
+unica matrice di confusione: perspective di P11 su coverage (results_full_h200.md:122-136); un solo punteggio Kaggle dev registrato, quello di P11 (0.796,
+results_full_h200.md:150-162; src/RISULTATI.md:90 non lo riporta ancora).
 
 **Funzione di punteggio:** il repo usa sempre `metric.py` dei dati Kaggle, caricato con `importlib`
 (src/scripts/eval_prompt.py:59-63; src/apertus-8B-lora-heads/data.py:166-172). Nessuna reimplementazione.
@@ -429,7 +429,7 @@ training; `src/demo/README.md` lo scrive in chiaro.
 | 1 | predizioni per immagine su un set etichettato, ricalcolate con `metric.py` | `recomputed` | **nessuna** su questa macchina |
 | 2 | output di `src/demo/scripts/evaluate.py` (sotto) | `offline_script` | non ancora eseguito (serve GPU o chiave Keera, e un ok) |
 | 3 | punteggi riportati nei file del repo (JSON di P10, markdown di P4, P8/P9, P11) | `reported_only` | sì: importati da `import_reported.py` con `file:riga` |
-| 4 | punteggio Kaggle dev scritto a mano dall'utente in `models.yaml` (`kaggle_dev.score`) | `kaggle_user` | nessuno ancora |
+| 4 | punteggio Kaggle dev scritto a mano in `models.yaml` (`kaggle_dev.score`) | `kaggle_user` | solo P11 (0.796), preso da results_full_h200.md:150-162: da confermare su Kaggle |
 
 **`evaluate.py` (spec).**
 `python src/demo/scripts/evaluate.py --model <model_id> --set {coverage|base|prompt-test|validation_450}
