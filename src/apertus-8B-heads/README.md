@@ -1,7 +1,8 @@
 # Apertus 8B congelato + 6 teste di classificazione
 
-Domanda: le teste sulle rappresentazioni interne di Apertus fanno meglio della risposta generata? **Non c'è ancora un
-risultato con Apertus**: serve eseguire l'estrazione delle feature su GPU. Nessun LoRA in questo esperimento.
+Domanda: le teste sulle rappresentazioni interne di Apertus fanno meglio della risposta generata? Nessun LoRA in
+questo esperimento. **Primo risultato con Apertus:** [results_small_h200.md](results_small_h200.md) (split piccolo,
+H200). Il confronto con la risposta generata sulle stesse immagini manca ancora.
 
 ```
 immagine + contesto -> Apertus 8B congelato -> feature di alcuni layer
@@ -118,9 +119,16 @@ minima**: feature utili devono superarla chiaramente.
 In `perspective` i soli pixel superano la v2 zero-shot di 8B e 70B (0.203 e 0.274). Differenze piccole tra le quattro
 varianti in questa prova non dicono nulla su quale sarà migliore con le feature di Apertus (un solo seed).
 
+## Lancio su Hugging Face Jobs
+
+`build_hf_job.py` genera in `data/hf_jobs/` un job autonomo (contiene gli ID dello split: non va nel repository). I
+comandi sono nella sua docstring. `CHECK_ONLY=1` su CPU verifica accessi e processor vero prima di usare la GPU.
+`SPLIT=full` allena su `training_rows` e valuta su `coverage` (**non ancora eseguito**).
+
 ## Cosa manca
 
-- Eseguire l'estrazione con il modello vero.
+- Confronto con l'8B v2 zero-shot sulle stesse 450 immagini.
+- Test sul set completo (`SPLIT=full`).
 - Predizioni su dev e final per una eventuale submission.
 - Fase 2 (riallenamento su tutte le immagini), solo dopo aver scelto la struttura finale.
 - Conferma degli organizzatori che teste su Apertus contano come "Apertus classifica".
