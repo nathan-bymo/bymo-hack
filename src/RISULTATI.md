@@ -75,6 +75,8 @@ Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagi
 | Gemini 3.8 Flash zero-shot | 0.806 |
 | **P11, LoRA + teste** | **0.796** |
 
+Dove perdiamo punti, classe per classe, con le priorità: [apertus-8B-lora-heads/priorita_errori.md](apertus-8B-lora-heads/priorita_errori.md).
+
 ## Cosa sappiamo
 
 - La v2 zero-shot migliora molto sulla v1, anche su prompt-test (P4).
