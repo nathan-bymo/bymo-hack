@@ -45,12 +45,17 @@ def read_csv(path):
 
 
 def select(rows, part):
+    """training, coverage, test (prompt-test), all, or all_but_test: every labeled image except the products of
+    prompt-test, which stays an honest measure with the natural class distribution."""
     if part == "training":
         return splits.training_rows(rows)
-    if part == "coverage":
-        return splits.split_rows(rows, "coverage")
+    if part in ("coverage", "test"):
+        return splits.split_rows(rows, part)
     if part == "all":
         return rows.reset_index(drop=True)
+    if part == "all_but_test":
+        held_out = set(splits.split_rows(rows, "test").product_id)
+        return rows[~rows.product_id.isin(held_out)].reset_index(drop=True)
     raise ValueError(f"unknown part {part!r}")
 
 

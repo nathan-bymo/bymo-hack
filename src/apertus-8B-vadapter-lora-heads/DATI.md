@@ -54,14 +54,16 @@ Oltre a focal loss e alpha per classe (README), ogni epoca vede ogni immagine un
 
 - **oversampling delle classi rare**: un'immagine è ripetuta finché la sua classe valutata più rara arriva a circa
   300 item per epoca, al massimo **4 volte** in tutto (l'originale + 3 ripetizioni);
-- **ogni ripetizione è una variante diversa, non una copia**: un ritaglio leggero (resta il 90–100% di larghezza e
-  altezza, posizione fissa per immagine e variante), specchiato nelle ripetizioni dispari se l'immagine non ha
-  testo. Nessun cambio di colore: renderebbe "color" uno sfondo "white";
+- **ogni ripetizione è una variante diversa, non una copia**: l'immagine VQ a un'altra scala (lato 224, 288 o 240
+  invece di 256, quindi altri token VQ), specchiata nelle ripetizioni dispari se l'immagine non ha testo. SigLIP
+  vede sempre l'immagine intera. Niente ritagli: il prodotto tocca il bordo in quasi tutte le immagini e un ritaglio
+  trasformerebbe un `full_product` in `detail_closeup` (linee guida). Nessun cambio di colore: renderebbe "color"
+  uno sfondo "white";
 - **mirror**: le immagini con perspective umana sinistra/destra e senza testo hanno anche una copia specchiata, con
   left e right scambiati nella label (equilibrio tra i due lati). Le prospettive simmetriche (`front_head_on`,
   `back_head_on`, `top_down`, `bottom_up`) restano uguali allo specchio.
 
-| | immagini | ripetute 1× / 2× / 3× / 4× | ritagli | ritagli specchiati | mirror | item per epoca |
+| | immagini | ripetute 1× / 2× / 3× / 4× | altra scala | altra scala, specchiate | mirror | item per epoca |
 |---|---|---|---|---|---|---|
 | fase 1 | 8.403 | 5.841 / 1.777 / 517 / 268 | 2.584 | 1.031 | 1.372 | **13.390** |
 | fase 2 | 11.876 | 9.780 / 1.638 / 245 / 213 | 1.886 | 881 | 1.917 | **16.560** |
@@ -70,8 +72,11 @@ Le varianti sono calcolate una volta da `encode.py` (fase 1: 14.331 tra immagini
 sono identiche a ogni run. La validazione interna e `coverage` usano sempre l'immagine originale, preparata come in
 inferenza.
 
-Rischio noto: un ritaglio fino al 10% per lato può tagliare un testo o un dettaglio sul bordo; capita solo sulle
-ripetizioni delle classi rare, mai sulle immagini originali.
+**Correzione del 27 novembre (sera).** Il modello della fase 1 e la run `phase1-ocr` sono stati allenati con una
+versione precedente, in cui le ripetizioni erano ritagli che tenevano il 90–100% di larghezza e altezza. Su 300
+ritagli controllati, 231 tagliavano più dell'1% del contenuto e 129 più del 5%: in circa il 27% degli item di ogni
+epoca un `full_product` poteva apparire come `detail_closeup`. Dalla versione `vq-scale-v2` le ripetizioni cambiano
+solo la scala; `encode.py` scarta da solo dalla cache le varianti della versione vecchia.
 
 ## Classi in fase 1
 

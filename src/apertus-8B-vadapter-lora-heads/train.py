@@ -59,8 +59,8 @@ def upload(repo, folder, path_in_repo, patterns=None):
 class Batches:
     """Turns (row index, variant) items into model inputs from the cache."""
 
-    def __init__(self, records, labels, cache, builder, pad_id, context_dropout=0.0, seed=0):
-        self.records, self.labels, self.cache = records, labels, cache
+    def __init__(self, records, labels, cache, builder, pad_id, context_dropout=0.0, seed=0, ocr=None):
+        self.records, self.labels, self.cache, self.ocr = records, labels, cache, ocr
         self.builder, self.pad_id = builder, pad_id
         self.context_dropout, self.rng = context_dropout, random.Random(seed)
 
@@ -69,7 +69,8 @@ class Batches:
         for index, variant in items:
             entry = self.cache[D.key(self.records[index]["image_id"], variant)]
             use_context = not (train and self.rng.random() < self.context_dropout)
-            sequences.append(self.builder.ids(self.records[index], entry["grid"], entry["codes"], use_context))
+            text = None if self.ocr is None else self.ocr[self.records[index]["image_id"]]
+            sequences.append(self.builder.ids(self.records[index], entry["grid"], entry["codes"], use_context, text))
             siglip.append(entry["siglip"])
             labels.append(D.mirror_labels(self.labels[index]) if D.is_mirrored(variant) else self.labels[index])
         input_ids, attention = E.collate(sequences, self.pad_id)
@@ -98,7 +99,7 @@ def main():
     parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
     parser.add_argument("--cache", type=Path, required=True, help="folder written by encode.py")
     parser.add_argument("--out", type=Path, required=True, help="inside data/ (git-ignored)")
-    parser.add_argument("--part", default="training", choices=("training", "all"))
+    parser.add_argument("--part", default="training", choices=("training", "all", "all_but_test"))
     parser.add_argument("--val-fraction", type=float, default=0.1, help="training products that pick the checkpoint")
     parser.add_argument("--limit", type=int, default=0, help="only the first N rows, for a smoke test")
     parser.add_argument("--max-steps", type=int, default=0, help="for a smoke test")
@@ -114,6 +115,14 @@ def main():
     parser.add_argument("--head-dropout", type=float, default=0.3)
     parser.add_argument("--init-projector", type=Path, help="projector.pt of apertus-vadapter-benchmark")
     parser.add_argument("--no-adapter", action="store_true", help="ablation: VQ tokens only, no SigLIP soft tokens")
+    parser.add_argument("--ocr", action="store_true", help="OCR text of the image in the prompt (ocr.json of encode.py)")
+    parser.add_argument("--language-hint", action="store_true", help="with --ocr: langdetect guess in the OCR block")
+    parser.add_argument("--spatial", action="store_true",
+                        help="left-right and top-bottom differences of the image tokens as extra head input")
+    parser.add_argument("--attention-pool", action="store_true",
+                        help="learned queries over the image tokens with their 2D positions, as extra head input")
+    parser.add_argument("--init-checkpoint", type=Path,
+                        help="continue from a checkpoint of train.py (LoRA, projector, heads); its model settings win")
     # training
     parser.add_argument("--epochs", type=float, default=2, help="may be fractional (phase 2 repeats phase 1)")
     parser.add_argument("--evals-per-epoch", type=int, default=2)
@@ -140,15 +149,21 @@ def main():
     if args.part == "all" and args.val_fraction:
         sys.exit("phase 2 (--part all) has nothing to validate on: pass --val-fraction 0 and the phase 1 epochs")
 
+    if args.init_checkpoint:  # the architecture must be the one of the checkpoint
+        initial = json.loads((args.init_checkpoint / "settings.json").read_text())
+        for name in ("layers", "lora_rank", "lora_alpha", "lora_dropout", "head_hidden", "head_dropout"):
+            setattr(args, name, initial[name])
+        args.no_adapter = not initial.get("adapter", True)
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     device = torch.device("cuda")
     rows = D.select(D.read_csv(args.data_dir / "train.csv"), args.part)
     if args.limit:
         rows = rows.head(args.limit)
-    if args.part == "training":
-        reserved = set(D.select(D.read_csv(args.data_dir / "train.csv"), "coverage").product_id)
-        assert not rows.product_id.isin(reserved).any(), "training rows touch the coverage set"
+    held_out = {"training": "coverage", "all_but_test": "test"}.get(args.part)
+    if held_out:
+        reserved = set(D.select(D.read_csv(args.data_dir / "train.csv"), held_out).product_id)
+        assert not rows.product_id.isin(reserved).any(), f"training rows touch the {held_out} set"
     fit, validation = D.internal_split(rows, args.val_fraction)
     fit_labels, val_labels = D.label_matrix(fit), D.label_matrix(validation)
     items = D.training_items(fit, fit_labels, repeats=not args.no_repeats, mirrors=not args.no_mirrors)
@@ -161,6 +176,13 @@ def main():
     if missing:
         sys.exit(f"{len(missing)} image variants have no cached inputs (e.g. {sorted(missing)[:3]}): run encode.py "
                  "with the same --part, --val-fraction, --no-repeats and --no-mirrors")
+    ocr = None
+    if args.ocr:
+        ocr = json.loads((args.cache / "ocr.json").read_text())
+        absent = [i for i in list(fit.image_id) + list(validation.image_id) if i not in ocr]
+        if absent:
+            sys.exit(f"{len(absent)} images have no OCR text: run encode.py --ocr first")
+        log(f"OCR text found in {sum(bool(ocr[i]) for i in fit.image_id) / len(fit):.0%} of the training images")
     log(f"{args.part}: {len(fit)} images to train ({len(items)} items per epoch with augmented repeats and mirrors), "
         f"{len(validation)} for validation")
 
@@ -168,14 +190,19 @@ def main():
 
     directory = E.model_dir()
     tokenizer = AutoTokenizer.from_pretrained(directory)
+    if args.language_hint and not args.ocr:
+        sys.exit("--language-hint needs --ocr")
     builder = E.PromptBuilder(tokenizer, AutoConfig.from_pretrained(directory).image_token_offset,
-                              0 if args.no_adapter else E.POOLED_SIDE**2)
+                              0 if args.no_adapter else E.POOLED_SIDE**2, args.language_hint)
     settings = {key_: value for key_, value in vars(args).items()
                 if key_ in ("layers", "lora_rank", "lora_alpha", "lora_dropout", "head_hidden", "head_dropout")}
     first = next(iter(cache.values()))
-    settings |= {"adapter": not args.no_adapter, "vision_dim": first["siglip"].shape[-1], "side": json.loads((args.cache / "meta.json").read_text())["side"],
+    settings |= {"attention_pool": args.attention_pool, "spatial": args.spatial, "row_end_id": builder.eol, "language_hint": args.language_hint,
+                 "ocr": args.ocr, "init_checkpoint": str(args.init_checkpoint or ""), "adapter": not args.no_adapter, "vision_dim": first["siglip"].shape[-1], "side": json.loads((args.cache / "meta.json").read_text())["side"],
                  "model": E.MODEL_ID, "revision": E.MODEL_REVISION, "siglip": E.SIGLIP_ID, "task": E.TASK}
     classifier = M.build(directory, settings, device)
+    if args.init_checkpoint:
+        log(f"continuing from {args.init_checkpoint}: " + M.load_weights(classifier, args.init_checkpoint, settings))
     if args.init_projector:
         classifier.projector.load_state_dict(torch.load(args.init_projector, map_location="cpu", weights_only=True))
         log(f"projector initialised from {args.init_projector}")
@@ -185,7 +212,8 @@ def main():
 
     lora = [p for n, p in classifier.language_model.named_parameters() if p.requires_grad]
     groups = [{"params": classifier.projector.parameters(), "lr": args.lr_projector, "weight_decay": 0.0},
-              {"params": classifier.heads.parameters(), "lr": args.lr_heads, "weight_decay": 0.05}]
+              {"params": [*classifier.heads.parameters(), *(classifier.pool.parameters() if classifier.pool else [])],
+               "lr": args.lr_heads, "weight_decay": 0.05}]
     if lora:
         groups.insert(0, {"params": lora, "lr": args.lr_lora, "weight_decay": 0.01})
     optimizer = torch.optim.AdamW(groups)
@@ -207,15 +235,15 @@ def main():
             f"{d} " + " ".join(f"{n}={w:.2f}" for n, w in zip(D.TAXONOMY[d], a.tolist()))
             for d, a in zip(D.DIMENSIONS, alphas)))
     batches = Batches(fit.to_dict("records"), fit_labels, cache, builder, tokenizer.pad_token_id,
-                      args.context_dropout, args.seed)
-    val_batches = Batches(validation.to_dict("records"), val_labels, cache, builder, tokenizer.pad_token_id)
+                      args.context_dropout, args.seed, ocr)
+    val_batches = Batches(validation.to_dict("records"), val_labels, cache, builder, tokenizer.pad_token_id, ocr=ocr)
     metric = D.load_metric(args.data_dir)
     eval_every = max(1, steps_per_epoch // max(1, args.evals_per_epoch))
-    log(f"{steps_per_epoch} steps per epoch, {total} steps, warmup {warmup}, validation every {eval_every} steps")
+    log(f"{steps_per_epoch} steps per epoch, {total} steps, warmup {plan['warmup']}, validation every {eval_every} steps")
 
     args.out.mkdir(parents=True, exist_ok=True)
     history, best = [], {"score": -1.0}
-    started, step, stop, times = time.time(), 0, False, {}
+    started, step, stop, times, last_eval = time.time(), 0, False, {}, -10**9
     torch.cuda.reset_peak_memory_stats()
     generator = torch.Generator().manual_seed(args.seed)
     for epoch in range(1, math.ceil(args.epochs) + 1):
@@ -259,7 +287,9 @@ def main():
             last_of_epoch = start + args.accumulation >= len(micro)
             timeout = args.max_minutes and time.time() - started > args.max_minutes * 60 * 1.05
             stop = step >= total or bool(timeout)
-            if len(validation) and (step % eval_every == 0 or last_of_epoch or stop):
+            due = step % eval_every == 0 or last_of_epoch or stop
+            if len(validation) and due and step - last_eval >= max(1, eval_every // 4):  # not twice in a row
+                last_eval = step
                 score, per_dimension = evaluate(classifier, val_batches, validation, metric, 2 * args.batch_size, device)
                 history.append({"step": step, "epoch": round(step / steps_per_epoch, 2), "macro_f1": score,
                                 "dimensions": per_dimension})

@@ -1,5 +1,10 @@
 # Vision adapter + Apertus 8B (LoRA) + teste di classificazione
 
+**Stato (27 novembre, sera): modello finale su prompt-test, 1.193 immagini mai viste, macro F1 0,821, weighted 0,917,
+perspective 0,755.** Pipeline di training, risultati e cosa abbiamo imparato: [RISULTATI.md](RISULTATI.md). Oltre a
+quanto descritto sotto, il modello finale usa il testo OCR nel prompt (docTR), feature spaziali e un attention pooling
+con posizioni 2D; `predict.py` gira anche su 2 × T4 in fp16 (`build_kaggle_notebook.py`).
+
 Unisce le tre prove che finora hanno dato segnali positivi, in un solo modello allenato end to end:
 
 - `apertus-vadapter-benchmark/`: SigLIP 2 congelato → projector, 49 token visivi continui accanto ai token VQ;
@@ -117,7 +122,7 @@ Per lanciare a mano su una GPU: `encode.py`, `train.py`, `predict.py` hanno i co
 | projector | nuovo, da zero, LR 1e-4 | vadapter (solo l'architettura) |
 | teste | LayerNorm → 512 → GELU → dropout 0.3 → 6 lineari, LR 1e-3 | teste (LayerNorm al posto della standardizzazione: le feature cambiano con la LoRA) |
 | loss | focal γ = 2 per testa, solo celle valutate; `--class-alpha effective` per i pesi per classe | teste; motivazione sotto |
-| augmentation e oversampling | classi rare fino a 4× per epoca (obiettivo 300 item), ogni ripetizione un ritaglio leggero diverso, specchiato se senza testo; mirror left/right senza testo | LoRA, esteso: dettaglio in [DATI.md](DATI.md) |
+| augmentation e oversampling | classi rare fino a 4× per epoca (obiettivo 300 item), ogni ripetizione l'immagine VQ a un'altra scala (224/288/240), specchiata se senza testo; mirror left/right senza testo | LoRA, esteso: dettaglio in [DATI.md](DATI.md) |
 | batch | 16, AdamW, warmup 5% e coseno, clipping 1.0, bf16, 2 epoche | |
 | validazione | 2 volte per epoca, si tiene il checkpoint migliore | |
 
@@ -125,8 +130,8 @@ Per lanciare a mano su una GPU: `encode.py`, `train.py`, `predict.py` hanno i co
 `product_grouping`, 28 `certification_seal`, 1 `Dutch`) e la macro F1 pesa ogni classe allo stesso modo. Tre leve,
 tutte attive:
 
-- **oversampling augmentato** fino a 4× per epoca: ogni ripetizione è una variante diversa (ritaglio leggero, mirror
-  se senza testo), non una copia identica, quindi il modello non può memorizzare i token esatti;
+- **oversampling augmentato** fino a 4× per epoca: ogni ripetizione è una variante diversa (altra scala dell'immagine
+  VQ, mirror se senza testo; niente ritagli, vedi DATI.md), non una copia identica, quindi il modello non può memorizzare i token esatti;
 - **focal loss** γ = 2: riduce il peso degli esempi già facili, quasi tutti delle classi frequenti;
 - **alpha per classe** (`--class-alpha effective`, predefinito): numero effettivo di campioni (Cui et al. 2019,
   β = 0,999) calcolato sugli item dell'epoca, cioè **dopo** le ripetizioni, così lo sbilanciamento non viene
@@ -149,7 +154,7 @@ Non incluso: GradNorm (non ha aiutato con le teste su Apertus congelato, `apertu
 - `test_pipeline.py`, 12 test su CPU: focal loss (γ = 0 coincide con la cross-entropy, formula con alpha), celle non
   valutate senza effetto sulla loss, soft token negli slot giusti, risultato identico con e senza padding, gradienti
   su projector e teste ma non sugli embedding congelati, medie separate per token VQ e soft token, label dei mirror,
-  split per prodotto, alpha con peso medio 1 per esempio e rapporto massimo 10, variante senza adapter, varianti di augmentation (originale identica all'inferenza, ritaglio deterministico entro il 90–100%, mirror solo senza testo, label left/right scambiate).
+  split per prodotto, alpha con peso medio 1 per esempio e rapporto massimo 10, variante senza adapter, varianti di augmentation (originale identica all'inferenza, altra scala VQ senza tagli, varianti vecchie scartate dalla cache, mirror solo senza testo, label left/right scambiate).
 - Uno dei test usa la **vera classe del decoder Apertus del fork** in miniatura con pesi casuali, troncata da 4 a 2
   layer: padding e troncamento funzionano. Non prova nulla sui pesi reali né sulla qualità.
 - Split sui dati reali (sopra).

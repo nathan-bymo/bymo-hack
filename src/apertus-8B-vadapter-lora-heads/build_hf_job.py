@@ -1,8 +1,11 @@
 """Builds data/hf_jobs/hf_job_vlh.py, a self-contained Hugging Face Jobs script (H200) for this model.
 
 The generated file carries the code of src/ and the SHA-256 of train.csv; it holds no image ids or labels, but it
-is written under data/ (git-ignored) like the other jobs. The job downloads the competition data from Kaggle and
-Apertus from Hugging Face onto its own disk, and uploads checkpoints, predictions and logs to a PRIVATE repository.
+is written under data/ (git-ignored) like the other jobs. The job downloads the competition data and Apertus onto
+its own disk and uploads checkpoints, predictions and logs to a PRIVATE repository. The data comes from a PRIVATE
+Hugging Face dataset (DATA_REPO: only HF_TOKEN is needed) or else from Kaggle. To fill DATA_REPO once:
+
+  python src/apertus-8B-vadapter-lora-heads/build_hf_job.py --upload-data <user>/galaxus-data-private
 
   PHASE=1 (default)  encode training_rows -> smoke test -> train (internal validation picks the checkpoint)
                      -> end-to-end prediction of the coverage set, scored with metric.py -> optional dev predictions
@@ -10,18 +13,33 @@ Apertus from Hugging Face onto its own disk, and uploads checkpoints, prediction
 
 Environment of the job (-e NAME=value):
   UPLOAD_REPO      required, e.g. <user>/galaxus-vlh-private (created private if missing)
+  DATA_REPO        private HF dataset with train.csv, dev.csv, metric.py, train_images.tar, dev_images.tar
   TRAIN_ARGS       extra arguments for train.py, e.g. "--epochs 3 --class-alpha effective"
   EPOCHS           phase 2 only: the epochs chosen in phase 1
   SIDE             VQ image side, default 256
   INIT_PROJECTOR   optional "<repo>:<file>" of a projector of apertus-vadapter-benchmark, read with HF_TOKEN
   PREDICT_DEV      1 to also predict dev.csv (a file in the private repo; nothing is submitted)
   NO_CONTEXT_CHECK 1 to also predict coverage without product context (about 3 more GPU minutes)
+  PREDICT_TTA      1 to also predict coverage with the mirror test-time augmentation (predict.py --tta-flip)
   Budget: TRAIN_ARGS="--epochs 2 --max-minutes 45" fits the schedule into 45 training minutes; the job timeout is
   the hard cap on the cost (H200: 5 $/h on 27 November 2026, `hf jobs hardware`).
   CHECK_ONLY       1 to only check secrets, data and model access and the real tokenizer (a CPU is enough)
+  OCR              1: OCR text (docTR) of every image in the prompt, read once into the cache
+  PART             training (default of phase 1), all_but_test (everything except prompt-test, scored on
+                   prompt-test) or all (phase 2)
+  INIT_FROM        a checkpoint folder of UPLOAD_REPO (e.g. phase1/model/best): continue its training
+  RUN_NAME         folder of this run in UPLOAD_REPO (default phase1 / phase2): never overwrite a model to keep
+  XIELU            1 to build the CUDA xIELU kernel (needs a -devel image: see --upload-job below); kept only if it
+                   matches the Python version
+
+  With XIELU=1 the job runs in pytorch/pytorch:2.8.0-cuda12.8-cudnn9-devel (it has nvcc), from the private repo:
+  python src/apertus-8B-vadapter-lora-heads/build_hf_job.py --upload-job <user>/galaxus-vlh-private
+  hf jobs run --flavor h200 --timeout 90m --secrets HF_TOKEN -d -e XIELU=1 -e DATA_REPO=... -e UPLOAD_REPO=... \\
+      pytorch/pytorch:2.8.0-cuda12.8-cudnn9-devel bash -c "$(cat data/hf_jobs/launch_devel.sh)"
 
   python src/apertus-8B-vadapter-lora-heads/build_hf_job.py
   export HF_TOKEN=$(cat ~/.cache/huggingface/token) KAGGLE_API_TOKEN=$(cat ~/.kaggle/access_token)
+  # or, with the classic ~/.kaggle/credentials.json: pass --secrets KAGGLE_USERNAME --secrets KAGGLE_KEY instead
   hf jobs uv run --flavor cpu-upgrade --timeout 20m --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \\
       -e CHECK_ONLY=1 data/hf_jobs/hf_job_vlh.py
   hf jobs uv run --flavor h200 --timeout 3h --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \\
@@ -39,7 +57,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 FOLDER = "src/apertus-8B-vadapter-lora-heads"
 FILES = ["src/common/images.py", "src/common/prompt.py", "src/common/splits.py", "src/scripts/eval_prompt.py",
-         *(f"{FOLDER}/{name}" for name in ("data.py", "encoders.py", "model.py", "encode.py", "train.py", "predict.py"))]
+         *(f"{FOLDER}/{name}" for name in ("data.py", "encoders.py", "model.py", "encode.py", "train.py", "predict.py",
+                                            "calibrate.py"))]
 
 TEMPLATE = '''# /// script
 # requires-python = ">=3.11"
@@ -53,6 +72,7 @@ TEMPLATE = '''# /// script
 #   "huggingface_hub",
 #   "pandas>=2.1",
 #   "pillow",
+#   "python-doctr==1.1.0",
 #   "kaggle==2.2.5",
 #   "six",
 # ]
@@ -78,7 +98,11 @@ FOLDER = "@@FOLDER@@"
 PHASE = os.environ.get("PHASE", "1")
 SIDE = os.environ.get("SIDE", "256")
 UPLOAD_REPO = os.environ.get("UPLOAD_REPO", "")
-PREFIX = f"phase{PHASE}"
+DATA_REPO = os.environ.get("DATA_REPO", "")  # private HF dataset with the competition data (see the builder)
+PREFIX = os.environ.get("RUN_NAME", f"phase{PHASE}")
+PREDICT_FROM = os.environ.get("PREDICT_FROM", "")  # e.g. phase1/model/best in UPLOAD_REPO: predictions only
+INIT_FROM = os.environ.get("INIT_FROM", "")  # e.g. phase1/model/best in UPLOAD_REPO: continue its training
+OCR = bool(os.environ.get("OCR"))  # OCR text of the image in the prompt
 TRAIN_SHA256 = "@@TRAIN_SHA256@@"
 BUNDLE = "@@BUNDLE@@"
 
@@ -119,12 +143,24 @@ def unpack():
 
 
 def download_data():
-    from kaggle.api.kaggle_api_extended import KaggleApi
+    """From the PRIVATE HF dataset DATA_REPO (only HF_TOKEN needed), or else from Kaggle."""
+    if DATA_REPO:
+        from huggingface_hub import HfApi, hf_hub_download
 
-    api = KaggleApi()
-    api.authenticate()
-    api.competition_download_files("hackapertus-galaxus", path=str(DATA), quiet=True, unzip=True)
-    (DATA / "final_encrypted.bin").unlink(missing_ok=True)  # the final images are never used here
+        assert HfApi().repo_info(DATA_REPO, repo_type="dataset").private, f"{DATA_REPO} is not private"
+        for name in ("train.csv", "dev.csv", "metric.py", "train_images.tar", "dev_images.tar"):
+            path = Path(hf_hub_download(DATA_REPO, name, repo_type="dataset", local_dir=DATA))
+            if name.endswith(".tar"):
+                with tarfile.open(path) as archive:
+                    archive.extractall(DATA, filter="data")
+                path.unlink()
+    else:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+
+        api = KaggleApi()
+        api.authenticate()
+        api.competition_download_files("hackapertus-galaxus", path=str(DATA), quiet=True, unzip=True)
+        (DATA / "final_encrypted.bin").unlink(missing_ok=True)  # the final images are never used here
     assert hashlib.sha256((DATA / "train.csv").read_bytes()).hexdigest() == TRAIN_SHA256, "train.csv changed"
     log("competition data downloaded")
 
@@ -136,6 +172,56 @@ def download_model():
     encoders.model_dir()
     snapshot_download(encoders.SIGLIP_ID)
     log("models downloaded")
+
+
+XIELU_COMMIT = "2a55f6b9efa64954bf173e63297a2b2f99741b69"
+XIELU_CHECK = """
+import time, torch
+from transformers.activations import XIELUActivation
+act = XIELUActivation().cuda()
+assert act._xielu_cuda_obj is not None, "the CUDA kernel did not load"
+x = (torch.randn(8, 450, 4096, device="cuda", dtype=torch.bfloat16) * 3).requires_grad_()
+fast = act(x); (g_fast,) = torch.autograd.grad(fast.float().sum(), x)
+slow = act._xielu_python(x); (g_slow,) = torch.autograd.grad(slow.float().sum(), x)
+forward = ((fast.float() - slow.float()).abs().max() / slow.float().abs().max()).item()
+backward = ((g_fast.float() - g_slow.float()).abs().max() / g_slow.float().abs().max()).item()
+def timed(function):
+    torch.cuda.synchronize(); start = time.time()
+    for _ in range(50):
+        function(x)
+    torch.cuda.synchronize(); return (time.time() - start) / 50 * 1000
+with torch.no_grad():
+    ms_fast, ms_slow = timed(act), timed(act._xielu_python)
+print(f"XIELU check: max relative error forward {forward:.1e}, backward {backward:.1e}; "
+      f"{ms_fast:.2f} ms CUDA vs {ms_slow:.2f} ms Python per call")
+assert forward < 2e-2 and backward < 2e-2, "the CUDA kernel differs from the Python xIELU"
+"""
+
+
+def install_xielu():
+    """XIELU=1: builds the CUDA xIELU kernel (needs nvcc, e.g. a pytorch/pytorch:*-devel image) and keeps it only
+    if it matches the Python xIELU, forward and backward. On any failure the job goes on with the Python xIELU."""
+    if not os.environ.get("XIELU"):
+        return
+    cuda = os.environ.get("CUDA_HOME", "/usr/local/cuda")
+    if not (Path(cuda) / "bin" / "nvcc").exists():
+        log(f"XIELU: no nvcc in {cuda} (use a -devel image): Python xIELU")
+        return
+    env = {**os.environ, "CUDA_HOME": cuda}
+    uv = ["uv", "pip", "install", "--python", sys.executable, "-q"]
+    try:
+        subprocess.run([*uv, "cmake>=3.30", "setuptools", "wheel", "nvtx"], check=True, env=env)
+        subprocess.run([*uv, "--no-build-isolation", "--no-deps",
+                        f"xielu @ https://github.com/nickjbrowning/XIELU/archive/{XIELU_COMMIT}.tar.gz"],
+                       check=True, env=env)
+        check = subprocess.run([sys.executable, "-c", XIELU_CHECK], capture_output=True, text=True, env=env)
+        log((check.stdout + check.stderr[-1500:]).strip())
+        if check.returncode:
+            raise RuntimeError("numeric check failed")
+        log("XIELU: CUDA kernel in use")
+    except Exception as error:
+        log(f"XIELU: not used ({error}); Python xIELU")
+        subprocess.run(["uv", "pip", "uninstall", "--python", sys.executable, "xielu"], env=env)
 
 
 def init_projector():
@@ -150,15 +236,24 @@ def init_projector():
 
 def check():
     """Everything that can fail before the GPU: secrets, data access, gated model, real tokenizer and template."""
-    from kaggle.api.kaggle_api_extended import KaggleApi
-
     import encoders
     import torch
     from transformers import AutoConfig, AutoTokenizer
 
-    api = KaggleApi()
-    api.authenticate()
-    log("kaggle access ok:", len(api.competition_list_files("hackapertus-galaxus").files) > 0)
+    if DATA_REPO:
+        from huggingface_hub import HfApi
+
+        info = HfApi().repo_info(DATA_REPO, repo_type="dataset", files_metadata=True)
+        assert info.private, f"{DATA_REPO} is not private"
+        files = {f.rfilename for f in info.siblings}
+        assert {"train.csv", "dev.csv", "metric.py", "train_images.tar", "dev_images.tar"} <= files, files
+        log("private data repository ok:", sorted(files))
+    else:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+
+        api = KaggleApi()
+        api.authenticate()
+        log("kaggle access ok:", len(api.competition_list_files("hackapertus-galaxus").files) > 0)
     directory = encoders.model_dir()
     config = AutoConfig.from_pretrained(directory)
     builder = encoders.PromptBuilder(AutoTokenizer.from_pretrained(directory), config.image_token_offset)
@@ -175,14 +270,81 @@ def check():
     log("CHECK OK")
 
 
+def ensure_opencv():
+    """docTR imports OpenCV, which needs libGL; slim images lack it (the job runs as root)."""
+    if subprocess.run([sys.executable, "-c", "import cv2"], capture_output=True).returncode:
+        log("installing libGL for OpenCV")
+        subprocess.run("apt-get update -qq && apt-get install -y -qq libgl1 libglib2.0-0 >/dev/null",
+                       shell=True, check=True)
+
+
+def fetch_checkpoint(path):
+    from huggingface_hub import snapshot_download
+
+    folder = Path(snapshot_download(UPLOAD_REPO, allow_patterns=[f"{path}/*", f"{path}/lora/*"],
+                                    local_dir=WORK / "checkpoint")) / path
+    assert (folder / "settings.json").exists(), f"no checkpoint at {path} in {UPLOAD_REPO}"
+    return folder
+
+
+def fetch_cache(cache, name):
+    """Cache of an earlier job (shards, OCR) from UPLOAD_REPO/cache/<name>: encode.py then only adds what is missing."""
+    import shutil
+
+    from huggingface_hub import HfApi, snapshot_download
+
+    if not any(f.startswith(f"cache/{name}/") for f in HfApi().list_repo_files(UPLOAD_REPO)):
+        return
+    local = Path(snapshot_download(UPLOAD_REPO, allow_patterns=[f"cache/{name}/*"], local_dir=WORK / "repo"))
+    cache.mkdir(parents=True, exist_ok=True)
+    for item in (local / "cache" / name).iterdir():
+        shutil.move(str(item), cache / item.name)
+    log(f"cache {name} taken from the private repository")
+
+
+def store_cache(cache, name):
+    from huggingface_hub import HfApi
+
+    HfApi().upload_folder(repo_id=UPLOAD_REPO, folder_path=str(cache), path_in_repo=f"cache/{name}",
+                          allow_patterns=["shard_*.pt", "*.json"], commit_message=f"cache {name}")
+    log(f"cache {name} stored in the private repository")
+
+
+def predict_only():
+    """A saved checkpoint of UPLOAD_REPO on the internal validation (for calibrate.py) and on coverage."""
+    folder = fetch_checkpoint(PREDICT_FROM)
+    predict = [f"{FOLDER}/predict.py", "--checkpoint", folder]
+    outputs = RUN / "predictions"
+    run([*predict, "--part", "validation", "--out", outputs / "validation.csv"], "predict_validation.log")
+    run([*predict, "--part", "coverage", "--out", outputs / "coverage.csv"], "predict_coverage.log")
+    upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])  # saved before the optional steps
+    scored = [outputs / "coverage.csv"]
+    if os.environ.get("PREDICT_TTA"):
+        run([*predict, "--part", "coverage", "--tta-flip", "--out", outputs / "coverage_tta.csv"],
+            "predict_coverage_tta.log")
+        scored.append(outputs / "coverage_tta.csv")
+    upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])
+    run(["src/scripts/eval_prompt.py", *scored, "--split", "coverage", "--classes", "--bootstrap", "200"],
+        "scores.log")
+    if os.environ.get("PREDICT_DEV"):
+        run([*predict, "--csv", DATA / "dev.csv", "--out", outputs / "dev_submission.csv"], "predict_dev.log")
+    upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])
+    upload(RUN, "logs", ["*.log"])
+    log("ALL DONE")
+
+
 def main():
     unpack()
-    assert os.environ.get("HF_TOKEN") and os.environ.get("KAGGLE_API_TOKEN"), "secrets HF_TOKEN and KAGGLE_API_TOKEN"
+    kaggle = os.environ.get("KAGGLE_API_TOKEN") or (os.environ.get("KAGGLE_USERNAME") and os.environ.get("KAGGLE_KEY"))
+    assert os.environ.get("HF_TOKEN"), "secret HF_TOKEN"
+    assert DATA_REPO or kaggle, "set DATA_REPO (private HF dataset) or a Kaggle secret"
     if os.environ.get("CHECK_ONLY"):
         return check()
     import torch
 
     assert torch.cuda.is_available(), "no GPU visible"
+    install_xielu()
+    ensure_opencv()
     assert PHASE in ("1", "2"), "PHASE is 1 or 2"
     assert PHASE == "1" or os.environ.get("EPOCHS"), "phase 2 needs EPOCHS, chosen in phase 1"
     log("phase", PHASE, "| torch", torch.__version__, "| GPU", torch.cuda.get_device_name(0))
@@ -206,13 +368,28 @@ def main():
         thread.join()
     assert not errors, errors
 
-    part = "training" if PHASE == "1" else "all"
+    if PREDICT_FROM:
+        return predict_only()
+    part = os.environ.get("PART") or ("training" if PHASE == "1" else "all")
+    assert part in ("training", "all_but_test", "all"), f"unknown PART {part}"
+    val_fraction = "0" if part == "all" else "0.1"
     cache = DATA / "cache" / f"{part}_{SIDE}"
+    name = f"{part}_{SIDE}"
+    fetch_cache(cache, name)
+    if part != "training" and not cache.exists():  # the training cache covers most of the images
+        fetch_cache(cache, f"training_{SIDE}")
     run([f"{FOLDER}/encode.py", "--part", part, "--side", SIDE, "--out", cache,
-         "--val-fraction", "0.1" if PHASE == "1" else "0"], "encode.log")
+         "--val-fraction", val_fraction, *(["--ocr"] if OCR else [])], "encode.log")
+    store_cache(cache, name)
     extra = shlex.split(os.environ.get("TRAIN_ARGS", "")) + init_projector()
+    if OCR:
+        extra.append("--ocr")
+    if INIT_FROM:
+        extra += ["--init-checkpoint", fetch_checkpoint(INIT_FROM)]
     if PHASE == "2":
         extra = ["--part", "all", "--val-fraction", "0", "--epochs", os.environ["EPOCHS"], *extra]
+    elif part != "training":
+        extra = ["--part", part, "--val-fraction", val_fraction, *extra]
     train = [f"{FOLDER}/train.py", "--cache", cache, *extra]
     run([*train, "--out", DATA / "smoke", "--limit", "96", "--max-steps", "3", "--evals-per-epoch", "1"], "smoke.log")
     out = RUN / "model"
@@ -222,9 +399,22 @@ def main():
 
     predict = [f"{FOLDER}/predict.py", "--checkpoint", checkpoint]
     outputs = RUN / "predictions"
-    if PHASE == "1":
+    if PHASE == "1" and part == "all_but_test":  # coverage was partly trained on: score on prompt-test only
+        if os.environ.get("PREDICT_VALIDATION"):
+            run([*predict, "--part", "validation", "--train-part", part, "--out", outputs / "validation.csv"],
+                "predict_validation.log")
+        run([*predict, "--part", "test", "--out", outputs / "test.csv"], "predict_test.log")
+        upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])
+        run(["src/scripts/eval_prompt.py", outputs / "test.csv", "--split", "test", "--classes", "--bootstrap", "200"],
+            "scores.log")
+    elif PHASE == "1":
+        run([*predict, "--part", "validation", "--out", outputs / "validation.csv"], "predict_validation.log")
         run([*predict, "--part", "coverage", "--out", outputs / "coverage.csv"], "predict_coverage.log")
         scored = [outputs / "coverage.csv"]
+        if os.environ.get("PREDICT_TTA"):
+            run([*predict, "--part", "coverage", "--tta-flip", "--out", outputs / "coverage_tta.csv"],
+                "predict_coverage_tta.log")
+            scored.append(outputs / "coverage_tta.csv")
         if os.environ.get("NO_CONTEXT_CHECK"):
             run([*predict, "--part", "coverage", "--no-context", "--out", outputs / "coverage_no_context.csv"],
                 "predict_coverage_no_context.log")
@@ -243,7 +433,35 @@ if __name__ == "__main__":
 '''
 
 
+def upload_data(repo):
+    """Copies the competition data (never the final images) to a PRIVATE HF dataset, as two tar archives."""
+    import tempfile
+
+    from huggingface_hub import HfApi
+
+    api = HfApi()
+    api.create_repo(repo, repo_type="dataset", private=True, exist_ok=True)
+    assert api.repo_info(repo, repo_type="dataset").private, f"{repo} is not private: nothing uploaded"
+    data = ROOT / "data"
+    with tempfile.TemporaryDirectory(dir=data) as scratch:
+        for folder in ("train_images", "dev_images"):
+            archive_path = Path(scratch) / f"{folder}.tar"
+            with tarfile.open(archive_path, "w") as archive:  # images are already compressed
+                archive.add(data / folder, arcname=folder)
+            print(f"{archive_path.name}: {archive_path.stat().st_size / 1024**3:.2f} GB", flush=True)
+        for name in ("train.csv", "dev.csv", "metric.py"):
+            (Path(scratch) / name).write_bytes((data / name).read_bytes())
+        api.upload_folder(repo_id=repo, repo_type="dataset", folder_path=scratch,
+                          commit_message="competition data (private, team only)")
+    print(f"uploaded to the private dataset {repo}")
+
+
 def main():
+    import sys
+
+    if sys.argv[1:2] == ["--upload-data"]:
+        return upload_data(sys.argv[2])
+    upload_job = sys.argv[2] if sys.argv[1:2] == ["--upload-job"] else None
     members = {name: (ROOT / name).read_bytes() for name in FILES}
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
@@ -257,6 +475,18 @@ def main():
     out.write_text(TEMPLATE.replace("@@FOLDER@@", FOLDER).replace("@@TRAIN_SHA256@@", train_hash)
                    .replace("@@BUNDLE@@", base64.b64encode(buffer.getvalue()).decode()))
     print(f"{out}: {len(members)} files, {out.stat().st_size // 1024} KB")
+    if upload_job:  # for images without uv: the job script is read from the private repo
+        from huggingface_hub import HfApi
+
+        assert HfApi().repo_info(upload_job).private, f"{upload_job} is not private"
+        HfApi().upload_file(path_or_fileobj=str(out), path_in_repo="jobs/hf_job_vlh.py", repo_id=upload_job,
+                            commit_message="job script")
+        launch = out.parent / "launch_devel.sh"
+        launch.write_text(
+            "set -e; (command -v git >/dev/null || (apt-get update -qq && apt-get install -y -qq git >/dev/null)); "
+            "pip install -q uv huggingface_hub; "
+            f"hf download {upload_job} jobs/hf_job_vlh.py --local-dir /tmp/job; uv run /tmp/job/jobs/hf_job_vlh.py\n")
+        print(f"uploaded to {upload_job}/jobs/hf_job_vlh.py; launch command in {launch}")
 
 
 if __name__ == "__main__":
