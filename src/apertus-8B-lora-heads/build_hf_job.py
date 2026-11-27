@@ -13,6 +13,8 @@ Environment of the job (-e NAME=value):
   SPLIT         small  train_1500 + validation_450 and coverage (default)
                 full   training_rows and coverage
   TRAIN_ARGS    extra arguments for train.py (also used by MODE=smoke)
+  RUN_NAME      folder of this run in UPLOAD_REPO (default: split, mode, side and the start time). Runs before
+                27 November 23:00 used "<split>-<mode>"; P11 is archived in archive/p11_lora_heads_256_coverage0781
   SIDE          VQ image side, default 256
   SMOKE_STEPS   training steps of MODE=smoke, default 3 (about 30 also measure the step time)
   MODEL_PATH    predict only: folder of the model in UPLOAD_REPO (default full-train/model/final)
@@ -80,7 +82,8 @@ FOLDER = "@@FOLDER@@"
 MODE = os.environ.get("MODE", "train")
 SPLIT = os.environ.get("SPLIT", "small")
 UPLOAD_REPO = os.environ.get("UPLOAD_REPO", "")
-PREFIX = f"{SPLIT}-{MODE}"
+# A folder per run in UPLOAD_REPO, so that a new run never overwrites the weights of an earlier one.
+PREFIX = os.environ.get("RUN_NAME") or f"{SPLIT}-{MODE}-{os.environ.get('SIDE', '256')}-{time.strftime('%m%d-%H%M')}"
 SIDE = os.environ.get("SIDE", "256")
 SMOKE_STEPS = os.environ.get("SMOKE_STEPS", "3")
 TRAIN_SHA256 = "@@TRAIN_SHA256@@"
