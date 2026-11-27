@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS reviews (
 CREATE TABLE IF NOT EXISTS eval_results (
   eval_id TEXT PRIMARY KEY, model_id TEXT, set_name TEXT, checkpoint TEXT,
   validity TEXT CHECK (validity IN ('held_out','phase1_internal','seen_in_training','na')),
-  provenance TEXT CHECK (provenance IN ('recomputed','offline_script','reported_only','kaggle_user')),
+  provenance TEXT CHECK (provenance IN ('recomputed','offline_script','reported_only','kaggle_user','na')),
   source TEXT, trained_on TEXT, macro_f1 REAL, weighted_f1 REAL, accuracy_json TEXT, per_dimension_json TEXT,
   per_class_json TEXT, confusion_json TEXT, calibration_json TEXT, computed_at TEXT, notes_json TEXT);
 CREATE TABLE IF NOT EXISTS recorded_runs (
