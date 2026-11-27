@@ -57,3 +57,7 @@ src/demo/frontend/.vite/
 *.sqlite-shm
 *.sqlite-wal
 .pytest_cache/
+
+# Pesi dei modelli consegnati o condivisi: solo in weights/, con Git LFS (vedi .gitattributes)
+!weights/**/*.safetensors
+!weights/**/*.pt
