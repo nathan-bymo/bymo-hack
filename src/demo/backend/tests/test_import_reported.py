@@ -67,7 +67,7 @@ def test_p8_p9_from_confronto(rows):
 
 def test_full_ft_has_only_invalid_rows_without_numbers(rows):
     ft = [r for r in rows if r["model_id"] == "apertus-8b-fullft-heads"]
-    assert {r["set_name"] for r in ft} == {"coverage", "base", "prompt-test", "validation_450"}
+    assert {r["set_name"] for r in ft} == {"coverage", "base", "prompt-test", "prompt-dev-600", "validation_450"}
     assert all(r["validity"] == "seen_in_training" and r["macro_f1"] is None for r in ft)
 
 

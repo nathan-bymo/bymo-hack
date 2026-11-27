@@ -2,7 +2,7 @@
 # Regole: ogni valore ha una fonte; i campi ignoti valgono "[DA VERIFICARE]" e rendono il modello "unavailable".
 # Nessuna metrica è stimata. kaggle_dev.score si compila SOLO a mano con il punteggio letto su Kaggle.
 schema_version: 1
-verified_at: "2026-11-27T20:08:00Z"
+verified_at: "2026-11-28T00:30:00+01:00"   # aggiornato: modello di Nathan, pesi P11 locali, Kaggle dev del team
 
 defaults:
   base_model:
@@ -14,20 +14,66 @@ defaults:
     value: 0.917
     label: "Organisers' reference (Qwen 3.5 9B FT, dev)"
     source: "challenge_description.md:143"
+  kaggle_references:     # stesso set dei nostri kaggle_dev.score: dev pubblico di Kaggle (5.261 immagini)
+    - {name: "Qwen 3.5 9B fine-tuned (organisers' baseline)", score: 0.917, source: "challenge_description.md:143"}
+    - {name: "Gemini 4 Argon, zero-shot", score: 0.834, source: "challenge_description.md:144"}
+    - {name: "Gemini 3.8 Flash, zero-shot", score: 0.806, source: "challenge_description.md:145"}
   throughput_target_images_per_second: 2                      # challenge_description.md:67
   cost:
     default: {gpu_label: "A100 80GB (HF a100-large)", usd_per_hour: 2.50,
-              source: "feat/apertus-8b-fullft-heads:src/apertus-8B-fullft-heads/README.md:71"}
+              source: "src/apertus-8B-fullft-heads/README.md:71"}
     alternatives:
-      - {gpu_label: "H200 (HF)", usd_per_hour: 5.00, source: "src/apertus-8B-lora-heads/results_full_h200.md:157"}
-      - {gpu_label: "RTX PRO 6000 (HF)", usd_per_hour: 2.75, source: "feat/apertus-8b-fullft-heads:src/apertus-8B-fullft-heads/README.md:70"}
+      - {gpu_label: "H200 (HF)", usd_per_hour: 5.00, source: "src/apertus-8B-lora-heads/results_full_h200.md:174"}
+      - {gpu_label: "RTX PRO 6000 (HF)", usd_per_hour: 2.75, source: "src/apertus-8B-fullft-heads/README.md:70"}
       - {gpu_label: "L40S (HF)", usd_per_hour: 1.80, source: "FAQ.md:22"}
 
 models:
 
+  - id: apertus-8b-vadapter-lora-heads-final
+    display_name: "Apertus 8B · SigLIP 2 + OCR + LoRA + 6 heads, spatial features + attention pooling (final)"
+    short_name: "Final: vision adapter + OCR + LoRA + heads"
+    featured: true
+    family: vadapter_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      local_path: src/outputs/apertus-8B-vadapter-lora-heads-final   # nel repo, Git LFS (lora/, trainable.pt, settings.json)
+      location_label: "repo, Git LFS: src/outputs/apertus-8B-vadapter-lora-heads-final/"
+      copy_note: "anche nel repo HF privato nathan-monzani-bymo/galaxus-vlh-private, final-abt/model/best (RISULTATI.md:41-42)"
+      files: ["lora/adapter_model.safetensors", "lora/adapter_config.json", "trainable.pt", "settings.json"]
+      size_gb: 0.37                                                  # du -sh della cartella, 28/11
+      requires_base: true
+      extra_models: ["google/siglip2-base-patch16-224", "docTR fast_base + Felix92/doctr-torch-parseq-multilingual-v1"]
+    code: {root: "src/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
+    prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
+    training: {data: "train.csv tranne prompt-test (9.645 immagini)", phase: 2,
+               seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
+    vram_estimate_gb: null
+    memory: {gb: null, kind: not_reported,
+             what: "peak not reported; runs on 1× L40S 48 GB (bf16) and on 2× T4 16 GB (fp16)",
+             source: "src/apertus-8B-vadapter-lora-heads/RISULTATI.md:15"}
+    measured:
+      - {what: "img/s (end to end, lettura immagini inclusa)", value: 6.2, conditions: "H200, prompt-test, SigLIP + VQ + OCR + Apertus",
+         source: "src/apertus-8B-vadapter-lora-heads/RISULTATI.md:104", gpu_label: "H200 (HF)", cost_eligible: true}
+      - {what: "img/s (end to end)", value: 4.9, conditions: "1× L40S, bf16, predizione del dev",
+         source: "src/apertus-8B-vadapter-lora-heads/RISULTATI.md:15", gpu_label: "L40S (HF)", cost_eligible: true}
+    evals:
+      - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.821, weighted_f1: 0.917,
+         source: "src/apertus-8B-vadapter-lora-heads/RISULTATI.md:62",
+         note: "mai visto da nessun checkpoint (RISULTATI.md:54-55)"}
+    contamination_note: "Il passo finale è allenato su tutto il train tranne prompt-test: coverage e base non sono più set validi per questo modello."
+    caveats: ["OCR docTR e SigLIP 2 vanno scaricati sul host GPU insieme ad Apertus"]
+    kaggle_dev: {score: 0.83177, submitted_at: "2026-11-27", source: "src/apertus-8B-vadapter-lora-heads/RISULTATI.md:10",
+                 source_label: "team submission on Kaggle, 27/11",
+                 note: "dev pubblico; righe final ancora ai valori di default di sample_submission.csv (RISULTATI.md:15-17)"}
+
   - id: apertus-8b-zeroshot-v2
     parity: {verified: true, scope: "corpi delle 7 richieste identici a eval_prompt.run_variant (test, gateway finto); risposte live non confrontate"}
     display_name: "Apertus 8B · zero-shot · prompt v2"
+    short_name: "8B zero-shot (prompt v2)"
+    featured: true
     family: zeroshot_generative
     adapter: ZeroShotGenerativeAdapter
     runtime: remote_openai
@@ -56,6 +102,8 @@ models:
   - id: apertus-70b-zeroshot-v2
     parity: {verified: true, scope: "corpi delle 7 richieste identici a eval_prompt.run_variant (test, gateway finto); risposte live non confrontate"}
     display_name: "Apertus 70B · zero-shot · prompt v2"
+    short_name: "70B zero-shot (prompt v2)"
+    featured: true
     family: zeroshot_generative
     adapter: ZeroShotGenerativeAdapter
     runtime: remote_openai
@@ -82,6 +130,8 @@ models:
 
   - id: apertus-8b-lora-p10
     display_name: "Apertus 8B · LoRA (P10, 1.500 immagini) · JSON"
+    short_name: "P10 LoRA, JSON output"
+    featured: false
     family: lora_generative
     adapter: LoraGenerativeAdapter
     runtime: worker_gpu
@@ -119,16 +169,18 @@ models:
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
   - id: apertus-8b-lora-heads-p11
-    display_name: "Apertus 8B · LoRA + 6 teste (P11, 9.344 immagini)"
+    display_name: "Apertus 8B · LoRA + 6 heads, 256², 32 layers (P11, 9,344 images)"
+    short_name: "P11 LoRA + heads"
+    featured: true
     family: lora_heads
     adapter: HeadsAdapter
     runtime: worker_gpu
     weights:
-      repo: "[DA VERIFICARE] <utente>/galaxus-lora-heads-private"     # results_full_h200.md:169
-      revision: "[DA VERIFICARE]"
-      subfolder: "full-train/model/final"                            # [DA VERIFICARE] da build_hf_job.py:77,182,207-209
-      local_path: null                                               # alternativa: cartella final/ copiata a mano
+      local_path: weights/lora_heads_256_p11                         # nel repo, Git LFS (weights/lora_heads_256_p11/README.md)
+      location_label: "repo, Git LFS: weights/lora_heads_256_p11/"
+      copy_note: "copia identica nel repo HF privato del team (archive/p11_lora_heads_256_coverage0781)"
       files: ["lora/adapter_model.safetensors", "lora/adapter_config.json", "heads.pt", "settings.json"]  # model.py:129-139
+      size_gb: 0.32                                                  # du -sh della cartella, 28/11
       requires_base: true
     code: {root: "src/apertus-8B-lora-heads", reference: "predict.py:65-179"}
     prompt: {version: "heads-task", task_source: "src/apertus-8B-lora-heads/encoders.py:21-22", side: 256,
@@ -136,10 +188,12 @@ models:
     dtype: bfloat16
     confidence: {kind: full_distribution, method: head_softmax, training_loss: cross_entropy}
     training: {data: "training_rows (9.344)", phase: 1, seen_sets: [training_rows, validation_450]}   # validation_450 è dentro training_rows (piano §9.3)
-    vram_estimate_gb: 22.0        # MISURATO: picco allocato, batch 32, H200 (results_full_h200.md:156)
+    vram_estimate_gb: 22.0        # MISURATO: picco allocato, batch 32, H200 (results_full_h200.md:173)
+    memory: {gb: 22.0, kind: measured, what: "peak GPU memory allocated, batch 32, H200",
+             source: "src/apertus-8B-lora-heads/results_full_h200.md:173"}
     measured:
       - {what: "img/s (immagine → CSV)", value: 13.2, conditions: "H200, batch 32, coverage, caricamento escluso",
-         source: "src/apertus-8B-lora-heads/results_full_h200.md:156", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/apertus-8B-lora-heads/results_full_h200.md:173", gpu_label: "H200 (HF)", cost_eligible: true}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.781, weighted_f1: 0.905,
          source: "src/apertus-8B-lora-heads/results_full_h200.md:23"}
@@ -150,37 +204,46 @@ models:
     per_class_source: "src/apertus-8B-lora-heads/results_full_h200.md:46-120"
     confusion_source: {dimension: perspective, set: coverage, source: "src/apertus-8B-lora-heads/results_full_h200.md:122-136"}
     caveats: ["comportamento senza contesto prodotto non misurato (results_full_h200.md:17)"]
-    kaggle_dev: {score: 0.796, submitted_at: "2026-11-27T21:30:00+01:00", source: "src/apertus-8B-lora-heads/results_full_h200.md:150-162",
-                 note: "dev pubblico, submission 59018375 con righe final costanti; letto dal file del team, DA CONFERMARE su Kaggle"}
+    kaggle_dev: {score: 0.796, submitted_at: "2026-11-27T21:30:00+01:00", source: "src/RISULTATI.md:78",
+                 source_label: "team submission on Kaggle, 27/11 (59018375)",
+                 note: "dev pubblico, submission 59018375 con righe final costanti; anche src/apertus-8B-lora-heads/results_full_h200.md:150-162"}
 
   - id: apertus-8b-fullft-heads
-    display_name: "Apertus 8B · full fine-tune 24 layer + 6 teste (fase 2, tutto il train)"
+    display_name: "Apertus 8B · full fine-tune 24 layers + 6 heads (all train)"
+    short_name: "Full fine-tune + heads"
+    featured: true
     family: fullft_heads
     adapter: HeadsAdapter
     runtime: worker_gpu
     weights:
-      repo: StoryofLegend/apertus-8b-galaxus-fullft         # privato
-      revision: 711018b7a25dc130d04074331f1aa6946f727e23     # 20:52 UTC (riverificato 27/11); cambierà con last
-      subfolder: phase2/model/epoch-1                       # Q4: `last` se esiste, altrimenti epoch-1 "intermedio"; epoch-2 esiste dalle 20:52 UTC (stessa dimensione, file di epoch-1 invariati)
+      repo: StoryofLegend/apertus-8b-galaxus-fullft         # privato (repo HF di Kri)
+      revision: aac1375d3efb93460a564faaef00a60430d84443     # src/apertus-8B-fullft-heads/results_phase2.md:16
+      subfolder: phase2/model/last                          # 3 epoche: quello della submission fullft_phase2_3ep.csv
+      location_label: "private HF repo (team member), ~10.5 GB"
       files: ["decoder.safetensors", "heads.pt", "settings.json"]
       size_gb: 10.486                                       # 10,469 + 0,017
       requires_base: true                                   # embedding congelati dal modello base (ft_model.py:117-122)
-      job: {id: 6b09cdb46c5d61fff189842a, flavor: a100-large, status_at_verification: RUNNING, env: {PHASE: "2", EPOCHS: "3"}}
-    code: {root_env: DEMO_FULLFT_SRC, branch: feat/apertus-8b-fullft-heads, commit: 9145fca,
-           reference: "src/apertus-8B-fullft-heads/ft_predict.py:34-109"}
-    prompt: {version: "heads-task", task_source: "src/apertus-8B-vadapter-lora-heads/encoders.py:30-31 (branch)",
-             side: 256, use_context_default: true, prefix_tokens: 0}
+    code: {root_env: DEMO_FULLFT_SRC, reference: "src/apertus-8B-fullft-heads/ft_predict.py"}
+    prompt: {version: "heads-task", side: 256, use_context_default: true, prefix_tokens: 0}
     dtype: bfloat16
     confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
-    training: {data: "tutto train.csv (11.876)", phase: 2, seen_sets: [train_all, coverage, base, prompt-test, validation_450, train_1500]}
-    vram_estimate_gb: 24          # [STIMA] picco al caricamento; da misurare
-    measured: []
+    training: {data: "tutto train.csv (11.876)", phase: 2, seen_sets: [train_all, coverage, base, prompt-test, prompt-dev-600, validation_450, train_1500]}
+    vram_estimate_gb: 18.7
+    memory: {gb: 18.7, kind: measured, what: "GPU memory in inference, A100 80 GB",
+             source: "src/apertus-8B-fullft-heads/results_phase2.md:43"}
+    measured:
+      - {what: "img/s (end to end, VQ incluso)", value: 9.55, conditions: "A100 80 GB, predizione del dev",
+         source: "src/apertus-8B-fullft-heads/results_phase2.md:43", gpu_label: "A100 80GB (HF a100-large)", cost_eligible: true}
     evals: []                     # nessun set locale valido: tutto il train è stato visto
     contamination_note: "Allenato su tutte le 11.876 immagini: ogni metrica su sottoinsiemi del train è 'seen during training — invalid'."
-    kaggle_dev: {score: null, submitted_at: null, note: "unico numero valido per questo modello"}
+    kaggle_dev: {score: 0.80473, submitted_at: "2026-11-27", source: "src/apertus-8B-vadapter-lora-heads/RISULTATI.md:11",
+                 source_label: "team submission on Kaggle, 27/11 (59021011, fullft_phase2_3ep.csv)",
+                 note: "unico numero valido per questo modello; anche src/apertus-8B-fullft-heads/results_phase2.md:17-27"}
 
   - id: apertus-8b-frozen-heads-p8
     display_name: "Apertus 8B congelato + teste (P8, cross-entropy, 1 seed)"
+    short_name: "P8 frozen + heads"
+    featured: false
     family: frozen_heads
     adapter: null
     runtime: none
@@ -193,6 +256,8 @@ models:
 
   - id: apertus-8b-frozen-heads-p9
     display_name: "Apertus 8B congelato + teste (P9, cross-entropy pesi forti, media 5 seed)"
+    short_name: "P9 frozen + heads"
+    featured: false
     family: frozen_heads
     adapter: null
     runtime: none

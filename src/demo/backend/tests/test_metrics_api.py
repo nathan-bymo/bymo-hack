@@ -14,7 +14,7 @@ def test_dev_and_final_rejected(client):
 def test_full_ft_has_no_valid_results_and_contamination_note(client):
     body = client.get("/api/metrics/apertus-8b-fullft-heads", params={"set": "coverage"}).json()
     assert body["results"] == [] and body["excluded_invalid"] == 1
-    assert "11.876" in body["contamination_note"] and body["kaggle_dev"]["score"] is None
+    assert "11.876" in body["contamination_note"] and body["kaggle_dev"]["score"] == 0.80473
     shown = client.get("/api/metrics/apertus-8b-fullft-heads", params={"set": "coverage", "include_invalid": True}).json()
     row = shown["results"][0]
     assert row["validity"] == "seen_in_training" and row["macro_f1"] is None
@@ -28,7 +28,7 @@ def test_p11_coverage_badges_and_numbers(client):
     assert r["source"].endswith("results_full_h200.md:23") and "9.344" in r["trained_on"]
     assert r["confusion"]["perspective"]["labels"][0] == "front_head_on"
     assert body["kaggle_dev"]["score"] == 0.796 and body["kaggle_dev"]["badge"] == "Kaggle dev (public)"
-    assert "results_full_h200.md" in body["kaggle_dev"]["source"]
+    assert body["kaggle_dev"]["source"] == "src/RISULTATI.md:78"
 
 
 def test_zeroshot_prompt_test_is_held_out(client):
