@@ -7,6 +7,7 @@ Questo progetto partecipa alla competizione Kaggle `hackapertus-galaxus`. Leggi 
 - `apertus-vadapter-benchmark/`: esperimenti e notebook per il benchmark con visual adapter.
 - `apertus-70B-benchmark/`: esperimenti e notebook per il benchmark Apertus 70B.
 - `apertus-8B-benchmark/`: esperimenti e notebook per il benchmark Apertus 8B.
+- `apertus-8B-lora-heads/`: LoRA su Apertus 8B e 6 teste allenati insieme, senza adapter; comando per le predizioni, file Kaggle e job H200. Risultato sul training completo in `results_full_h200.md`.
 - `scripts/`: script condivisi. Conserva ogni esperimento nella propria cartella e documenta dipendenze, configurazione, dati, comandi e risultati in modo riproducibile.
 - `common/`: codice condiviso per prompt (`prompt.py`), preparazione delle immagini (`images.py`) e split dei dati (`splits.py`).
 

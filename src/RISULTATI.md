@@ -34,6 +34,7 @@ Aggiornato al 27 novembre 2026. Serve per il report finale. Ogni report ha in ci
 | P8 | le teste su Apertus funzionano; focal e GradNorm | 8B **congelato** + teste, 4 varianti, 1 seed | 1.199 + 301 | validation_450 | H200 | [teste H200](apertus-8B-heads/results_small_h200.md), [per classe](apertus-8B-heads/results_small_h200_per_class.md) |
 | P9 | pesi per classe; focal contro cross-entropy | 8B congelato + teste, 6 varianti, 5 seed | 1.199 + 301 | validation_450 | Mac, feature di P8 | [pesi per classe](apertus-8B-heads/results_weights_small.md) |
 | P10 | LoRA sullo split piccolo | 8B + **LoRA**, 256², JSON | 1.500 | validation_450, coverage | Kristian, H200 | [confronto LoRA](confronto_lora.md) |
+| P11 | LoRA e teste insieme, training completo | 8B + **LoRA + teste**, 256² | 9.344 | coverage, base, prompt-test | H200 | [LoRA + teste](apertus-8B-lora-heads/results_full_h200.md) |
 
 Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagini per scegliere layer ed epoca.
 
@@ -62,7 +63,8 @@ Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagi
 | P6 | soli pixel + teste (non Apertus) | 0.366 |
 | P4 | 8B zero-shot, v2 | 0.528 |
 | P4 | 70B zero-shot, v2 | 0.583 |
-| **P10** | **8B + LoRA, allenato su 1.500 immagini** | **0.734** |
+| P10 | 8B + LoRA con JSON, allenato su 1.500 immagini | 0.734 |
+| **P11** | **8B + LoRA + teste, allenato su 9.344 immagini** | **0.781** (base 0.786, prompt-test 0.791) |
 
 ## Cosa sappiamo
 
@@ -72,14 +74,16 @@ Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagi
   P8, con un seed e pochi passi di training: lì non ha aiutato.
 - I pesi forti per classe danno circa +0.02 sulle 450 (P9), ma la scelta sulla validazione interna non li indica:
   da confermare su altre immagini.
-- Il LoRA è il metodo migliore misurato finora (P10): +0.154 sulle 450 rispetto alle teste di P8. **Le condizioni non
+- **LoRA + teste sul training completo (P11) è il metodo migliore misurato finora su coverage.** Il distacco da P10 non si
+  attribuisce alle teste: P11 ha circa sei volte più immagini.
+- Tra i metodi sullo split piccolo, sulle 450 il migliore è il LoRA (P10): +0.154 sulle 450 rispetto alle teste di P8. **Le condizioni non
   sono uguali** (risoluzione, numero di immagini, augmentation), quindi il distacco non si attribuisce solo al metodo.
 
 ## Non ancora misurato
 
 - Prompt v2 sulle 450.
-- Teste sul set completo (training su `training_rows`, valutazione su coverage).
-- LoRA sul set completo.
+- Teste con Apertus congelato sul set completo.
+- LoRA con uscita JSON sul set completo: serve per confrontare teste e testo a parità di dati.
 - Teste sopra il modello con LoRA, e confronto con le teste congelate a parità di condizioni.
 - Velocità fermandosi a un layer intermedio.
 - v2 completa senza contesto prodotto.
