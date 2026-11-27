@@ -54,7 +54,7 @@ function ModelCard({ model, block, thr, target }: { model: ModelSummary; block?:
   )
 }
 
-function CostPanel({ thr, models }: { thr?: Throughput; models: ModelSummary[] }) {
+function CostPanel({ thr }: { thr?: Throughput }) {
   const settings = useSettings()
   const qc = useQueryClient()
   const save = useMutation({
@@ -208,7 +208,7 @@ export default function PerformancePage() {
           <p className="text-sm text-muted" data-testid="calibration-na">n/a: no per-image predictions on a labelled set are available yet (<code>evaluate.py</code>, GPU or gateway key, only with explicit approval). Confidence of uploaded images is never aggregated here.</p>
         </Section>
 
-        <Section title="Speed and cost" testId="section-cost"><CostPanel thr={thr.data} models={models.data?.models ?? []} /></Section>
+        <Section title="Speed and cost" testId="section-cost"><CostPanel thr={thr.data} /></Section>
       </div>
     </ErpShell>
   )
