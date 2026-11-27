@@ -39,3 +39,21 @@ final_images/
 img_*.jpg
 img_*.png
 labeling_guideline.*
+
+# Demo app (src/demo): dati locali, screenshot di riferimento e artefatti di test, mai in git
+data/demo/
+demo_data/
+docs/demo/reference/
+src/demo/frontend/test-results/
+src/demo/frontend/playwright-report/
+src/demo/frontend/blob-report/
+src/demo/frontend/e2e/screenshots/
+src/demo/frontend/.vite/
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+.pytest_cache/
