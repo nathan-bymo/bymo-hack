@@ -126,7 +126,9 @@ def list_images(request: Request, session_id: str):
 def get_image(image_id: str, request: Request):
     db = request.app.state.db
     out = image_dict(get_image_row(db, image_id))
-    out["predictions"], out["review"] = P.latest_per_model(db, image_id), None
+    from .reviews import latest_review
+
+    out["predictions"], out["review"] = P.latest_per_model(db, image_id), latest_review(db, image_id)
     return out
 
 

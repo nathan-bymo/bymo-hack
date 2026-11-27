@@ -36,6 +36,7 @@ def get_adapter(request: Request, model_id: str, mode: str):
         cache = request.app.state.adapters
         if model_id not in cache:
             cache[model_id] = ZeroShotGenerativeAdapter(entry.raw, parallel=request.app.state.zero_shot_parallel)
+        cache[model_id].parallel = request.app.state.zero_shot_parallel
         return cache[model_id]
     proxy = request.app.state.worker_adapter(entry)  # WorkerProxy (M3.1)
     return proxy
