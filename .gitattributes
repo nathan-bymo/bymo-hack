@@ -1,2 +1,4 @@
 weights/**/*.safetensors filter=lfs diff=lfs merge=lfs -text
 weights/**/*.pt filter=lfs diff=lfs merge=lfs -text
+src/outputs/**/*.safetensors filter=lfs diff=lfs merge=lfs -text
+src/outputs/**/*.pt filter=lfs diff=lfs merge=lfs -text
