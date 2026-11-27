@@ -26,10 +26,20 @@ def target_size(width, height, side):
     return tuple(max(PATCH, round(side * factor / PATCH) * PATCH) for factor in (aspect**0.5, aspect**-0.5))
 
 
-def data_url(path, side=512):
-    """The prepared image as a base64 JPEG data URL."""
+def prepared(path, side=512):
+    """The image as the model gets it: transparency on white and resized."""
     with Image.open(path) as image:
         rgb = opaque_rgb_on_white(image)
+    return rgb.resize(target_size(*rgb.size, side), Image.LANCZOS)
+
+
+def data_url(path, side=512):
+    """The prepared image as a base64 JPEG data URL."""
     buffer = io.BytesIO()
-    rgb.resize(target_size(*rgb.size, side), Image.LANCZOS).save(buffer, format="JPEG", quality=JPEG_QUALITY)
+    prepared(path, side).save(buffer, format="JPEG", quality=JPEG_QUALITY)
     return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
+
+
+def prepared_jpeg(path, side=512):
+    """Same pixels as data_url after JPEG decoding, so local models and the API read the same image."""
+    return Image.open(io.BytesIO(base64.b64decode(data_url(path, side).split(",", 1)[1]))).convert("RGB")
