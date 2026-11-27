@@ -6,12 +6,22 @@ from the command line or the repository):
 
     python src/apertus-8B-benchmark/lora/build_hf_job.py
     HF_TOKEN=$(cat ~/.cache/huggingface/token) KAGGLE_API_TOKEN=$(cat ~/.kaggle/access_token) \\
-        hf jobs uv run --flavor a100-large --timeout 6h --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \\
+        hf jobs uv run --flavor h200 --timeout 6h --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \\
         -e UPLOAD_REPO=<user>/apertus-8b-galaxus-lora src/apertus-8B-benchmark/lora/hf_job.py
 
+Prototype run (train on data/prototype_splits/train_1500.csv, score on validation_450.csv and on coverage). The
+ids of the two csv files travel as the secret PROTOTYPE_IDS, never as a file or in the repository:
+
+    PROTOTYPE_IDS=$(python src/apertus-8B-benchmark/lora/build_hf_job.py --pack-prototype data/prototype_splits) \\
+    HF_TOKEN=... KAGGLE_API_TOKEN=... hf jobs uv run --flavor h200 --timeout 3h \\
+        --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN --secrets PROTOTYPE_IDS \\
+        -e PART=prototype_train -e SIDE=256 -e TRAIN_HOURS=2 -e UPLOAD_REPO=<user>/apertus-8b-galaxus-lora \\
+        src/apertus-8B-benchmark/lora/hf_job.py
+
 What the job does: downloads the competition data from Kaggle (into the job's disk only, deleted with the job) and
-Apertus from Hugging Face, computes the VQ codes, trains on common.splits.training_rows, scores the final adapter
-on the coverage set, and uploads adapters, logs and scores (never data or labels) to the private model repo.
+Apertus from Hugging Face, computes the VQ codes, trains on common.splits.training_rows (or the prototype train
+split), scores the final adapter on the coverage set (and on the prototype validation split), and uploads
+adapters, logs and scores (never data or labels) to the private model repo.
 """
 
 import base64
@@ -67,8 +77,9 @@ SETTINGS = {
     "PREFIX": os.environ.get("PREFIX", ""),
     "SHARDS": int(os.environ.get("SHARDS", 3)),
 }
+PHASES = {"training": "phase1", "all": "phase2", "prototype_train": "prototype"}
 if not SETTINGS["PREFIX"]:
-    SETTINGS["PREFIX"] = f"{'phase1' if SETTINGS['PART'] == 'training' else 'phase2'}-{SETTINGS['SIDE']}"
+    SETTINGS["PREFIX"] = f"{PHASES[SETTINGS['PART']]}-{SETTINGS['SIDE']}"
 WORK = Path(os.environ.get("WORK", "/tmp/work"))
 CODE, DATA, MODEL, RUN = WORK / "code", WORK / "data", WORK / "model", WORK / "run"
 BUNDLE = "@@BUNDLE@@"
@@ -143,6 +154,8 @@ def main():
         archive.extractall(CODE, filter="data")
     log("settings:", SETTINGS)
     assert os.environ.get("HF_TOKEN") and os.environ.get("KAGGLE_API_TOKEN"), "secrets HF_TOKEN and KAGGLE_API_TOKEN"
+    if SETTINGS["PART"].startswith("prototype"):
+        assert os.environ.get("PROTOTYPE_IDS"), "secret PROTOTYPE_IDS (build_hf_job.py --pack-prototype)"
     if SETTINGS["UPLOAD_REPO"]:
         from huggingface_hub import HfApi
 
@@ -185,13 +198,20 @@ def main():
     upload_run()
     assert code == 0, "training failed, see train.log"
 
-    if SETTINGS["PART"] == "training":  # phase 2 has no valid score on train (src/AGENTS.md)
-        encode("coverage", mirrors=False)
+    # Phase 2 has no valid score on train (src/AGENTS.md). The prototype is also scored on its own validation split.
+    evaluations = {"training": ["coverage"], "all": [], "prototype_train": ["prototype_validation", "coverage"]}
+    failed = []
+    for part in evaluations[SETTINGS["PART"]]:
+        encode(part, mirrors=False)
         code = run([sys.executable, "evaluate.py", "--model-dir", MODEL, "--data-dir", DATA, "--codes", RUN / "codes",
-                    "--adapter", RUN / "adapters" / "final", "--side", SETTINGS["SIDE"], "--out", RUN], "eval.log")
-        (RUN / "predictions_final.csv").unlink(missing_ok=True)  # model answers on train images: not uploaded
+                    "--adapter", RUN / "adapters" / "final", "--side", SETTINGS["SIDE"], "--part", part,
+                    "--name", part, "--out", RUN], f"eval_{part}.log")
+        for answers in RUN.glob("predictions_*.csv"):
+            answers.unlink()  # model answers on train images: not uploaded
         upload_run()
-        assert code == 0, "evaluation failed, see eval.log (the adapters are uploaded)"
+        if code != 0:
+            failed.append(part)
+    assert not failed, f"evaluation failed on {failed}, see eval_*.log (the adapters are uploaded)"
     log("all done")
 
 
@@ -201,6 +221,14 @@ if __name__ == "__main__":
 
 
 def main():
+    import sys
+
+    if sys.argv[1:2] == ["--pack-prototype"]:  # prints the value of the PROTOTYPE_IDS secret
+        sys.path.insert(0, str(HERE))
+        import apertus_lora
+
+        print(apertus_lora.pack_prototype_ids(sys.argv[2]))
+        return
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
         for name, path in FILES.items():

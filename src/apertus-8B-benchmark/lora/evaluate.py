@@ -1,10 +1,12 @@
-"""Scores a LoRA adapter on the coverage set of train.csv with the competition metric (greedy decoding).
+"""Scores a LoRA adapter on the coverage set (or the prototype validation set) of train.csv with the competition
+metric (greedy decoding).
 
     python evaluate.py --model-dir M --data-dir D --codes codes --adapter run/adapters/final --side 384 --out run
 
-The codes of the coverage images come from encode.py --part coverage --no-mirrors. Prints the macro F1 on
-coverage, on "base" (the natural class distribution) and on "test", as src/scripts/eval_prompt.py does, and writes
-eval_<name>.json (scores only, no labels) and predictions_<name>.csv (model answers; never commit it).
+The codes come from encode.py --part <part> --no-mirrors. On coverage it prints the macro F1 on coverage, on "base"
+(the natural class distribution) and on "test", as src/scripts/eval_prompt.py does. On prototype_validation
+(label-balanced, not representative) it prints that set alone. Writes eval_<name>.json (scores only, no labels) and
+predictions_<name>.csv (model answers; never commit it).
 """
 
 import argparse
@@ -35,6 +37,7 @@ def main():
     parser.add_argument("--codes", required=True)
     parser.add_argument("--adapter", required=True)
     parser.add_argument("--side", type=int, default=384)
+    parser.add_argument("--part", default="coverage", choices=("coverage", "prototype_validation"))
     parser.add_argument("--batch", type=int, default=32)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--name", default="final")
@@ -51,9 +54,9 @@ def main():
     config = AutoConfig.from_pretrained(args.model_dir)
     sequences = L.Sequences(tokenizer, config.image_token_offset)
     codes = {}
-    for path in sorted(Path(args.codes).glob(f"codes_coverage_{args.side}_shard*.pkl")):
+    for path in sorted(Path(args.codes).glob(f"codes_{args.part}_{args.side}_shard*.pkl")):
         codes.update(pickle.loads(path.read_bytes()))
-    rows = L.select_rows(L.read_train(args.data_dir), "coverage")
+    rows = L.select_rows(L.read_train(args.data_dir), args.part)
     if args.limit:
         rows = rows.head(args.limit)
     records = rows.to_dict("records")
@@ -62,7 +65,7 @@ def main():
         if record["image_id"] in codes:
             grid_h, grid_w, image_codes = codes[record["image_id"]]
             prompts[record["image_id"]] = sequences.prompt_ids(record, grid_h, grid_w, image_codes, not args.no_context)
-    print(f"{len(records)} coverage rows, {len(prompts)} with codes", flush=True)
+    print(f"{len(records)} {args.part} rows, {len(prompts)} with codes", flush=True)
 
     if args.tiny:
         from train import load_model
@@ -70,7 +73,7 @@ def main():
         model = load_model(argparse.Namespace(tiny=True, model_dir=args.model_dir), 0)
     else:
         model = Apertus1p5ForConditionalGeneration.from_pretrained(
-            args.model_dir, dtype=torch.bfloat16, device_map={"": 0}, attn_implementation="sdpa"
+            args.model_dir, dtype=torch.bfloat16, device_map={"": 0}, attn_implementation=L.ATTENTION
         )
         model.model.vision_tokenizer = None
         model.model.audio_tokenizer = None
@@ -103,11 +106,13 @@ def main():
         [{"image_id": r["image_id"], **(predictions.get(r["image_id"]) or dict.fromkeys(L.DIMENSIONS))} for r in records]
     )
     metric = L.load_metric(args.data_dir)
-    views = {"coverage": rows.index}
-    buckets = rows.product_id.map(L.splits.bucket)
-    views["base (natural distribution)"] = rows.index[buckets.isin(L.splits.BUCKETS["base"])]
-    views["test only"] = rows.index[buckets.isin(L.splits.BUCKETS["test"])]
-    report = {"adapter": args.adapter, "side": args.side, "invalid_answers": invalid, "images_per_second":
+    views = {args.part: rows.index}
+    if args.part == "coverage":
+        buckets = rows.product_id.map(L.splits.bucket)
+        views["base (natural distribution)"] = rows.index[buckets.isin(L.splits.BUCKETS["base"])]
+        views["test only"] = rows.index[buckets.isin(L.splits.BUCKETS["test"])]
+    report = {"adapter": args.adapter, "part": args.part, "side": args.side, "invalid_answers": invalid,
+              "images_per_second":
               len(answers) / seconds, "views": {}}
     for view, index in views.items():
         part = rows.loc[index].reset_index(drop=True)
@@ -116,8 +121,9 @@ def main():
         cells = " | ".join(f"{d} {scores[d]['f1_macro']:.3f}" for d in L.DIMENSIONS if d in scores)
         print(f"{view}: {len(part)} images, macro F1 {scores['overall']['f1_macro']:.4f}, weighted "
               f"{scores['overall']['f1_weighted']:.4f} | {cells}", flush=True)
-    weakest = sorted((v["f1"], f"{d}/{c}", v["support"]) for d in L.DIMENSIONS if d in report["views"]["coverage"]
-                     for c, v in report["views"]["coverage"][d]["per_class"].items())[:10]
+    first = report["views"][args.part]
+    weakest = sorted((v["f1"], f"{d}/{c}", v["support"]) for d in L.DIMENSIONS if d in first
+                     for c, v in first[d]["per_class"].items())[:10]
     print("weakest classes:", ", ".join(f"{n} {f:.2f} (n={s})" for f, n, s in weakest), flush=True)
     print(f"invalid answers: {invalid}", flush=True)
     out = Path(args.out)

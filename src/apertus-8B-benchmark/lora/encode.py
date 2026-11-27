@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--model-dir", required=True)
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--side", type=int, default=256)
-    parser.add_argument("--part", default="training", choices=("training", "all", "coverage"))
+    parser.add_argument("--part", default="training", choices=("training", "all", "coverage", *L.PROTOTYPE_PARTS))
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
     parser.add_argument("--limit", type=int, default=0, help="only the first N rows, for a quick test")

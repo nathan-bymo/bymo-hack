@@ -65,7 +65,7 @@ def load_model(args, local_rank):
         return model.to(torch.float32)
     if args.precision == "bf16":  # A100/L40S/H100: the 17 GB model as it was trained, no quantization
         model = Apertus1p5ForConditionalGeneration.from_pretrained(
-            args.model_dir, dtype=torch.bfloat16, device_map={"": local_rank}, attn_implementation="sdpa"
+            args.model_dir, dtype=torch.bfloat16, device_map={"": local_rank}, attn_implementation=L.ATTENTION
         )
         model.model.vision_tokenizer = None
         model.model.audio_tokenizer = None
@@ -83,7 +83,7 @@ def load_model(args, local_rank):
         quantization_config=quantization,
         dtype=torch.float16,
         device_map={"": local_rank},
-        attn_implementation="sdpa",
+        attn_implementation=L.ATTENTION,
     )
     # The codes are precomputed: the image and audio tokenizers are never called (1.2 GB per GPU freed).
     model.model.vision_tokenizer = None
@@ -167,8 +167,10 @@ def upload(repo, folder, path_in_repo):
     try:
         from huggingface_hub import HfApi
 
+        # README.md: the model card PEFT writes carries the local base-model path, which the Hub rejects as
+        # invalid metadata (2026-11-27: the final adapter of prototype-256 was lost this way).
         HfApi().upload_folder(repo_id=repo, folder_path=str(folder), path_in_repo=path_in_repo,
-                              commit_message=f"upload {path_in_repo}")
+                              ignore_patterns=["README.md"], commit_message=f"upload {path_in_repo}")
         log(f"uploaded {path_in_repo} to {repo}")
     except Exception as error:  # the run goes on; the files stay on the machine
         log(f"upload of {path_in_repo} failed: {type(error).__name__}: {str(error)[:200]}")
@@ -267,7 +269,7 @@ def main():
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--codes", required=True, help="folder with the codes_*.pkl files of encode.py")
     parser.add_argument("--out", required=True)
-    parser.add_argument("--part", default="training", choices=("training", "all"))
+    parser.add_argument("--part", default="training", choices=("training", "all", "prototype_train"))
     parser.add_argument("--side", type=int, default=256)
     parser.add_argument("--epochs", type=float, default=3.0, help="upper bound; the deadline may cut it")
     parser.add_argument("--deadline", type=float, default=0.0, help="unix time by which the adapters must be saved")

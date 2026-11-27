@@ -43,6 +43,10 @@ MIRRORED_PERSPECTIVES = {
     "right_side": "left_side",
 }
 
+# The VQ and audio tokenizers do not support sdpa and are dropped after loading (the codes are precomputed): only
+# the language model asks for sdpa. A plain "sdpa" for the whole model raises a ValueError at load time.
+ATTENTION = {"text_config": "sdpa", "vision_tokenizer_config": "eager", "audio_tokenizer_config": "eager"}
+
 RARE_CLASS_TARGET = 200
 MAX_REPEATS = 3
 
@@ -58,14 +62,53 @@ def read_train(data_dir):
     return rows
 
 
+PROTOTYPE_PARTS = {"prototype_train": "train", "prototype_validation": "validation"}
+PROTOTYPE_FILES = {"train": "train_1500.csv", "validation": "validation_450.csv"}
+
+
+def pack_prototype_ids(folder):
+    """The image ids of data/prototype_splits, gzipped and base64 encoded: the value of the PROTOTYPE_IDS secret.
+
+    Only ids travel, never labels or images; the job reads the rows from its own copy of train.csv.
+    """
+    import base64
+    import gzip
+
+    import pandas as pd
+
+    ids = {name: pd.read_csv(Path(folder) / file, dtype=str, usecols=["image_id"]).image_id.tolist()
+           for name, file in PROTOTYPE_FILES.items()}
+    return base64.b64encode(gzip.compress(json.dumps(ids).encode())).decode()
+
+
+def prototype_ids(name):
+    """Ids of the prototype split `name`, from $PROTOTYPE_IDS (packed) or the csv files in $PROTOTYPE_DIR."""
+    import base64
+    import gzip
+    import os
+
+    if os.environ.get("PROTOTYPE_IDS"):
+        return json.loads(gzip.decompress(base64.b64decode(os.environ["PROTOTYPE_IDS"])))[name]
+    folder = os.environ.get("PROTOTYPE_DIR")
+    assert folder, "set PROTOTYPE_IDS (packed ids) or PROTOTYPE_DIR (folder of data/prototype_splits)"
+    return json.loads(gzip.decompress(base64.b64decode(pack_prototype_ids(folder))))[name]
+
+
 def select_rows(rows, part):
-    """"training" (phase 1, src/AGENTS.md), "all" (phase 2) or "coverage" (evaluation)."""
+    """"training" (phase 1, src/AGENTS.md), "all" (phase 2), "coverage" (evaluation), or the prototype splits
+    "prototype_train" / "prototype_validation" (data/prototype_splits, both inside training_rows)."""
     if part == "training":
         return splits.training_rows(rows)
     if part == "coverage":
         return splits.split_rows(rows, "coverage")
     if part == "all":
         return rows.reset_index(drop=True)
+    if part in PROTOTYPE_PARTS:
+        ids = prototype_ids(PROTOTYPE_PARTS[part])
+        picked = rows.set_index("image_id").loc[ids].reset_index()  # keeps the order of the split
+        reserved = set(splits.split_rows(rows, "coverage").product_id)
+        assert not picked.product_id.isin(reserved).any(), f"{part} touches the coverage set"
+        return picked
     raise ValueError(part)
 
 
