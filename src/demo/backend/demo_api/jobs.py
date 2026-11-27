@@ -69,7 +69,7 @@ class JobManager:
             if row:
                 cached += 1
                 job.done += 1
-                result = P.to_result(row, cached=True)
+                result = P.to_result(row, cached=True, db=self.db)
                 job.results.append(result)
                 job.emit("result", result)
             else:
@@ -96,8 +96,9 @@ class JobManager:
 
         def on_result(prediction) -> None:
             row = P.store(self.db, by_id[prediction.image_id], job.model_id, adapter.model_revision,
-                          adapter.prompt_version, use_context, mode, prediction, job.job_id)
-            result = P.to_result(row, cached=False)
+                          adapter.prompt_version, use_context, mode, prediction, job.job_id,
+                          getattr(prediction, "recorded_run_id", None))
+            result = P.to_result(row, cached=False, db=self.db)
             with job.lock:
                 job.done += 1
                 job.results.append(result)

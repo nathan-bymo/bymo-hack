@@ -51,10 +51,11 @@ class BatchInfo:
     gpu_name: str
     batch_size: int
     peak_memory_gb: float | None = None
+    recorded: dict | None = None   # run.json di una registrazione: i valori sono quelli della registrazione
 
     def to_json(self) -> dict:
         ms = (self.seconds / self.images * 1000) if self.images else None
-        return {"images": self.images, "seconds": self.seconds, "images_per_second": self.images_per_second,
+        return {"recorded": self.recorded, "images": self.images, "seconds": self.seconds, "images_per_second": self.images_per_second,
                 "ms_per_image": ms, "gpu_name": self.gpu_name, "batch_size": self.batch_size,
                 "peak_memory_gb": self.peak_memory_gb}
 

@@ -121,4 +121,4 @@ def list_predictions(request: Request, session_id: str | None = None, model_id: 
         sql += " AND p.image_id = ?"
         params.append(image_id)
     rows = db.all(sql + " ORDER BY p.created_at, p.rowid", params)
-    return {"predictions": [P.to_result(r) for r in rows]}
+    return {"predictions": [P.to_result(r, db=db) for r in rows]}

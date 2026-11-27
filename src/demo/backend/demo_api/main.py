@@ -14,10 +14,6 @@ from . import errors
 from .settings import VERSION, Settings
 
 
-def _no_recorded(entry):
-    raise errors.ApiError("MODEL_UNAVAILABLE", "No recorded predictions for this model.", {"model_id": entry.id})
-
-
 def _no_worker(entry):
     raise errors.ApiError("MODEL_UNAVAILABLE", "No GPU worker is available for this model.", {"model_id": entry.id})
 
@@ -46,6 +42,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from .jobs import JobManager
 
         app.state.jobs = JobManager(app.state.db)
+        from .adapters import recorded as recorded_module
+
+        recorded_module.scan(app.state.db, app.state.storage.recorded_dir)
+        app.state.recorded_adapter = lambda entry: recorded_module.RecordedAdapter(entry.id, app.state.db)
         yield
         app.state.db.close()
 
@@ -54,13 +54,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.adapters = {}
     app.state.zero_shot_parallel = 8
-    app.state.recorded_adapter = _no_recorded
     app.state.worker_adapter = _no_worker
     errors.install(app)
 
-    from .routers import health, images, models, predict, sessions, taxonomy
+    from .routers import health, images, models, predict, recorded, sessions, taxonomy
 
-    for module in (health, taxonomy, sessions, images, models, predict):
+    for module in (health, taxonomy, sessions, images, models, predict, recorded):
         app.include_router(module.router, prefix="/api")
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)

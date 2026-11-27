@@ -38,7 +38,18 @@ def store(db: Database, image: dict, model_id: str, revision: str, prompt_versio
     return db.one("SELECT * FROM predictions WHERE prediction_id = ?", (prediction_id,))
 
 
-def to_result(row: dict, cached: bool = False, recorded: dict | None = None) -> dict:
+def recorded_info(db: Database | None, row: dict) -> dict | None:
+    if db is None or row["mode"] != "recorded" or not row.get("recorded_run_id"):
+        return None
+    run = db.one("SELECT * FROM recorded_runs WHERE run_id = ?", (row["recorded_run_id"],))
+    if run is None:
+        return {"run_id": row["recorded_run_id"], "recorded_at": None, "gpu_name": None, "images_per_second": None}
+    meta = json.loads(run.get("meta_json") or "{}")
+    return {"run_id": run["run_id"], "recorded_at": run["recorded_at"], "gpu_name": run["gpu_name"],
+            "images_per_second": meta.get("images_per_second")}
+
+
+def to_result(row: dict, cached: bool = False, db: Database | None = None) -> dict:
     """Una riga di `predictions` nel formato di `results` (C.5), con etichette ERP e applicabilità."""
     dims = json.loads(row["dimensions_json"])
     labels = {d: dims[d]["label"] for d in dimensions()}
@@ -50,7 +61,7 @@ def to_result(row: dict, cached: bool = False, recorded: dict | None = None) -> 
     return {
         "image_id": row["image_id"], "prediction_id": row["prediction_id"], "model_id": row["model_id"],
         "model_revision": row["model_revision"], "cached": cached, "mode": row["mode"], "valid": bool(row["valid"]),
-        "dimensions": out, "raw_output": row["raw_output"], "timing": _timing(row), "recorded": recorded,
+        "dimensions": out, "raw_output": row["raw_output"], "timing": _timing(row), "recorded": recorded_info(db, row),
         "use_context": bool(row["use_context"]), "created_at": row["created_at"],
     }
 
@@ -67,5 +78,5 @@ def latest_per_model(db: Database, image_id: str) -> list[dict]:
     for row in rows:
         if row["model_id"] not in seen:
             seen.add(row["model_id"])
-            out.append(to_result(row))
+            out.append(to_result(row, db=db))
     return out
