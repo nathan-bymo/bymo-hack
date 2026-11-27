@@ -1,7 +1,21 @@
 # Risultati e pipeline di training
 
 Stato del 27 novembre 2026, sera. Solo metriche aggregate: nessuna immagine, label o predizione individuale.
-**Ogni confronto vale sullo stesso set di immagini.** Nessuno di questi numeri è un punteggio Kaggle.
+**Ogni confronto vale sullo stesso set di immagini.** Solo la sezione "Kaggle dev" riporta un punteggio Kaggle.
+
+## Kaggle dev (leaderboard pubblica, 5.261 immagini)
+
+| modello | punteggio pubblico |
+|---|---|
+| **finale, `final-abt/model/best`** | **0,83177** |
+| Apertus 8B full fine-tuning, 24 layer, 6 teste, 3 epoche (altro esperimento del team) | 0,80473 |
+| avversari (riferimento) | 0,86381 |
+| Qwen 3.5 9B (riferimento) | ~0,917 |
+
+Predizione: job Hugging Face `DEV_ONLY=1` (`build_hf_job.py`), 1× L40S, bf16, 4,9 img/s end to end, 20 minuti di
+job, ~0,65 $. Le righe delle immagini final del file inviato hanno ancora i valori di default di
+`sample_submission.csv`. Su dev il modello fa leggermente meglio che su prompt-test (0,821): si generalizza come
+previsto.
 
 ## Modello finale
 
@@ -99,7 +113,8 @@ VQ (fp32) e OCR, in sequenza nello stesso thread. Qwen 3.5 9B di riferimento: ~2
 - Training: `build_hf_job.py` genera il job (variabili `PART`, `INIT_FROM`, `OCR`, `RUN_NAME`, `TRAIN_ARGS`).
 - Inferenza H200: `predict.py --checkpoint <cartella>`; su 2 × T4 (Kaggle): `--dtype float16 --encoder-device cuda:1`
   con il controllo overflow fp16 di `model.py`. Notebook Kaggle: `build_kaggle_notebook.py`.
-- Test: `python -m pytest -q src/apertus-8B-vadapter-lora-heads/test_pipeline.py` (30 test, CPU).
+- Test: `python -m pytest -q src/apertus-8B-vadapter-lora-heads/test_pipeline.py` (32 test, CPU).
+- Pesi del modello finale anche in `src/outputs/apertus-8B-vadapter-lora-heads-final/` (Git LFS: `git lfs install`).
 
 Modelli usati a runtime (da elencare nel report): Apertus v1.5 8B, SigLIP 2 (`google/siglip2-base-patch16-224`),
 docTR (`fast_base` + `Felix92/doctr-torch-parseq-multilingual-v1`).
