@@ -10,6 +10,30 @@ Questo progetto partecipa alla competizione Kaggle `hackapertus-galaxus`. Leggi 
 - `scripts/`: script condivisi. Conserva ogni esperimento nella propria cartella e documenta dipendenze, configurazione, dati, comandi e risultati in modo riproducibile.
 - `docs/system_prompt.txt`: prompt di classificazione condiviso per i benchmark standard 8B e 70B e, dove compatibile, per il visual adapter. Usalo come messaggio system; passa immagine e contesto prodotto nel messaggio utente. Confronta eventuali modifiche con la versione condivisa e registrale nei risultati.
 
+## Dati per training e valutazione
+
+Il training del modello si fa in due fasi. Split e filtro sono in `common/splits.py`; non committare liste di ID.
+
+| Fase | Dati di training (da `train.csv`) | A cosa serve |
+| --- | --- | --- |
+| 1. Confronto | solo `training_rows` (9.344 immagini) | scegliere metodo, epoche e impostazioni e confrontare i modelli sulle 2.532 immagini del set `coverage` |
+| 2. Modello finale | tutte le 11.876 immagini etichettate | riallenare con metodo e impostazioni già scelti nella fase 1, senza cambiarli |
+
+```python
+import pandas as pd
+from common.splits import training_rows  # con src nel PYTHONPATH
+
+tutto = pd.read_csv("data/train.csv", dtype=str, keep_default_na=False)
+train = training_rows(tutto)  # fase 1
+```
+
+- In fase 1 non usare le immagini di `coverage` in nessun modo per addestrare: né pesi, né epoche, né iperparametri, né calibrazione sui dati di training.
+- Un modello non si valuta mai su immagini che ha studiato. Il modello della fase 2 non ha quindi un punteggio valido sul train: si controlla solo con una submission sul dev di Kaggle. Se peggiora in modo chiaro rispetto a quello della fase 1, o non è pronto in tempo (prima delle 13:00 CET del 28 novembre), si usa quello della fase 1.
+- Nei risultati e nel report indica per ogni modello su quali dati è stato addestrato. I punteggi della fase 1 non vanno presentati come punteggi del modello finale.
+- Le immagini final non si usano per il training in nessuna fase.
+
+Confronto con `scripts/eval_prompt.py --split coverage`: mostra i risultati su `coverage`, su `base` (distribuzione originale delle classi) e su `test`. Le predizioni di modelli eseguiti fuori dall'API si passano come CSV con `image_id` e le sei dimensioni; il CSV non va nel repository.
+
 ## Esecuzione dei benchmark
 
 ### Baseline 8B e 70B: API Keera

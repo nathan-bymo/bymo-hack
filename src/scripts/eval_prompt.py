@@ -1,17 +1,18 @@
 """Compare prompt variants on labeled train images through the Apertus API, scored with metric.py.
 
-Splits are by product_id through a hash, so they are stable on every machine:
-  prompt-dev  (bucket 0 of 10): iterate on the prompt here.
-  prompt-test (bucket 1 of 10): confirm a decision here, rarely.
-Together they are 20% of the products. Keep both out of any finetuning.
+The splits are described in src/common/splits.py: "dev", "test", "base" (both) and "coverage" (base plus extra
+products so that every class has enough examples). With "coverage" the results are shown three times: on all rows,
+on "base" (the natural class distribution) and on "test" alone (never used to choose a prompt before 2026-11-27).
+Keep the whole coverage set out of any finetuning.
 
 Variants are written model:layout:answer:side[:nocontext], for example 8b:describe:names:512. Layouts "split" and
-"describe" take the answers "names" or "codes"; "minimal" and "full" take "json" or "codes". Differences to the
+"describe" take the answers "names" or "codes"; "minimal" and "full" take "json" or "codes"; "shared" is the
+team prompt in src/docs/system_prompt.txt and takes "json". Differences to the
 first variant come with a paired bootstrap interval over products.
 
 A variant that ends in .csv is a file of predictions made elsewhere, for example by a finetuned model or a visual
 adapter on a GPU: columns image_id plus the six dimensions, with a row for every image of the split. It is scored
-on the same images and compared like any other variant. Finetuning must leave out buckets 0 and 1.
+on the same images and compared like any other variant. Train only on common.splits.training_rows.
 
 Raw answers go to data/runs/ (ignored by git) and are reused when the script runs again.
 
@@ -35,10 +36,11 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from common import images, prompt  # noqa: E402
+from common import images, prompt, splits  # noqa: E402
+from common.splits import digest  # noqa: E402
 
 DATA = ROOT / "data"
-BUCKETS = {"dev": 0, "test": 1}
+SHARED_PROMPT = ROOT / "src" / "docs" / "system_prompt.txt"
 
 
 def load_env():
@@ -60,16 +62,10 @@ def load_metric():
     return module
 
 
-def digest(text):
-    return hashlib.sha256(text.encode()).hexdigest()
-
-
 def load_split(split, limit):
-    """The rows of a split. With a limit, whole products are taken in a fixed pseudo-random order."""
-    rows = pd.read_csv(DATA / "train.csv", dtype=str, keep_default_na=False)
-    rows = rows[rows.product_id.map(lambda p: int(digest(p), 16) % 10 == BUCKETS[split])]
-    rows = rows.assign(order=rows.product_id.map(lambda p: digest("order:" + p))).sort_values(["order", "image_id"])
-    return (rows.head(limit) if limit else rows).reset_index(drop=True)
+    """The rows of a split of train.csv. With a limit, the first images in the fixed order of the split."""
+    rows = splits.split_rows(pd.read_csv(DATA / "train.csv", dtype=str, keep_default_na=False), split)
+    return rows.head(limit).reset_index(drop=True) if limit else rows
 
 
 def complete(body, attempts=5):
@@ -105,6 +101,10 @@ def run_variant(spec, rows, concurrency):
         wording = "".join(prompt.question_text(d, answer) for d in prompt.DIMENSIONS)
         wording += prompt.DESCRIBE if style == "describe" else ""
         version = prompt.SPLIT_VERSION
+    elif style == "shared":
+        if answer != "json":
+            sys.exit("the shared team prompt asks for JSON: use shared:json")
+        wording, version = SHARED_PROMPT.read_text(), "team"
     else:
         wording, version = prompt.system_prompt(style, answer), prompt.PROMPT_VERSION
     folder = DATA / "runs" / f"{spec.replace(':', '_')}_{version}_{digest(wording)[:8]}"
@@ -123,7 +123,11 @@ def run_variant(spec, rows, concurrency):
         started = time.time()
         record = {"image_id": row["image_id"]}
         if not split_layout:
-            messages = prompt.build_messages(row, url, style, answer, use_context)
+            if style == "shared":
+                messages = prompt.build_messages(row, url, "minimal", answer, use_context)
+                messages[0]["content"] = SHARED_PROMPT.read_text()
+            else:
+                messages = prompt.build_messages(row, url, style, answer, use_context)
             record["choice"], record["usage"] = ask(messages, prompt.output_constraint(answer))
         else:
             usages, description = [], None
@@ -219,10 +223,34 @@ def bootstrap_difference(metric, rows, solution, base, other, samples):
     return differences[int(0.025 * samples)], differences[int(0.975 * samples)]
 
 
+SHORT = {"subject": "subj", "background": "backg", "perspective": "persp", "individuals": "indiv",
+         "text_classification": "textcl", "text_language": "lang"}
+
+
+def report(metric, view, rows, submissions, arguments):
+    """The score table of one view, and the differences to the first variant."""
+    solution = solution_frame(rows)
+    print(f"\n### {view}: {len(rows)} images, {rows.product_id.nunique()} products")
+    print("| variant | macro F1 | weighted | " + " | ".join(SHORT.values()) + " |")
+    print("|---" * (3 + len(SHORT)) + "|")
+    scores = {spec: metric.evaluate(solution, submission, "image_id") for spec, submission in submissions.items()}
+    for spec, values in scores.items():
+        cells = [values["overall"]["f1_macro"], values["overall"]["f1_weighted"]]
+        cells += [values[d]["f1_macro"] for d in SHORT]
+        print(f"| {spec} | " + " | ".join(f"{value:.3f}" for value in cells) + " |")
+    first = arguments.variants[0]
+    for spec in arguments.variants[1:]:
+        if arguments.bootstrap:
+            low, high = bootstrap_difference(metric, rows, solution, submissions[first], submissions[spec],
+                                             arguments.bootstrap)
+            delta = scores[spec]["overall"]["f1_macro"] - scores[first]["overall"]["f1_macro"]
+            print(f"{spec} minus {first}: {delta:+.3f}, 95% interval [{low:+.3f}, {high:+.3f}]", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("variants", nargs="+")
-    parser.add_argument("--split", choices=BUCKETS, default="dev")
+    parser.add_argument("--split", choices=("dev", "test", "base", "coverage"), default="dev")
     parser.add_argument("--limit", type=int, default=0, help="number of images, 0 for the whole split")
     parser.add_argument("--concurrency", type=int, default=16)
     parser.add_argument("--bootstrap", type=int, default=300)
@@ -248,27 +276,20 @@ def main():
         results[spec] = (submission, metric.evaluate(solution, submission, "image_id"), stats)
         print(f"{spec}: {json.dumps(stats)}")
 
-    short = {"subject": "subj", "background": "backg", "perspective": "persp", "individuals": "indiv",
-             "text_classification": "textcl", "text_language": "lang"}
-    print("\n| variant | macro F1 | weighted | " + " | ".join(short.values()) + " |")
-    print("|---" * (3 + len(short)) + "|")
-    for spec, (_, scores, _) in results.items():
-        cells = [scores["overall"]["f1_macro"], scores["overall"]["f1_weighted"]]
-        cells += [scores[d]["f1_macro"] for d in short]
-        print(f"| {spec} | " + " | ".join(f"{value:.3f}" for value in cells) + " |")
-
-    first = arguments.variants[0]
-    for spec in arguments.variants[1:]:
-        if arguments.bootstrap:
-            low, high = bootstrap_difference(metric, rows, solution, results[first][0], results[spec][0],
-                                             arguments.bootstrap)
-            delta = results[spec][1]["overall"]["f1_macro"] - results[first][1]["overall"]["f1_macro"]
-            print(f"{spec} minus {first}: {delta:+.3f}, 95% interval [{low:+.3f}, {high:+.3f}]")
+    views = {arguments.split: rows.index}
+    if arguments.split == "coverage":
+        buckets = rows.product_id.map(splits.bucket)
+        views["base (natural distribution)"] = rows.index[buckets.isin(splits.BUCKETS["base"])]
+        views["test only"] = rows.index[buckets.isin(splits.BUCKETS["test"])]
+    for view, index in views.items():
+        report(metric, view, rows.loc[index].reset_index(drop=True),
+               {spec: submission.loc[index].reset_index(drop=True) for spec, (submission, _, _) in results.items()},
+               arguments)
 
     if arguments.classes:
         for spec, (_, scores, _) in results.items():
             print(f"\n{spec}")
-            for dimension in short:
+            for dimension in SHORT:
                 values = sorted(scores[dimension]["per_class"].items(), key=lambda item: item[1]["f1"])
                 print(f"  {dimension}: " + ", ".join(
                     f"{name} {v['f1']:.2f} (P {v['precision']:.2f} R {v['recall']:.2f} n {v['support']})"
