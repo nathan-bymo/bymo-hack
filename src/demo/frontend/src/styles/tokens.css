@@ -1,11 +1,41 @@
-/* Token di design della demo. Nessun valore è misurato: gli screenshot di riferimento non ci sono (Q1).
-   Ogni riga dichiara il ripiego usato; M2.0 completa la tabella (docs/demo/piano/D_interfaccia.md, D.1.2).
-   I ripiego sono colori della palette Tailwind, NON colori Galaxus. */
+/* Token di design della demo (allegato D, D.1.2).
+   NESSUN valore è misurato: gli screenshot di riferimento non ci sono (Q1). Ogni riga dichiara il ripiego:
+   un colore della palette predefinita di Tailwind, NON un colore Galaxus. Quando gli screenshot arrivano si misura
+   con la procedura D.1.1 e si sostituisce `ripiego:` con `misurato: <file> (x0,y0,x1,y1)`. */
 :root {
-  --c-titlebar-bg: var(--color-emerald-900);   /* ripiego: tailwind emerald-900 */
-  --c-titlebar-fg: #fff;                       /* ripiego: tailwind white */
-  --c-accent-line: var(--color-orange-600);    /* ripiego: tailwind orange-600 */
-  --c-app-bg: var(--color-slate-50);           /* ripiego: tailwind slate-50 */
-  --c-text: var(--color-slate-900);            /* ripiego: tailwind slate-900 */
-  --font-sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; /* font di sistema, nessun font scaricato */
+  --c-titlebar-bg: #064e3b;      /* ripiego: tailwind emerald-900 */
+  --c-titlebar-fg: #ffffff;      /* ripiego: tailwind white */
+  --c-accent-line: #ea580c;      /* ripiego: tailwind orange-600 */
+  --c-imagetype-bg: #f0f9ff;     /* ripiego: tailwind sky-50 */
+  --c-imagetype-border: #bae6fd; /* ripiego: tailwind sky-200 */
+  --c-switch-now: #7c3aed;       /* ripiego: tailwind violet-600 */
+  --c-link: #1d4ed8;             /* ripiego: tailwind blue-700 */
+  --c-app-bg: #f8fafc;           /* ripiego: tailwind slate-50 */
+  --c-panel-bg: #ffffff;         /* ripiego: tailwind white */
+  --c-border: #e2e8f0;           /* ripiego: tailwind slate-200 */
+  --c-text: #0f172a;             /* ripiego: tailwind slate-900 */
+  --c-text-muted: #64748b;       /* ripiego: tailwind slate-500 */
+  --c-toolbar-btn-bg: #f1f5f9;   /* ripiego: tailwind slate-100 */
+  --c-status-red: #dc2626;       /* ripiego: tailwind red-600 */
+  --c-status-blue: #2563eb;      /* ripiego: tailwind blue-600 */
+  --c-store-pill: #000000;       /* ripiego: tailwind black */
+  --c-store-price: #0f172a;      /* ripiego: tailwind slate-900 */
+  /* chip di confidenza: colori NOSTRI (non Galaxus), scelti per contrasto AA su sfondi -50 */
+  --c-conf-high: #047857;  --c-conf-high-bg: #ecfdf5;   /* nostro: emerald-700 su emerald-50 */
+  --c-conf-mid: #b45309;   --c-conf-mid-bg: #fffbeb;    /* nostro: amber-700 su amber-50 */
+  --c-conf-low: #b91c1c;   --c-conf-low-bg: #fef2f2;    /* nostro: red-700 su red-50 */
+  --c-invalid: #b91c1c;    --c-invalid-bg: #fef2f2;     /* nostro: red-700 su red-50 */
+  --font-sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; /* font di sistema, niente download */
+  --fs-label: 12px;     /* ripiego: 12 / 13 / 16 / 13 px */
+  --fs-value: 13px;
+  --fs-title: 16px;
+  --fs-section: 13px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; /* ripiego */
+  --radius-field: 9999px;  /* ripiego: pillola */
+  --radius-btn: 3px;       /* ripiego */
+  --radius-card: 4px;      /* ripiego */
+  --shadow: none;          /* ripiego: quasi nessuna ombra */
 }
+/* Densità: Normale (laptop) e Presentazione (TV 1080p, 125%) */
+html { font-size: 100%; }
+html[data-density="presentation"] { font-size: 125%; }

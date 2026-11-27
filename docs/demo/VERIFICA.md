@@ -37,3 +37,10 @@ Nota per il team: con `epoch-2` disponibile, Q4 potrebbe preferire `epoch-2` com
 | M0.4: Vite 8 + React 19 + TypeScript + Tailwind 4 (`@tailwindcss/vite`), versioni esatte nel lockfile; `npm run build` ok, `dist/` ignorato; `npm run dev` serve la pagina (HTTP 200, `DemoBadge` presente nel modulo e nel bundle) | ok |
 | Verifica **visiva** del badge nel browser | **non fatta**: estensione Chrome non connessa; Playwright non ha i browser scaricati (download non autorizzato) |
 | Token di design | tutti di **ripiego** Tailwind (Q1: nessuno screenshot); in `tokens.css` solo 5 token per ora, il resto in M2.0 |
+
+## M2.0 — token di design (27/11)
+
+Tutti i token di `src/demo/frontend/src/styles/tokens.css` sono di **ripiego** (palette Tailwind, dichiarata riga per
+riga con commento `ripiego:`); nessuno è misurato perché non ci sono screenshot (Q1). I colori dei chip di confidenza
+e del badge "invalid" sono nostri (non Galaxus). Procedura di misura: D.1.1, da eseguire se gli screenshot arrivano.
+Nota tecnica: Tailwind 4 non emette le variabili di tema non usate, quindi i ripiego sono esadecimali letterali.
