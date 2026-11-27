@@ -62,6 +62,37 @@ Media dei 5 seed sulle 301 immagini (tra parentesi minimo e massimo). In grasset
 - **Correzione rispetto a P8:** con un solo seed la focal era −0.013 sotto la cross-entropy; su 5 seed la differenza è −0.006 e l'intervallo tocca zero.
 - Il guadagno dei pesi (circa 0.02) è piccolo rispetto al distacco dal LoRA sulle stesse 450 (vedi [confronto](../confronto_lora.md)).
 
+## Lettura dei risultati sulla focal loss
+
+**Cos'è.** La focal loss moltiplica la cross-entropy di ogni esempio per (1 − p)^γ, dove p è la probabilità data alla
+risposta giusta. Con γ = 2 resta l'1% del peso se p = 0.9, il 25% se p = 0.5, l'81% se p = 0.1: contano di più gli
+esempi difficili. "Difficile" non vuol dire "raro": per le classi rare servono i pesi per classe, provati a parte.
+
+**Per dimensione, senza pesi per classe, media di 5 seed sulle 450:**
+
+| dimensione | cross-entropy | focal | focal − cross-entropy |
+|---|---|---|---|
+| subject | 0.466 | 0.448 | -0.018 |
+| background | 0.777 | 0.759 | -0.019 |
+| perspective | 0.236 | 0.225 | -0.011 |
+| individuals | 0.893 | 0.912 | +0.019 |
+| text_classification | 0.501 | 0.488 | -0.013 |
+| text_language | 0.359 | 0.363 | +0.004 |
+
+Gli intervalli di confidenza sono stati calcolati solo sul totale, non sulle singole dimensioni.
+
+**Correzione rispetto a P8 su `perspective`.** Con un solo seed la focal sembrava migliore (0.267 contro 0.230). Con
+5 seed il vantaggio non c'è più (0.225 contro 0.236): una singola prova non bastava.
+
+**Focal + GradNorm** (0.501 contro 0.542 della cross-entropy) viene solo da P8: un seed e pochi passi di training. È un
+risultato meno solido degli altri.
+
+**Cosa non si può concludere.** La focal non è stata scartata in generale: è stata provata solo con γ = 2, con Apertus
+congelato (non con il LoRA) e con 1.199 immagini per allenare le teste. Non sono state fatte prove per capire perché
+qui non aiuta.
+
+**Decisione per ora:** per le teste si usa la cross-entropy, più semplice e mai chiaramente inferiore in queste prove.
+
 ## F1 per classe sulle 450 (media di 5 seed)
 
 `n`: esempi nella validazione. Una classe senza esempi compare se almeno un seed l'ha predetta (F1 0).
