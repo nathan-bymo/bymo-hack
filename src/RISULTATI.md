@@ -19,6 +19,8 @@ Aggiornato al 27 novembre 2026. Serve per il report finale. Ogni report ha in ci
 | prime 600 di prompt-dev | 600 | primi test dei prompt |
 | validation_450 (Nathan) | 450 | **bilanciata** per classe; presa dalle immagini di training di coverage, quindi valida solo per modelli che non le hanno studiate |
 
+I risultati del 70B sono riassunti anche in [apertus-70B-benchmark/README.md](apertus-70B-benchmark/README.md).
+
 ## Elenco delle prove
 
 | prova | domanda | modello e metodo | dati di training | valutata su | chi, dove | report |
