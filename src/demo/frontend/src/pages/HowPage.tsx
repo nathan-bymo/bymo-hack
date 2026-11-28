@@ -50,7 +50,12 @@ function Pipeline() {
         </Stage>
         <Arrow />
         <Stage label="Three ways to read the photo">
-          <Box title="SigLIP 2 image encoder" body="49 image tokens, through a small projector we trained" />
+          <div>
+            <Box title="SigLIP 2 image encoder" body="Image features of the photo, frozen" />
+            <div className="ml-5 border-l-2 border-graphite pl-0">
+              <Box title="Projector" body="Turns them into 49 tokens Apertus can read" trained />
+            </div>
+          </div>
           <Box title="Apertus image tokenizer" body="About 256 image tokens" />
           <Box title="docTR text reader (OCR)" body="The words printed on the image" />
         </Stage>
