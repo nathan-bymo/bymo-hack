@@ -39,6 +39,7 @@ export default function CatalogPage() {
 
   const stats = catalog.data?.stats
   const products = catalog.data?.products ?? []
+  const hasConfidence = products.some((p) => p.min_confidence !== null)   // senza confidenze (etichette di train) la colonna non c'è
   const filters = catalog.data?.filters
   const onFilters = (next: StorefrontFilters) => saveFilters.mutate(next)
 
@@ -120,7 +121,7 @@ export default function CatalogPage() {
                     <th className="py-2 pr-4 font-normal">Product</th>
                     <th className="py-2 pr-4 font-normal">Category</th>
                     <th className="py-2 pr-4 text-right font-normal">Views</th>
-                    <th className="w-36 py-2 pr-4 font-normal">Lowest confidence</th>
+                    {hasConfidence && <th className="w-36 py-2 pr-4 font-normal">Lowest confidence</th>}
                     <th className="py-2 pr-3 font-normal">Status</th>
                   </tr>
                 </thead>
@@ -150,7 +151,7 @@ export default function CatalogPage() {
                       <td className="py-2 pr-4 text-right text-[14px] tabular-nums">
                         {product.published_count} / {product.image_count}
                       </td>
-                      <td className="py-2 pr-4"><ConfidenceMeter value={product.min_confidence} compact /></td>
+                      {hasConfidence && <td className="py-2 pr-4"><ConfidenceMeter value={product.min_confidence} compact /></td>}
                       <td className="py-2 pr-3"><StatusTag status={product.status} /></td>
                     </tr>
                   ))}

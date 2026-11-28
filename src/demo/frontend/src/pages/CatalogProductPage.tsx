@@ -4,7 +4,7 @@ import { useCatalogProduct, useUpdateCatalogImage, useUpdateCatalogProduct } fro
 import { AppShell } from '../components/app'
 import { Breadcrumbs, ConfidenceMeter, Eyebrow, StatusTag, ValueTable } from '../components/catalog-ui'
 import { ErrorState, useToast } from '../components/ui'
-import { FILTER_LABELS, percent, perspectiveLabel, ruleBlockers } from '../lib/catalog'
+import { FILTER_LABELS, VIEW_ORDER_RULE, percent, perspectiveLabel, ruleBlockers } from '../lib/catalog'
 
 export default function CatalogProductPage() {
   const { productId } = useParams()
@@ -89,6 +89,7 @@ export default function CatalogProductPage() {
             <h2 className="m-0 text-[20px] font-bold tracking-tight">Photos and views</h2>
             <span className="text-[13px] text-slate">{images.length} {images.length === 1 ? 'photo' : 'photos'}</span>
           </div>
+          <p className="m-0 mt-2 text-[13px] text-slate" data-testid="view-order-rule">Order of the views: {VIEW_ORDER_RULE}</p>
 
           {images.length === 0 ? (
             <div className="mt-4 border border-rule px-6 py-10 text-center" data-testid="catalog-product-empty">
@@ -125,7 +126,7 @@ export default function CatalogProductPage() {
                           </div>
                         </div>
 
-                        <div className="mt-2"><ConfidenceMeter value={image.confidence} /></div>
+                        {image.confidence !== null && <div className="mt-2"><ConfidenceMeter value={image.confidence} /></div>}
 
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-slate">
                           <span>Values from: <b className="text-graphite">{image.values_source === 'review' ? 'human review' : image.values_source === 'model' ? 'the model' : 'no answer yet'}</b></span>

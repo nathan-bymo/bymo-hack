@@ -1,11 +1,18 @@
 import type { CompactImage, StorefrontFilters } from '../api/types'
 import { plainLabel } from './labels'
 
-/** Ordine delle viste: lo stesso della tassonomia, così la galleria segue il giro del prodotto. */
+/**
+ * Regola unica per l'ordine delle viste (la stessa del backend, `catalog.py`): prima le viste ad angolo a sinistra, poi
+ * quelle ad angolo a destra (davanti prima del retro), poi tutte le altre; le foto senza vista letta vanno in fondo.
+ * La copertina scelta dall'admin va sempre per prima.
+ */
 export const PERSPECTIVE_ORDER = [
-  'front_head_on', 'front_angle_left', 'front_angle_right', 'left_side', 'right_side',
-  'back_head_on', 'back_angle_left', 'back_angle_right', 'top_down', 'bottom_up',
+  'front_angle_left', 'back_angle_left', 'front_angle_right', 'back_angle_right',
+  'front_head_on', 'left_side', 'right_side', 'back_head_on', 'top_down', 'bottom_up',
 ] as const
+
+export const VIEW_ORDER_RULE = 'Angled-left views first, then angled-right views, then every other view; photos without a read view come last. The cover always leads.'
+
 
 export function perspectiveRank(value: string | null | undefined): number {
   const index = PERSPECTIVE_ORDER.indexOf(value as (typeof PERSPECTIVE_ORDER)[number])
@@ -16,7 +23,7 @@ export function perspectiveLabel(value: string | null | undefined): string {
   return value ? plainLabel('perspective', value) : 'View not read yet'
 }
 
-/** Galleria: prima la copertina, poi le altre viste in ordine di prospettiva. */
+/** Galleria: prima la copertina, poi le altre viste secondo la regola dell'ordine. */
 export function galleryOrder(images: CompactImage[]): CompactImage[] {
   return [...images].sort((a, b) => {
     if (a.is_cover !== b.is_cover) return a.is_cover ? -1 : 1

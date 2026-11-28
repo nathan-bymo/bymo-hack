@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useStorefrontProduct } from '../api/catalog'
 import { ApiClientError } from '../api/client'
 import { AppShell } from '../components/app'
-import { Breadcrumbs, ConfidenceMeter, Eyebrow, ValueTable } from '../components/catalog-ui'
-import { galleryOrder, percent, perspectiveLabel } from '../lib/catalog'
+import { Breadcrumbs, Eyebrow, ValueTable } from '../components/catalog-ui'
+import { VIEW_ORDER_RULE, galleryOrder, perspectiveLabel } from '../lib/catalog'
 
 export default function ShopProductPage() {
   const { productId } = useParams()
@@ -13,6 +13,23 @@ export default function ShopProductPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = images.find((i) => i.image_id === selectedId) ?? images[0]
   const product = detail.data?.product
+
+  /** Frecce: passano alla vista precedente o successiva, e dall'ultima si torna alla prima. */
+  const go = useCallback((delta: number) => {
+    if (images.length < 2) return
+    const current = Math.max(0, images.findIndex((i) => i.image_id === selectedId))
+    setSelectedId(images[(current + delta + images.length) % images.length].image_id)
+  }, [images, selectedId])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      if (e.key === 'ArrowLeft') go(-1)
+      else if (e.key === 'ArrowRight') go(1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [go])
 
   if (detail.isError) {
     const hidden = detail.error instanceof ApiClientError && detail.error.code === 'NOT_FOUND'
@@ -56,14 +73,26 @@ export default function ShopProductPage() {
             <div className="relative flex aspect-square items-center justify-center bg-canvas p-8" data-testid="shop-main-image">
               <img src={selected.file_url} alt={`${product.title}, ${perspectiveLabel(selected.values.perspective)}`}
                 className="max-h-full max-w-full object-contain" />
-              <span className="absolute left-0 top-0 bg-white px-2.5 py-1 text-[12px] font-bold tabular-nums">
+              <span className="absolute left-0 top-0 bg-white px-2.5 py-1 text-[12px] font-bold tabular-nums" data-testid="shop-counter">
                 {images.indexOf(selected) + 1} / {images.length}
               </span>
+              {images.length > 1 && (
+                <>
+                  <button type="button" onClick={() => go(-1)} aria-label="Previous view" title="Previous view (left arrow key)" data-testid="shop-prev"
+                    className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center border border-rule bg-white p-0 text-graphite hover:border-graphite">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" aria-hidden="true"><path d="M15 4l-8 8 8 8" /></svg>
+                  </button>
+                  <button type="button" onClick={() => go(1)} aria-label="Next view" title="Next view (right arrow key)" data-testid="shop-next"
+                    className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center border border-rule bg-white p-0 text-graphite hover:border-graphite">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" aria-hidden="true"><path d="M9 4l8 8-8 8" /></svg>
+                  </button>
+                </>
+              )}
             </div>
             <figcaption className="mt-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule pb-2">
               <span className="text-[15px] font-bold">{perspectiveLabel(selected.values.perspective)}</span>
               <span className="text-[13px] text-slate">
-                {selected.values.subject ? selected.values.subject.replace(/_/g, ' ') : 'subject not read'} · confidence {percent(selected.confidence)}
+                {selected.values.subject ? selected.values.subject.replace(/_/g, ' ') : 'subject not read'}
               </span>
             </figcaption>
           </figure>
@@ -87,7 +116,7 @@ export default function ShopProductPage() {
             })}
           </div>
           <p className="m-0 mt-2 text-[12px] text-slate">
-            Each photo is a different perspective of the same product. The model named the view; the shop keeps them in the order of a product tour.
+            Each photo is a different perspective of the same product. The model named the view. {VIEW_ORDER_RULE}
           </p>
         </div>
 
@@ -115,18 +144,12 @@ export default function ShopProductPage() {
               <h2 className="m-0 text-[17px] font-bold tracking-tight">What the model read on this view</h2>
               <span className="text-[12px] text-slate">six answers</span>
             </div>
-            <ValueTable values={selected.values} confidence={selected.confidence} />
+            <ValueTable values={selected.values} confidence={null} />
             <p className="m-0 mt-2 text-[12px] leading-snug text-slate">
               These are the values the catalog rules use. Change a rule and this page can gain or lose a photo without anyone re-labelling it.
             </p>
           </div>
 
-          <div className="mt-5">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-[12px] uppercase tracking-[0.1em] text-slate">Lowest confidence in the listing</span>
-              <ConfidenceMeter value={product.min_confidence} compact />
-            </div>
-          </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/" className="border border-graphite bg-white px-4 py-2 text-[14px] font-bold no-underline hover:bg-canvas">
@@ -154,7 +177,6 @@ export default function ShopProductPage() {
                 <th className="py-2 pr-4 font-normal">Subject</th>
                 <th className="py-2 pr-4 font-normal">Background</th>
                 <th className="py-2 pr-4 font-normal">People</th>
-                <th className="w-40 py-2 font-normal">Confidence</th>
               </tr>
             </thead>
             <tbody>
@@ -170,7 +192,6 @@ export default function ShopProductPage() {
                   <td className="py-2 pr-4 text-[14px]">{image.values.subject?.replace(/_/g, ' ') ?? '—'}</td>
                   <td className="py-2 pr-4 text-[14px]">{image.values.background?.replace(/_/g, ' ') ?? '—'}</td>
                   <td className="py-2 pr-4 text-[14px]">{image.values.individuals?.replace(/_/g, ' ') ?? '—'}</td>
-                  <td className="py-2"><ConfidenceMeter value={image.confidence} compact /></td>
                 </tr>
               ))}
             </tbody>

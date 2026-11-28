@@ -52,17 +52,19 @@ export function SearchForm({
   )
 }
 
+/** Senza confidenza (per esempio le etichette di train.csv non ne hanno) non si mostra nulla: niente "not read". */
 export function ConfidenceMeter({ value, compact }: { value: number | null; compact?: boolean }) {
+  if (value === null) return null
   const tone = confidenceTone(value)
-  const width = value === null ? 0 : Math.max(2, Math.round(value * 100))
-  const bar = tone === 'low' ? 'bg-signal' : tone === 'none' ? 'bg-bar-alt' : 'bg-graphite'
+  const width = Math.max(2, Math.round(value * 100))
+  const bar = tone === 'low' ? 'bg-signal' : 'bg-graphite'
   return (
     <div className={`flex items-center gap-2 ${compact ? 'text-[12px]' : 'text-[13px]'}`}>
       <div className={`${compact ? 'h-1' : 'h-1.5'} min-w-0 flex-1 bg-canvas`} aria-hidden="true">
         <div className={`h-full ${bar}`} style={{ width: `${width}%` }} />
       </div>
       <span className={`shrink-0 tabular-nums ${tone === 'low' ? 'font-bold text-signal' : 'text-slate'}`}>
-        {value === null ? 'not read' : percent(value)}
+        {percent(value)}
       </span>
     </div>
   )
@@ -99,7 +101,6 @@ export function ProductCard({ product, testId = 'shop-card' }: { product: Storef
         <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate">{product.brand ?? 'No brand'}</span>
         <span className="mt-0.5 text-[16px] font-bold leading-snug tracking-tight text-graphite group-hover:underline">{product.title}</span>
         <span className="mt-1 text-[13px] leading-snug text-slate"><PerspectiveLine perspectives={product.perspectives} /></span>
-        <div className="mt-auto pt-2"><ConfidenceMeter value={product.min_confidence} compact /></div>
       </div>
     </Link>
   )
@@ -142,10 +143,12 @@ export function ValueTable({
           ))}
         </tbody>
       </table>
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <span className="text-[12px] text-slate">Lowest confidence</span>
-        <ConfidenceChip value={confidence} />
-      </div>
+      {confidence !== null && (
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-[12px] text-slate">Lowest confidence</span>
+          <ConfidenceChip value={confidence} />
+        </div>
+      )}
     </div>
   )
 }
