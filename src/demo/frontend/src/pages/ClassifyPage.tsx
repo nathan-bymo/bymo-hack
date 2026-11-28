@@ -47,15 +47,15 @@ function AnswerCell({ dimension, d, single }: { dimension: string; d: DimensionR
   const nextText = next.map((t) => `${plainLabel(dimension, t.label)} ${Math.round(t.p * 100)}%`).join(', ')
   return (
     <div title={[d.label ? `Official class: ${d.label}` : '', nextText ? `Next guesses: ${nextText}` : ''].filter(Boolean).join('\n') || undefined}>
-      <div className="flex items-baseline justify-between gap-3">
-        <span className={`${single ? 'text-[19px]' : 'text-[16px]'} font-bold leading-snug tracking-tight ${d.applicable ? '' : 'text-slate'}`}>
-          {plainLabel(dimension, d.label)}
-        </span>
-        {d.confidence !== null && (
-          <span className={`shrink-0 tabular-nums ${single ? 'text-[17px]' : 'text-[15px]'} ${d.confidence < UNSURE ? 'font-bold text-signal' : 'text-graphite'}`}>{Math.round(d.confidence * 100)}%</span>
-        )}
+      <div className={`${single ? 'text-[19px]' : 'text-[15px]'} break-words font-bold leading-snug tracking-tight ${d.applicable ? '' : 'text-slate'}`}>
+        {plainLabel(dimension, d.label)}
       </div>
-      {d.confidence !== null && <div className="mt-1"><Bar p={d.confidence} /></div>}
+      {d.confidence !== null && (
+        <div className="mt-1 flex items-center gap-2">   {/* barra e percentuale sulla stessa riga: non escono mai dalla cella */}
+          <div className="min-w-0 flex-1"><Bar p={d.confidence} /></div>
+          <span className={`shrink-0 tabular-nums ${single ? 'text-[16px]' : 'text-[13px]'} ${d.confidence < UNSURE ? 'font-bold text-signal' : 'text-graphite'}`}>{Math.round(d.confidence * 100)}%</span>
+        </div>
+      )}
       {!d.applicable && <div className="mt-1 text-[12px] text-slate">Not scored for this kind of image</div>}
       {single && d.applicable && next.length > 0 && <div className="mt-1 text-[13px] text-slate">Next: {nextText}</div>}
     </div>
@@ -79,10 +79,11 @@ function AnswerTable({ models, preds, runs }: { models: ModelSummary[]; preds: M
   const single = models.length === 1
   const anyAnswer = models.some((m) => preds.has(m.model_id))
   return (
-    <table className="mt-5 w-full table-fixed border-collapse text-left" data-testid={anyAnswer ? 'try-results' : 'try-pending'}>
+    <div className="mt-5 overflow-x-auto">
+    <table className="w-full table-fixed border-collapse text-left" style={{ minWidth: `${12 + models.length * 8}rem` }} data-testid={anyAnswer ? 'try-results' : 'try-pending'}>
       <thead>
         <tr className="border-b-2 border-graphite align-bottom">
-          <th className="w-[34%] py-2 pr-3 text-[13px] font-normal text-slate">Question</th>
+          <th className={`${models.length > 3 ? 'w-[12rem]' : 'w-[34%]'} py-2 pr-3 text-[13px] font-normal text-slate`}>Question</th>
           {models.map((m) => (
             <th key={m.model_id} className="py-2 pl-3 font-normal" data-testid={`col-${m.model_id}`}>
               <span className="block text-[15px] font-bold leading-tight">{m.short_name}</span>
@@ -113,6 +114,7 @@ function AnswerTable({ models, preds, runs }: { models: ModelSummary[]; preds: M
         })}
       </tbody>
     </table>
+    </div>
   )
 }
 
@@ -250,6 +252,22 @@ export default function ClassifyPage() {
 
   const liveAndTrained = shown.some((m) => preds.get(m.model_id)?.mode === 'live') && shown.some((m) => m.runtime !== 'remote_openai')
 
+  // fino a 3 modelli la tabella sta accanto alla foto (inquadratura del video); con più modelli va sotto, a tutta larghezza
+  const wide = chosenModels.length > 3
+  const answers = (
+    <section aria-live="polite">
+      {chosenModels.length > 0 && <AnswerTable models={chosenModels} preds={preds} runs={runs} />}
+      {shown.length > 0 && (
+        <p className="m-0 mt-3 text-[13px] leading-relaxed text-slate" data-testid="try-legend">
+          The percentage is how sure the model is; red means below {UNSURE * 100}%, or models that disagree.
+          {liveAndTrained && ' Models without training and trained models measure certainty differently: compare the answers, not the percentages.'}
+          {hasRecorded && ' Recorded answers were computed earlier on a GPU by the same model.'}
+          {image.data && Object.keys(image.data.context).length === 0 && ' These answers use the photo only, without product details.'}
+        </p>
+      )}
+    </section>
+  )
+
   return (
     <AppShell>
       <h1>Six answers for every product photo</h1>
@@ -335,19 +353,10 @@ export default function ClassifyPage() {
             <p key={id} className="m-0 mt-2 text-[14px] text-signal" data-testid="try-error" role="alert">{all.find((m) => m.model_id === id)?.short_name}: {errorMessage(r.error)}</p>
           ))}
 
-          <section aria-live="polite">
-            {chosenModels.length > 0 && <AnswerTable models={chosenModels} preds={preds} runs={runs} />}
-            {shown.length > 0 && (
-              <p className="m-0 mt-3 text-[13px] leading-relaxed text-slate" data-testid="try-legend">
-                The percentage is how sure the model is; red means below {UNSURE * 100}%, or models that disagree.
-                {liveAndTrained && ' Models without training and trained models measure certainty differently: compare the answers, not the percentages.'}
-                {hasRecorded && ' Recorded answers were computed earlier on a GPU by the same model.'}
-                {image.data && Object.keys(image.data.context).length === 0 && ' These answers use the photo only, without product details.'}
-              </p>
-            )}
-          </section>
+          {!wide && answers}
         </div>
       </div>
+      {wide && <div className="mt-10">{answers}</div>}
     </AppShell>
   )
 }
