@@ -72,6 +72,22 @@ famiglia finta) → si copiano in `data/demo/recorded/` e si fa `POST /api/recor
 "Recorded <data> on <GPU>" ovunque compaia un risultato registrato. Lookup per sha256 + hash del contesto: se manca,
 `RECORDED_MISSING`.
 
+### Foto di esempio (per il video)
+La pagina **Classify** mostra una fila "Sample photos": un clic e la foto entra come se fosse caricata; se il modello
+scelto ha una risposta registrata per quella foto compare l'etichetta "Ready" e la risposta arriva subito. Le foto sono i
+file di `data/demo/samples/` (fuori da git; solo foto di `prompt-test`, mai dev o final, senza persone). Con una foto
+propria la demo funziona come prima: il modello gira dal vivo (worker GPU o gateway) e ci vuole qualche secondo.
+Per avere le risposte registrate di ogni modello serve una GPU:
+```sh
+python src/demo/scripts/export_session.py --session <id della sessione con le foto di esempio>   # laptop
+python src/demo/scripts/record.py --model <id> --export data/demo/export/<id sessione>           # host GPU, un modello alla volta
+# copiare data/demo/recorded/<modello>/<run>/ sul laptop e POST /api/recorded/rescan
+```
+`record.py` copre i modelli con un adapter (`vadapter_heads`, `lora_heads`, `fullft_heads`); il modello `mixed` non ne ha
+uno: per quello si usa `import_probs.py` con le probabilità di un job di valutazione. Le foto sono state scelte dalle
+righe di prompt-test, quindi final-abt e P13 non le hanno viste; P15 e il full fine-tune sono allenati su tutto il train
+e le hanno viste (la demo lo dice nella nota della risposta registrata solo se il report del modello lo riporta).
+
 ## 8. Metriche
 Numeri riportati dai file del repo, riletti con la loro riga (`scripts/import_reported.py`); ogni numero ha set,
 fonte, dati di training e badge (validità + provenienza). `dev` e `final` sono rifiutati. Il full fine-tune mostra

@@ -5,7 +5,7 @@ import { S } from '../strings'
 const LINKS = [
   { to: '/shop', label: 'Storefront', end: false },
   { to: '/catalog', label: 'Catalog', end: false },
-  { to: '/', label: 'Demo', end: true },
+  { to: '/', label: 'Classify', end: true },
 ]
 
 /** Guscio dell'app: marchio, le due facce della demo (vetrina e catalogo) e la classificazione. */

@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from './client'
 import type {
-  Health, ImageItem, ModelsResponse, PredictionResult, Session, Settings, Taxonomy,
+  Health, ImageItem, ModelsResponse, PredictionResult, SamplePhoto, Session, Settings, Taxonomy,
 } from './types'
 
 export const useHealth = () =>
   useQuery({ queryKey: ['health'], queryFn: () => api<Health>('/health'), refetchInterval: 5000, retry: false })
 export const useTaxonomy = () => useQuery({ queryKey: ['taxonomy'], queryFn: () => api<Taxonomy>('/taxonomy'), staleTime: Infinity })
 export const useModels = () => useQuery({ queryKey: ['models'], queryFn: () => api<ModelsResponse>('/models'), refetchInterval: 10000 })
+export const useSamples = () =>
+  useQuery({ queryKey: ['samples'], queryFn: () => api<{ samples: SamplePhoto[] }>('/samples').then((r) => r.samples), staleTime: 30_000 })
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => api<Settings>('/settings') })
 export const useImages = (sessionId: string | null) =>
   useQuery({

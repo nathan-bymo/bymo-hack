@@ -3,9 +3,9 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useSearchParams } from 'react-router-dom'
 import { ApiClientError, api, errorText } from '../api/client'
-import { useImage, useImages, useModels, useSessionId } from '../api/hooks'
+import { useImage, useImages, useModels, useSamples, useSessionId } from '../api/hooks'
 import { subscribeJob } from '../api/sse'
-import type { ApiErrorBody, DimensionResult, ImageItem, ModelSummary, PredictResponse, PredictionResult, UploadResponse } from '../api/types'
+import type { ApiErrorBody, DimensionResult, ImageItem, ModelSummary, PredictResponse, PredictionResult, SamplePhoto, UploadResponse } from '../api/types'
 import { AppShell } from '../components/app'
 import { PublishPanel } from '../components/publish'
 import { QUESTIONS, plainLabel } from '../lib/labels'
@@ -66,7 +66,9 @@ function answerNote(run: RunStatus | undefined, pred: PredictionResult | undefin
   }
   if (run?.state === 'done' && !run.cached && run.seconds !== undefined) return `Answered in ${run.seconds.toFixed(1)} s`
   if (pred) return 'Answered earlier'
-  if (run?.state === 'error') return 'No answer for this photo'
+  if (run?.state === 'error') {
+    return run.error?.code === 'RECORDED_MISSING' ? 'Answers only for the sample photos' : 'No answer for this photo'
+  }
   return 'Waiting'
 }
 
@@ -167,6 +169,8 @@ export default function ClassifyPage() {
   const qc = useQueryClient()
   const models = useModels()
   const images = useImages(sessionId)
+  const samples = useSamples()
+  const [openingSample, setOpeningSample] = useState<string | null>(null)
   const [removed, setRemoved] = useState<string[]>(loadRemoved)
   const updateRemoved = (next: string[]) => {
     setRemoved(next)
@@ -262,6 +266,18 @@ export default function ClassifyPage() {
       setUploading(false)
     }
   }
+  /** Una foto di esempio entra come se fosse caricata: stesso percorso, quindi stessa guardia e stessi modelli. */
+  const openSample = async (sample: SamplePhoto) => {
+    setOpeningSample(sample.sample_id)
+    try {
+      const blob = await (await fetch(sample.file_url)).blob()
+      await upload([new File([blob], sample.filename, { type: blob.type || 'image/jpeg' })])
+    } catch {
+      setUploadError('The sample photo could not be loaded. Check that the demo server is running.')
+    } finally {
+      setOpeningSample(null)
+    }
+  }
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ onDrop: upload, noClick: true, noKeyboard: true, accept: { 'image/*': [] } })
   const pred = chosenModel ? preds.get(chosenModel.model_id) : undefined
   const run = chosenModel ? runs[chosenModel.model_id] : undefined
@@ -329,6 +345,25 @@ export default function ClassifyPage() {
             )}
           </div>
           {uploadError && <p className="m-0 mt-2 text-[14px] text-signal" role="alert">{uploadError}</p>}
+          {(samples.data?.length ?? 0) > 0 && (
+            <div className="mt-5 border-t border-rule pt-3" data-testid="samples">
+              <span className="block text-[16px] font-bold">Sample photos</span>
+              <p className="m-0 mt-1 text-[13px] leading-snug text-slate">Pick one to see the answers right away. Or add your own photo: the model then runs on it, which takes a moment.</p>
+              <div className="mt-2 grid grid-cols-4 gap-1.5">
+                {samples.data!.map((s) => {
+                  const ready = !!chosenModel && s.recorded_models.includes(chosenModel.model_id)
+                  return (
+                    <button key={s.sample_id} type="button" onClick={() => openSample(s)} disabled={uploading || openingSample !== null}
+                      title={`${s.title}${ready ? '' : ' (this model answers live)'}`} data-testid="sample" data-ready={ready}
+                      className="group relative block aspect-square border border-rule bg-canvas p-0.5 hover:border-graphite disabled:opacity-60">
+                      <img src={s.file_url} alt={s.title} className="h-full w-full object-contain" />
+                      {ready && <span className="absolute bottom-0 right-0 bg-graphite px-1 text-[10px] font-bold uppercase tracking-wide text-white">Ready</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           {image.data && <ProductDetails key={image.data.image_id} image={image.data} onSaved={() => qc.invalidateQueries({ queryKey: ['image', imageId] })} />}
         </div>
 

@@ -79,12 +79,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     errors.install(app)
 
     from .routers import (
-        catalog, health, images, metrics, models, predict, recorded, reviews, sessions, settings as settings_router,
-        taxonomy,
+        catalog, health, images, metrics, models, predict, recorded, reviews, samples, sessions,
+        settings as settings_router, taxonomy,
     )
 
     for module in (health, taxonomy, sessions, images, models, predict, recorded, reviews, settings_router, metrics,
-                   catalog):
+                   catalog, samples):
         app.include_router(module.router, prefix="/api")
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)

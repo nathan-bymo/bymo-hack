@@ -94,7 +94,7 @@ export default function CatalogProductPage() {
           {images.length === 0 ? (
             <div className="mt-4 border border-rule px-6 py-10 text-center" data-testid="catalog-product-empty">
               <p className="m-0 text-[18px] font-bold">No photo yet.</p>
-              <p className="m-0 mt-1 text-[14px] text-slate">Upload a photo on the demo page, classify it, then add it to this product.</p>
+              <p className="m-0 mt-1 text-[14px] text-slate">Upload a photo on the Classify page, classify it, then add it to this product.</p>
               <Link to="/" className="mt-3 inline-block border border-graphite px-4 py-2 text-[14px] font-bold no-underline hover:bg-canvas">Add a photo</Link>
             </div>
           ) : (

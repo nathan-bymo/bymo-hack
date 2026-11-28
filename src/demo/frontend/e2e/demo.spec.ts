@@ -13,6 +13,15 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('try-empty')).toContainText('Add a photo')
   await shot(page, '01-empty')
 
+  // 1b. foto di esempio: un clic e la risposta registrata compare subito, senza caricare nulla
+  await expect(page.getByTestId('samples')).toBeVisible()
+  await page.getByTestId('sample').first().click()
+  await expect(page.getByTestId('try-image')).toBeVisible()
+  await expect(page.getByTestId('try-results')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('sample').first()).toHaveAttribute('data-ready', 'true')
+  await page.getByTestId('try-remove').click()   // si toglie dalla pagina per ripartire da vuoto
+  await expect(page.getByTestId('try-empty')).toContainText('Add a photo')
+
   // 2. upload di 3 immagini sintetiche + un file non valido
   await page.getByTestId('try-file-input').setInputFiles(files('synthetic-1.jpg', 'synthetic-2.jpg', 'synthetic-3.jpg', 'bad.png'))
   await expect(page.getByTestId('try-thumbs').locator('button')).toHaveCount(3)

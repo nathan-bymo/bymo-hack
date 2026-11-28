@@ -60,6 +60,19 @@ def recorded_context(db: Database, sha256: str) -> dict | None:
     return None
 
 
+def models_recorded_for(db: Database, sha256: str) -> list[str]:
+    """Modelli che hanno una risposta registrata per questa foto (qualunque contesto): quelli che rispondono subito."""
+    found: list[str] = []
+    for row in db.all("SELECT model_id, path FROM recorded_runs ORDER BY model_id, recorded_at DESC"):
+        if row["model_id"] in found:
+            continue
+        preds = Path(row["path"]) / "predictions.jsonl"
+        if preds.exists() and any(sha256 in line and json.loads(line).get("image_sha256") == sha256
+                                  for line in preds.read_text().splitlines() if line.strip()):
+            found.append(row["model_id"])
+    return found
+
+
 def run_info(row: dict) -> dict:
     meta = json.loads(row.get("meta_json") or "{}")
     return {"run_id": row["run_id"], "recorded_at": row["recorded_at"], "gpu_name": row["gpu_name"],

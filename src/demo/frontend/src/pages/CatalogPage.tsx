@@ -172,7 +172,7 @@ export default function CatalogPage() {
           <div className="border-t border-rule pt-3">
             <span className="text-[12px] font-bold uppercase tracking-[0.1em] text-signal">Add</span>
             <p className="m-0 mt-1 text-[14px] leading-relaxed">
-              Upload a photo on the demo page. The model answers the six questions; the answers become the catalog values.
+              Upload a photo on the Classify page. The model answers the six questions; the answers become the catalog values.
             </p>
             <Link to="/" className="mt-2 inline-block text-[14px] font-bold">Add a photo →</Link>
           </div>
