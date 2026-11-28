@@ -43,6 +43,8 @@ def resolve_weights(spec: dict, base: dict) -> tuple[Path, Path]:
         base_dir = Path(snapshot_download(base["repo"], revision=base["revision"], local_files_only=True))
         if spec.get("local_path"):
             checkpoint = Path(spec["local_path"])
+            if not checkpoint.is_absolute():   # in models.yaml i percorsi locali partono dalla radice del repo
+                checkpoint = REPO_ROOT / checkpoint
         else:
             root = Path(snapshot_download(spec["repo"], revision=spec["revision"],
                                           allow_patterns=[f"{spec['subfolder']}/*"], local_files_only=True))

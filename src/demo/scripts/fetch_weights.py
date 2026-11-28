@@ -2,7 +2,8 @@
 """Scarica i pesi di un modello alla revisione fissata in `models.yaml` (SOLO l'host GPU, SOLO con `--yes`).
 
 La demo non scarica mai nulla da sola. Senza `--yes` lo script stampa cosa scaricherebbe e quanto pesa, poi esce.
-Dimensioni: base 8B 18,4 GB (condivisa), P10 +0,319 GB, full fine-tune +10,49 GB, P11 [DA VERIFICARE].
+Dimensioni: base 8B 18,4 GB (condivisa), P10 +0,319 GB, full fine-tune +10,49 GB; P11 e modello finale sono già
+nel repo (Git LFS, `local_path`): per loro si scarica solo la base.
 """
 
 from __future__ import annotations
@@ -31,6 +32,10 @@ def plan(registry: Registry, model_id: str) -> list[dict]:
     items = []
     if weights.get("requires_base"):
         items.append({"repo": base["repo"], "revision": base["revision"], "patterns": None, "gb": base.get("size_gb")})
+    if weights.get("local_path"):   # pesi già nel repo (Git LFS): serve solo `git lfs pull`
+        if not (REPO / weights["local_path"]).exists():
+            raise SystemExit(f"pesi locali assenti: {weights['local_path']} (esegui git lfs pull)")
+        return items
     items.append({"repo": weights["repo"], "revision": weights["revision"],
                   "patterns": [f"{weights['subfolder']}/*"], "gb": weights.get("size_gb")})
     return items

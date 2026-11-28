@@ -108,3 +108,31 @@ Person(s) Present) e `-` per Overlay/Language; **ancora ignoto** il valore `none
 Non applicabile: il pulsante di salvataggio ha etichetta illeggibile nello screenshot (usato "Save"); nessuna voce di
 sidebar risulta evidenziata nell'originale (da noi evidenziata quella nuova). Test: 106 pytest e E2E passati dopo la modifica.
 La verifica visiva resta **contro una descrizione**, non contro gli screenshot originali.
+
+## Aggiornamento 28/11 notte — modelli del team, pagine Models e Try (branch `feat/demo-modelli`)
+
+| cosa | esito |
+|---|---|
+| `models.yaml`: modello finale di Nathan (Kaggle dev 0.83177, prompt-test 0.821 held-out, 6,2 img/s H200, 4,9 img/s L40S), P11 con `local_path` ai pesi LFS, full fine-tune `phase2/model/last` (Kaggle dev 0.80473, 9,55 img/s e 18,7 GB su A100), riferimenti Kaggle; righe di fonte P11 corrette (velocità :173, prezzo H200 :174) | ok: l'import riga per riga dei report non segnala discrepanze |
+| Costo per 100.000 immagini dal registro: finale 10,20 $ (L40S) / 22,40 $ (H200), full FT 7,27 $ (A100), P11 10,52 $ (H200); zero-shot n/a (prezzo del gateway non pubblico); P10 n/a (velocità non end to end) | ok, test `test_scores_speeds_and_cost_per_100k` |
+| pytest backend | **103 passati**, 6 saltati |
+| `npm run build` | ok; `oxlint` senza avvisi nuovi nelle pagine aggiunte |
+| E2E Playwright (Chrome) esteso: Models (classifica Kaggle con 6 righe, 2 modelli segnati non validi su coverage, costo 7,27 $, filtro esperimenti secondari) e Try (6 dimensioni, disaccordo su perspective tra due registrazioni **segnaposto**) | **1 test, 10 passi, passato** |
+| `make -C src/demo demo` | build + API su :8010; `/`, `/image-classification/try`, `/image-classification/models`, `/api/models` → 200 |
+| Zero-shot **live** con la chiave in `.env` (mai stampata), su un'immagine sintetica disegnata (nessun dato della competizione) | **ok**: 8B 7,0 s, 70B 23,5 s; 6 dimensioni valide con probabilità; i due modelli non concordano su subject |
+| Console del browser sulle pagine nuove | nessun errore |
+| Guardia sha256 dev/final | **non costruita su questo Mac**: le cartelle `dev_images`/`final_images` non ci sono (rischio basso: niente immagini dev qui) |
+| Worker `vadapter_heads` (modello finale) e `parity.py` esteso | scritti; **mai eseguiti su GPU**: "parity not verified" |
+| Modelli allenati in modalità registrato con predizioni **vere** | **non fatto**: serve un host GPU (proposta e costo da approvare) |
+
+## Aggiornamento 28/11 — controllo sui requisiti della challenge
+
+| requisito (challenge_description.md) | nella demo | verifica |
+|---|---|---|
+| metodo che funziona anche senza contesto prodotto | Classify: "Product details (optional)", risposte segnate "photo only" se il contesto manca | E2E: salvataggio di 2 campi su 5 |
+| ≥ 2 img/s, > 100.000 immagini al giorno, memoria, costo per 100.000 | Models: colonne ✓ 2 img/s e "100,000 images take" (ore) | E2E: full fine-tune 2,9 h |
+| Insights (15%) e bonus prospettiva | Models: "What mattered" (5) e "What did not help" (4), ognuno con file:riga | fonti rilette riga per riga |
+| weighted F1 | Models, test interno: weighted F1 sotto ogni modello | E2E |
+| solo Apertus + modelli open-weights a runtime, deployabile on-premises | Models: "What runs at inference" | fonti: RISULTATI.md:119-120, AGENTS.md:58-65 |
+| trasparenze composte su bianco | già in `common/images.py` (usato dallo zero-shot) | prova live con PNG trasparente |
+| prova live dal browser, chiave reale | 8B + 70B insieme su un PNG sintetico: 9,5 s, nessun errore in pagina né in console | Playwright su :8010 |

@@ -28,8 +28,12 @@ def _cells(line: str) -> list[str]:
 
 
 def num(text: str) -> float | None:
+    """Numero di una cella: accetta anche la virgola decimale dei report in italiano ("0,821")."""
+    value = text.replace("**", "").strip()
+    if re.fullmatch(r"-?\d+,\d+", value):
+        value = value.replace(",", ".")
     try:
-        return float(text.replace("**", "").strip())
+        return float(value)
     except ValueError:
         return None
 

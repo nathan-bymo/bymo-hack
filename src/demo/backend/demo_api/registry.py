@@ -152,18 +152,69 @@ class Registry:
         return {"set": pick["set"], "macro_f1": pick.get("macro_f1"), "validity": pick["validity"],
                 "provenance": pick["provenance"], "source": pick["source"]}
 
+    def prices(self) -> dict[str, float]:
+        cost = self.defaults.get("cost", {})
+        return {item["gpu_label"]: item["usd_per_hour"] for item in [cost.get("default"), *cost.get("alternatives", [])]
+                if item}
+
+    def speeds(self, raw: dict) -> list[dict]:
+        """Velocità riportate (img/s) con il costo per 100.000 immagini, solo se end to end e su una GPU nota."""
+        prices = self.prices()
+        out = []
+        for m in raw.get("measured", []):
+            if not str(m.get("what", "")).startswith("img/s"):
+                continue
+            gpu = m.get("gpu_label")
+            price = prices.get(gpu) if gpu and m.get("cost_eligible") else None
+            cost = round(price / (m["value"] * 3600) * 100_000, 2) if price and m["value"] else None
+            reason = None
+            if cost is None:
+                reason = ("shared gateway: API cost not public" if raw["family"] == ZEROSHOT
+                          else "not end to end: cost not computed")
+            out.append({"images_per_second": m["value"], "what": m["what"], "conditions": m.get("conditions"),
+                        "gpu_label": gpu or ("gateway" if raw["family"] == ZEROSHOT else None),
+                        "usd_per_hour": price, "cost_per_100k_usd": cost, "cost_note": reason,
+                        "source": m["source"]})
+        return out
+
+    @staticmethod
+    def scores(raw: dict) -> list[dict]:
+        """Ogni punteggio con il suo set: Kaggle dev prima, poi i set interni. Mai mescolati in una classifica."""
+        out = []
+        kaggle = raw.get("kaggle_dev") or {}
+        if kaggle.get("score") is not None:
+            out.append({"set": "kaggle_dev", "macro_f1": kaggle["score"], "validity": "kaggle_public",
+                        "source": kaggle.get("source"), "source_label": kaggle.get("source_label"),
+                        "note": kaggle.get("note")})
+        for ev in raw.get("evals", []):
+            out.append({"set": ev["set"], "macro_f1": ev.get("macro_f1"), "weighted_f1": ev.get("weighted_f1"),
+                        "validity": ev["validity"], "source": ev["source"], "note": ev.get("note"),
+                        "checkpoint": ev.get("checkpoint")})
+        return out
+
     def summary(self, entry: ModelEntry) -> dict:
         raw = entry.raw
         vram = raw.get("vram_estimate_gb")
         measured = any(m.get("what", "").startswith("VRAM") for m in raw.get("measured", []))
+        weights = raw.get("weights")
+        memory = raw.get("memory") or ({"gb": vram, "kind": "estimate", "what": "estimate", "source": "models.yaml"}
+                                       if vram else None)
         out = {
-            "model_id": entry.id, "display_name": raw["display_name"], "family": raw["family"],
-            "runtime": raw["runtime"], **self.status(entry),
+            "model_id": entry.id, "display_name": raw["display_name"],
+            "short_name": raw.get("short_name") or raw["display_name"], "featured": bool(raw.get("featured")),
+            "description": raw.get("description"),
+            "family": raw["family"], "runtime": raw["runtime"], **self.status(entry),
             "confidence": raw.get("confidence"), "training": raw.get("training"),
-            "weights": {k: raw.get("weights", {}).get(k) for k in ("repo", "revision", "subfolder", "size_gb")}
-            if raw.get("weights") else None,
+            "training_label": raw.get("training_label") or (raw.get("training") or {}).get("data"),
+            "weights": {k: weights.get(k) for k in ("repo", "revision", "subfolder", "size_gb", "local_path",
+                                                    "location_label")} if weights else None,
             "vram_estimate_gb": vram,
             "vram_estimate_kind": "measured" if (raw["id"] == "apertus-8b-lora-heads-p11" or measured) else "estimate",
+            "memory": memory,
+            "speeds": self.speeds(raw),
+            "scores": self.scores(raw),
+            "seen_sets": (raw.get("training") or {}).get("seen_sets") or [],
+            "contamination_note": raw.get("contamination_note"),
             "headline_eval": self.headline_eval(raw),
             "kaggle_dev": raw.get("kaggle_dev") or {"score": None},
             "parity": raw.get("parity") or {"verified": False, "scope": "parity test not run (needs a GPU host: scripts/parity.py)"},

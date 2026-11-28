@@ -26,16 +26,19 @@ cd src/demo/frontend && npm ci
 
 ## 4. Modelli e pesi
 `src/demo/models.yaml` è il registro: ogni valore ha una fonte, i campi ignoti valgono `[DA VERIFICARE]` e rendono il
-modello `unavailable`. **Nessun peso viene scaricato in automatico.** Il full fine-tune si legge da un worktree
+modello `unavailable`. **Nessun peso viene scaricato in automatico.** Pesi nel repo (Git LFS, `local_path`): P11 in
+`weights/lora_heads_256_p11/`, modello finale di Nathan in `weights/apertus-8B-vadapter-lora-heads-final/`. Il full fine-tune si legge da un worktree
 (`git worktree add ../hack-apertus-fullft feat/apertus-8b-fullft-heads`, variabile `DEMO_FULLFT_SRC`). I worker GPU
 (`python -m demo_worker.server --family <lora_generative|lora_heads|fullft_heads> --port <p>`, uno per famiglia) sono
 scritti e il **protocollo** è testato con una famiglia finta (`--dry`, solo test); gli adapter reali **non sono stati
 mai eseguiti** (nessuna GPU in sviluppo): restano "parity not verified" finché `scripts/parity.py` non passa su un host
-GPU. Pesi: `scripts/fetch_weights.py --model <id>` stampa il piano e scarica solo con `--yes`.
+GPU. Pesi: `scripts/fetch_weights.py --model <id>` stampa il piano e scarica solo con `--yes`. Il modello finale ha la famiglia
+`vadapter_heads` (SigLIP 2 + OCR docTR, `requirements-gpu.txt` include `python-doctr`).
 
 ## 5. `kaggle_dev.score`
-Si compila **solo a mano** in `models.yaml`, con `source`, data e nota. Oggi solo P11 (0.796, da
-`results_full_h200.md:150-162`, **da confermare su Kaggle**); il full fine-tune non ha metriche locali valide.
+Si compila **solo a mano** in `models.yaml`, con `source` (file del repo), `source_label` e nota. Oggi: modello finale
+0.83177, full fine-tune 0.80473, P11 0.796 (submission del team su Kaggle, 27/11). Riferimenti dello stesso set in
+`defaults.kaggle_references` (Qwen 0.917, Gemini 4 Argon 0.834, Gemini 3.8 Flash 0.806).
 
 ## 6. Avvio
 ```sh
@@ -45,6 +48,16 @@ make -C src/demo dev    # API :8010 + Vite :5173
 Modi di esecuzione: (1) tutto su un host GPU; (2) laptop + worker remoto via tunnel SSH
 (`DEMO_WORKER_URL_<FAMIGLIA>`); (3) **laptop senza GPU** (default): zero-shot live via Keera + modelli allenati in
 modalità *registrato*.
+
+### Pagine (solo due, 28/11)
+- `/` — **Classify**: si carica una foto, si scelgono i modelli, compaiono le sei domande in parole semplici con la
+  risposta di ogni modello, la barra di sicurezza e le alternative; rosso solo per "incerto" e "modelli in disaccordo".
+  Zero-shot live; modelli allenati live (worker GPU) o registrati.
+- `/models` — **Models**: classifica Kaggle dev con i riferimenti degli organizzatori, velocità e costo per 100.000
+  immagini, test interno (prompt-test) in un grafico separato; in fondo "Details per question and class" (per esperti:
+  set interni, F1 per domanda e per classe, matrice di confusione della prospettiva).
+- Le pagine del guscio ERP (coda, confronto in batch, dettaglio, anteprima negozio, pagina prodotto) sono state tolte
+  perché ripetevano Classify; restano nella storia di git. I vecchi indirizzi portano a `/`. Le API del backend sono invariate.
 
 ## 7. Modalità registrato
 `scripts/export_session.py --session <id>` crea `data/demo/export/<id>/` (immagini + `manifest.json` senza nomi) →

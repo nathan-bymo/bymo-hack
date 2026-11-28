@@ -127,8 +127,8 @@ def test_fetch_weights_plan_never_downloads(capsys, monkeypatch):
     items = fw.plan(reg, "apertus-8b-lora-p10")
     assert [i["repo"] for i in items] == ["swiss-ai/Apertus-v1.5-8B", "StoryofLegend/apertus-8b-galaxus-lora"]
     assert items[1]["patterns"] == ["prototype-256/adapters/step-00738/*"] and items[1]["gb"] == 0.319
-    with pytest.raises(SystemExit):
-        fw.plan(reg, "apertus-8b-lora-heads-p11")      # configurazione incompleta
+    p11 = fw.plan(reg, "apertus-8b-lora-heads-p11")   # pesi nel repo (Git LFS): si scarica solo la base
+    assert [i["repo"] for i in p11] == ["swiss-ai/Apertus-v1.5-8B"]
     with pytest.raises(SystemExit):
         fw.plan(reg, "apertus-8b-zeroshot-v2")         # nessun peso
     monkeypatch.setattr("sys.argv", ["fetch_weights", "--model", "apertus-8b-lora-p10"])

@@ -27,11 +27,32 @@
   --color-invalid: var(--c-invalid);
   --color-invalid-bg: var(--c-invalid-bg);
   --font-sans: var(--font-sans);
+  /* app di presentazione: bianco, grafite, un solo accento (rosso svizzero) */
+  --color-paper: #ffffff;
+  --color-canvas: #f3f4f5;
+  --color-rule: #dfe2e5;
+  --color-graphite: #222222;
+  --color-slate: #646a73;
+  --color-signal: #da291c;
+  --color-signal-soft: #fdeceb;
+  --color-bar-alt: #cdd1d6;
 }
 
 body { margin: 0; background: var(--c-app-bg); color: var(--c-text); font-family: var(--font-sans); font-size: var(--fs-value); }
 a { color: var(--c-link); }
 :focus-visible { outline: 2px solid var(--c-link); outline-offset: 1px; }
-.section-title { font-size: var(--fs-section); font-weight: 700; text-decoration: underline; color: var(--c-section-title); }
-.erp-select { height: 26px; border: 1px solid var(--c-field-border); border-radius: var(--radius-field); background: #fff; font-size: var(--fs-value); }
-.erp-cancel { border: 1px solid var(--c-field-border); border-radius: var(--radius-btn); background: linear-gradient(#f4f4f6, #e2e3e6); box-shadow: 0 1px 1px rgba(0,0,0,.15); padding: 3px 12px; font-size: var(--fs-value); }
+.section-title { font-size: var(--fs-section); font-weight: 700; color: var(--c-section-title); }
+.erp-select { height: 34px; border: 1px solid var(--c-field-border); border-radius: var(--radius-field); background: #fff; font-size: var(--fs-value); }
+.erp-cancel { border: 1px solid #222; border-radius: 0; background: #fff; padding: 6px 14px; font-size: 14px; font-weight: 700; color: #222; cursor: pointer; }
+.erp-cancel:hover { background: #f3f4f5; }
+
+/* App di presentazione (pagine Classify e Models) */
+.swiss { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.45; color: #222; background: #fff; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+.swiss h1 { font-size: 44px; line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; }
+.swiss h2 { font-size: 24px; line-height: 1.15; font-weight: 700; letter-spacing: -0.015em; }
+.swiss .lead { font-size: 19px; line-height: 1.4; color: #646a73; max-width: 62ch; }
+.swiss a { color: inherit; text-underline-offset: 3px; }
+.swiss :focus-visible { outline: 2px solid #da291c; outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .swiss .grow { transition: width 600ms cubic-bezier(.2,.7,.2,1); }
+}

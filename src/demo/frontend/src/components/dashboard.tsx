@@ -4,7 +4,7 @@ import type { ConfusionData, MetricResult, PerClassEntry } from '../api/types'
 import { DIMENSIONS, DIMENSION_NAMES, S } from '../strings'
 import { MetricBadge, type BadgeKind } from './ui'
 
-export const MODEL_COLORS = ['#1d4ed8', '#047857', '#b45309', '#7c3aed', '#0e7490', '#be185d', '#4d7c0f']
+export const MODEL_COLORS = ['#222222', '#6b7079', '#a3a8b0', '#cfd3d8', '#45494f', '#8a9099', '#babec4']
 
 export function CoverageWarningBanner() {
   return (
@@ -39,14 +39,14 @@ export function DimensionBarChart({ series, reference }: { series: BarSeries[]; 
     <div data-testid="dimension-chart" style={{ width: '100%', height: 320 }}>
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 16, right: 16, left: 0, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="dimension" />
-          <YAxis domain={[0, 1]} tickFormatter={(v) => v.toFixed(1)} />
+          <CartesianGrid vertical={false} stroke="#dfe2e5" />
+          <XAxis dataKey="dimension" tick={{ fontSize: 14, fill: '#222' }} axisLine={{ stroke: '#222' }} tickLine={false} />
+          <YAxis domain={[0, 1]} tickFormatter={(v) => v.toFixed(1)} tick={{ fontSize: 13, fill: '#646a73' }} axisLine={false} tickLine={false} />
           <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(3) : 'n/a')} />
-          <Legend />
+          <Legend iconType="square" wrapperStyle={{ fontSize: 14, color: '#222' }} />
           {reference && (
-            <ReferenceLine y={reference.value} stroke="#b91c1c" strokeDasharray="6 4"
-              label={{ value: `${reference.value} ${reference.label} — other set`, position: 'insideTopRight', fill: '#b91c1c', fontSize: 11 }} />
+            <ReferenceLine y={reference.value} stroke="#646a73" strokeDasharray="6 4"
+              label={{ value: `${reference.value} ${reference.label} — other set`, position: 'insideTopRight', fill: '#646a73', fontSize: 12 }} />
           )}
           {series.map((s) => (
             <Bar key={s.id} dataKey={s.id} name={s.name} fill={s.color} isAnimationActive={false}>
@@ -70,23 +70,23 @@ export function PerClassTable({ perClass }: { perClass: Record<string, Record<st
       <div role="tablist" className="mb-2 flex flex-wrap gap-1">
         {DIMENSIONS.map((d) => (
           <button key={d} role="tab" aria-selected={d === dimension} type="button" onClick={() => setDimension(d)}
-            className={`rounded border px-2 py-1 text-xs ${d === dimension ? 'border-link bg-imagetype font-semibold' : 'border-line bg-panel'}`}>
+            className={`border px-3 py-1.5 text-[14px] ${d === dimension ? 'border-graphite bg-graphite font-bold text-white' : 'border-rule bg-white text-graphite hover:border-graphite'}`}>
             {DIMENSION_NAMES[d]}
           </button>
         ))}
       </div>
-      <table className="w-full max-w-2xl border-collapse text-left text-sm">
-        <thead><tr className="border-b border-line text-xs text-muted"><th className="py-1">Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead>
+      <table className="w-full max-w-3xl border-collapse text-left text-[15px]">
+        <thead><tr className="border-b-2 border-graphite text-[13px] text-slate"><th className="py-2 font-normal">Class</th><th className="font-normal">Precision</th><th className="font-normal">Recall</th><th className="font-normal">F1</th><th className="font-normal">Images</th></tr></thead>
         <tbody>
           {rows.map(([name, e]) => (
-            <tr key={name} className="border-b border-line" data-rare={(e.support ?? 0) < RARE ? '1' : '0'}>
-              <td className="py-0.5">{name}{(e.support ?? 0) < RARE && <span title={`support < ${RARE}`} className="ml-1 text-conf-mid">★</span>}</td>
-              <td>{fmt(e.precision)}</td><td>{fmt(e.recall)}</td><td>{fmt(e.f1)}</td><td>{e.support ?? '—'}</td>
+            <tr key={name} className="border-b border-rule" data-rare={(e.support ?? 0) < RARE ? '1' : '0'}>
+              <td className="py-1.5">{name.replace(/_/g, ' ')}{(e.support ?? 0) < RARE && <span title={`fewer than ${RARE} images`} className="ml-1 text-slate">*</span>}</td>
+              <td>{fmt(e.precision)}</td><td>{fmt(e.recall)}</td><td className="font-bold">{fmt(e.f1)}</td><td>{e.support ?? '—'}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="m-0 mt-1 text-xs text-muted">★ = support below {RARE} (the per-class target of the coverage set).</p>
+      <p className="m-0 mt-2 text-[13px] text-slate">* fewer than {RARE} images of this class: the number moves a lot with a few mistakes.</p>
     </div>
   )
 }
@@ -97,9 +97,9 @@ export function ConfusionMatrix({ data }: { data: ConfusionData }) {
   const rowSums = useMemo(() => data.matrix.map((r) => r.reduce((a, b) => a + b, 0)), [data])
   return (
     <div data-testid="confusion" className="overflow-x-auto">
-      <label className="mb-2 block text-xs"><input type="checkbox" checked={normalize} onChange={(e) => setNormalize(e.target.checked)} /> Normalise by row</label>
-      <table className="border-collapse text-xs">
-        <thead><tr><th className="p-1 text-left text-muted">label \ predicted</th>{data.columns.map((c) => <th key={c} className="p-1 font-normal" style={{ writingMode: 'vertical-rl' }}>{c}</th>)}</tr></thead>
+      <label className="mb-3 block text-[14px]"><input type="checkbox" checked={normalize} onChange={(e) => setNormalize(e.target.checked)} /> Show shares of each row</label>
+      <table className="border-collapse text-[13px]">
+        <thead><tr><th className="p-1 text-left font-normal text-slate">true view ↓ / answer →</th>{data.columns.map((c) => <th key={c} className="p-1 font-normal" style={{ writingMode: 'vertical-rl' }}>{c}</th>)}</tr></thead>
         <tbody>
           {data.matrix.map((row, i) => (
             <tr key={data.labels[i]}>
@@ -109,7 +109,7 @@ export function ConfusionMatrix({ data }: { data: ConfusionData }) {
                 const intensity = normalize ? share : Math.min(1, v / Math.max(1, ...data.matrix.flat()))
                 return (
                   <td key={j} title={`${data.labels[i]} → ${data.columns[j]}: ${v} (${(share * 100).toFixed(0)}% of row)`}
-                    className="h-7 w-9 text-center" style={{ background: `rgba(29,78,216,${intensity.toFixed(2)})`, color: intensity > 0.5 ? '#fff' : 'var(--c-text)' }}>
+                    className="h-7 w-9 text-center" style={{ background: `rgba(34,34,34,${intensity.toFixed(2)})`, color: intensity > 0.5 ? '#fff' : 'var(--c-text)' }}>
                     {normalize ? (share ? share.toFixed(2) : '') : v || ''}
                   </td>
                 )

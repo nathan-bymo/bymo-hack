@@ -16,6 +16,10 @@ def get_family(name: str, dry: bool):
         from .fullft_heads import FullFtHeadsFamily
 
         return FullFtHeadsFamily()
+    if name == "vadapter_heads":
+        from .vadapter_heads import VadapterHeadsFamily
+
+        return VadapterHeadsFamily()
     if name == "lora_generative":
         from .lora_generative import LoraGenerativeFamily
 

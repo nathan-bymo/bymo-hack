@@ -9,3 +9,5 @@ safetensors
 huggingface_hub
 pandas==3.1.1
 pillow==13.0.0
+# solo per il modello finale (vision adapter + OCR): src/apertus-8B-vadapter-lora-heads/build_hf_job.py:76
+python-doctr==1.1.0

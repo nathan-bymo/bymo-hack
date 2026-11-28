@@ -82,14 +82,33 @@ export interface ModelSummary {
   recorded_runs: { run_id: string; recorded_at: string; gpu_name: string; images: number }[]
   confidence: { kind: string; method: string } | null
   training: { data: string; phase: number | null; seen_sets?: string[] } | null
-  weights: { repo: string; revision: string; subfolder: string; size_gb: number } | null
+  short_name: string
+  description: string | null
+  training_label: string | null
+  featured: boolean
+  weights: { repo?: string | null; revision?: string | null; subfolder?: string | null; size_gb?: number | null; local_path?: string | null; location_label?: string | null } | null
+  memory: { gb: number | null; kind: 'measured' | 'estimate' | 'not_reported'; what: string; source: string } | null
+  speeds: SpeedInfo[]
+  scores: ScoreInfo[]
+  seen_sets: string[]
+  contamination_note: string | null
   vram_estimate_gb: number | null
   headline_eval: EvalSummary | null
   kaggle_dev: { score: number | null; submitted_at?: string | null; note?: string }
   parity: { verified: boolean; scope: string }
 }
+export interface SpeedInfo {
+  images_per_second: number; what: string; conditions: string | null; gpu_label: string | null
+  usd_per_hour: number | null; cost_per_100k_usd: number | null; cost_note: string | null; source: string
+}
+export interface ScoreInfo {
+  set: string; macro_f1: number | null; weighted_f1?: number | null; validity: string; source: string
+  source_label?: string | null; note?: string | null; checkpoint?: string | null
+}
+export interface KaggleReference { name: string; score: number; source: string }
 export interface ModelsResponse {
   models: ModelSummary[]
+  kaggle_references: KaggleReference[]
   reference_line: { value: number; label: string; source: string }
   throughput_target_images_per_second: number
 }

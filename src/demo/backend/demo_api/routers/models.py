@@ -19,6 +19,7 @@ def list_models(request: Request):
     reg = registry_of(request)
     return {"models": [reg.summary(e) for e in reg.models.values()],
             "reference_line": reg.defaults.get("reference_line"),
+            "kaggle_references": reg.defaults.get("kaggle_references", []),
             "throughput_target_images_per_second": reg.defaults.get("throughput_target_images_per_second")}
 
 
