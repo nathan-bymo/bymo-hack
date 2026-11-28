@@ -2,7 +2,6 @@
 
 Applicazione dimostrativa (frontend React + backend FastAPI) che mostra come i modelli Apertus del team
 pre-compilerebbero il pannello **"Image type"** della pagina "Processed image" dell'ERP di Galaxus: una persona
-rivede, corregge e salva. Piano completo: `docs/demo/PIANO_DEMO.md`; verifiche: `docs/demo/VERIFICA.md`.
 
 **Cosa non è:** nessun collegamento all'ERP reale (guscio statico con testi segnaposto, nessun logo o asset
 Galaxus). Le correzioni umane sono **solo dati della demo**: nessun endpoint, script o formato le trasforma in dati
@@ -25,7 +24,6 @@ cd src/demo/frontend && npm ci
 - `hf auth login` serve solo per scaricare pesi privati (non fatto dalla demo senza conferma esplicita).
 
 ## 4. Modelli e pesi
-`src/demo/models.yaml` è il registro: ogni valore ha una fonte, i campi ignoti valgono `[DA VERIFICARE]` e rendono il
 modello `unavailable`. **Nessun peso viene scaricato in automatico.** Pesi nel repo (Git LFS, `local_path`): P11 in
 `weights/lora_heads_256_p11/`, modello finale di Nathan in `weights/apertus-8B-vadapter-lora-heads-final/`. Il full fine-tune si legge da un worktree
 (`git worktree add ../hack-apertus-fullft feat/apertus-8b-fullft-heads`, variabile `DEMO_FULLFT_SRC`). I worker GPU
