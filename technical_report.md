@@ -7,7 +7,7 @@ intermediate experiments is in the [paper](paper/paper.pdf) ([source](paper/pape
 - **Challenge:** Product image classification (six dimensions)
 - **Event:** On-site Zurich
 - **Team:** BYMO — Nathan Monzani, Kristian Kovacev, Nikola Manev
-- **Demo:** *link to video to be added*
+- **Demo:** [demo video (Google Drive)](https://drive.google.com/drive/folders/1rk-yfhRZKrQRdnjr4G6hF1vrVqhF3OE5?usp=sharing)
 
 ## 1. Summary
 
