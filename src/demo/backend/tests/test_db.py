@@ -1,10 +1,10 @@
 from demo_api.db import TABLES, Database
 
 
-def test_eight_tables_created_in_temp_db(tmp_path):
+def test_ten_tables_created_in_temp_db(tmp_path):
     db = Database(tmp_path / "x.sqlite")
     db.init()
-    assert db.tables() == sorted(TABLES) and len(TABLES) == 8
+    assert db.tables() == sorted(TABLES) and len(TABLES) == 10
     db.init()  # idempotente
     db.close()
 

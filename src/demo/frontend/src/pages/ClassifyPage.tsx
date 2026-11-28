@@ -7,6 +7,7 @@ import { useImage, useImages, useModels, useSessionId } from '../api/hooks'
 import { subscribeJob } from '../api/sse'
 import type { ApiErrorBody, DimensionResult, ImageItem, ModelSummary, PredictResponse, PredictionResult, UploadResponse } from '../api/types'
 import { AppShell } from '../components/app'
+import { PublishPanel } from '../components/publish'
 import { QUESTIONS, plainLabel } from '../lib/labels'
 import { availability, headlineScore, sortForShow } from '../lib/models'
 import { defaultMode } from '../lib/predictions'
@@ -366,6 +367,14 @@ export default function ClassifyPage() {
         </div>
       </div>
       {wide && <div className="mt-10">{answers}</div>}
+
+      {image.data && (
+        <PublishPanel
+          key={`${image.data.image_id}-${image.data.context_hash}`}
+          image={image.data}
+          hasAnswer={(image.data.predictions?.length ?? 0) > 0}
+        />
+      )}
     </AppShell>
   )
 }

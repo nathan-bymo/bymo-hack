@@ -191,3 +191,101 @@ export interface StorefrontRule {
   hide_if: Record<string, string[]>
   rank: { name: string; when: Record<string, string[]> }[]
 }
+
+/* ---- catalogo e vetrina (lato admin e lato cliente) ---- */
+export interface CompactImage {
+  image_id: string
+  file_url: string
+  thumbnail_url: string
+  original_filename: string
+  width: number
+  height: number
+  values: Record<string, string | null>
+  confidence: number | null
+  is_cover: boolean
+  position: number
+}
+export interface CatalogImageState {
+  product_id: string
+  position: number
+  published: boolean
+  is_cover: boolean
+  note: string | null
+}
+export interface CatalogImage extends ImageItem {
+  catalog: CatalogImageState
+  values: Record<string, string | null>
+  confidence: number | null
+  values_source: 'review' | 'model' | 'none'
+  model: { model_id: string; mode: 'live' | 'recorded'; created_at: string; recorded: RecordedInfo | null } | null
+  prediction: PredictionResult | null
+  review: Review | null
+}
+export interface CatalogProduct {
+  product_id: string
+  title: string
+  brand: string | null
+  category: string | null
+  subcategory: string | null
+  product_type: string | null
+  image_count: number
+  published_count: number
+  status: 'live' | 'draft' | 'empty'
+  cover: CompactImage | null
+  perspectives: string[]
+  min_confidence: number | null
+  needs_review: number
+}
+export interface CatalogStats {
+  products: number
+  live_products: number
+  draft_products: number
+  empty_products: number
+  images: number
+  published_images: number
+  hidden_by_rules: number
+  visible_images: number
+  needs_review: number
+}
+export interface StorefrontFilters {
+  hide_non_photos: boolean
+  only_white_background: boolean
+  hide_people: boolean
+  hide_added_text: boolean
+  min_confidence: number
+}
+export interface CatalogResponse {
+  products: CatalogProduct[]
+  stats: CatalogStats
+  filters: StorefrontFilters
+  categories: string[]
+}
+export interface CatalogProductDetail {
+  product: CatalogProduct
+  images: CatalogImage[]
+  filters: StorefrontFilters
+}
+export interface StorefrontProductCard {
+  product_id: string
+  title: string
+  brand: string | null
+  category: string | null
+  subcategory: string | null
+  product_type: string | null
+  image_count: number
+  cover: CompactImage
+  perspectives: string[]
+  min_confidence: number | null
+}
+export interface StorefrontResponse {
+  products: StorefrontProductCard[]
+  total: number
+  filters: StorefrontFilters
+  categories: { name: string; count: number }[]
+  stats: { published_images: number; hidden_by_rules: number; visible_images: number }
+}
+export interface StorefrontProductDetail {
+  product: StorefrontProductCard
+  images: CompactImage[]
+  filters: StorefrontFilters
+}

@@ -42,11 +42,20 @@ CREATE TABLE IF NOT EXISTS recorded_runs (
   run_id TEXT PRIMARY KEY, model_id TEXT, path TEXT, recorded_at TEXT, gpu_name TEXT, images INTEGER,
   meta_json TEXT);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value_json TEXT);
+CREATE TABLE IF NOT EXISTS products (
+  product_id TEXT PRIMARY KEY, title TEXT NOT NULL, brand TEXT, category TEXT, subcategory TEXT,
+  product_type TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS product_images (
+  image_id TEXT PRIMARY KEY REFERENCES images(image_id), product_id TEXT NOT NULL REFERENCES products(product_id),
+  position INTEGER NOT NULL DEFAULT 0, published INTEGER NOT NULL DEFAULT 0, is_cover INTEGER NOT NULL DEFAULT 0,
+  note TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_images_session ON images(session_id);
 CREATE INDEX IF NOT EXISTS idx_predictions_image ON predictions(image_id, model_id);
+CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id, position);
 """
 
-TABLES = ("sessions", "images", "jobs", "predictions", "reviews", "eval_results", "recorded_runs", "settings")
+TABLES = ("sessions", "images", "jobs", "predictions", "reviews", "eval_results", "recorded_runs", "settings",
+          "products", "product_images")
 
 
 def now_iso() -> str:

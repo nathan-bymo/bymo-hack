@@ -30,6 +30,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logging.getLogger("demo_api").addHandler(handler)
         app.state.db = db_module.Database(settings.data_dir / "demo.sqlite")
         app.state.db.init()
+        from . import catalog as catalog_module
+
+        catalog_module.seed(app.state.db)   # prima esecuzione: prodotti dalle foto già caricate
         from .guard import Guard
 
         app.state.guard = Guard.load(app.state.storage.guard_index)
@@ -76,10 +79,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     errors.install(app)
 
     from .routers import (
-        health, images, metrics, models, predict, recorded, reviews, sessions, settings as settings_router, taxonomy,
+        catalog, health, images, metrics, models, predict, recorded, reviews, sessions, settings as settings_router,
+        taxonomy,
     )
 
-    for module in (health, taxonomy, sessions, images, models, predict, recorded, reviews, settings_router, metrics):
+    for module in (health, taxonomy, sessions, images, models, predict, recorded, reviews, settings_router, metrics,
+                   catalog):
         app.include_router(module.router, prefix="/api")
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
