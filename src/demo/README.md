@@ -49,15 +49,19 @@ Modi di esecuzione: (1) tutto su un host GPU; (2) laptop + worker remoto via tun
 (`DEMO_WORKER_URL_<FAMIGLIA>`); (3) **laptop senza GPU** (default): zero-shot live via Keera + modelli allenati in
 modalità *registrato*.
 
-### Pagine (solo due, 28/11)
-- `/` — **Classify**: si carica una foto, si scelgono i modelli, compaiono le sei domande in parole semplici con la
-  risposta di ogni modello, la barra di sicurezza e le alternative; rosso solo per "incerto" e "modelli in disaccordo".
-  Zero-shot live; modelli allenati live (worker GPU) o registrati.
-- `/models` — **Models**: classifica Kaggle dev con i riferimenti degli organizzatori, velocità e costo per 100.000
-  immagini, test interno (prompt-test) in un grafico separato; in fondo "Details per question and class" (per esperti:
-  set interni, F1 per domanda e per classe, matrice di confusione della prospettiva).
-- Le pagine del guscio ERP (coda, confronto in batch, dettaglio, anteprima negozio, pagina prodotto) sono state tolte
-  perché ripetevano Classify; restano nella storia di git. I vecchi indirizzi portano a `/`. Le API del backend sono invariate.
+### Pagine (tre, nell'ordine del video, 28/11)
+- `/` — **Demo**: foto a sinistra; a destra i modelli (riquadri con punteggio e stato), il pulsante Classify e una
+  tabella con le sei domande in righe e i modelli in colonne. A 1440 × 900 sta tutto in uno schermo. Rosso solo per
+  "incerto" (< 60%) e "modelli in disaccordo". Dettagli prodotto facoltativi sotto la foto. Zero-shot live; modelli
+  allenati live (worker GPU) o registrati.
+- `/results` — **Results**: classifica Kaggle dev con i riferimenti degli organizzatori e il gruppo di valutazione;
+  le sei domande una per una sul test held-out (prompt-test, 4 modelli), con macro e weighted F1; velocità, ore e costo
+  per 100.000 immagini, memoria; in fondo i dettagli per esperti (per classe, altri set, matrice della prospettiva).
+- `/how` — **How it works**: schema della pipeline del modello finale (nero = allenato da noi, contorno = modelli
+  open-weights usati così come sono), i tre passi di training con tempi e costi, cosa ha contato e cosa no, i modelli
+  usati a runtime.
+- I vecchi indirizzi portano alle pagine nuove (`/models` → `/results`, il resto → `/`). Le API del backend sono invariate.
+- Script parlato del video: [docs/demo/SCRIPT_VIDEO.md](../../docs/demo/SCRIPT_VIDEO.md).
 
 ## 7. Modalità registrato
 `scripts/export_session.py --session <id>` crea `data/demo/export/<id>/` (immagini + `manifest.json` senza nomi) →

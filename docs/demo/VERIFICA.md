@@ -136,3 +136,14 @@ La verifica visiva resta **contro una descrizione**, non contro gli screenshot o
 | solo Apertus + modelli open-weights a runtime, deployabile on-premises | Models: "What runs at inference" | fonti: RISULTATI.md:119-120, AGENTS.md:58-65 |
 | trasparenze composte su bianco | già in `common/images.py` (usato dallo zero-shot) | prova live con PNG trasparente |
 | prova live dal browser, chiave reale | 8B + 70B insieme su un PNG sintetico: 9,5 s, nessun errore in pagina né in console | Playwright su :8010 |
+
+## Aggiornamento 28/11 mattina — frontend per il video
+
+- Tre pagine nell'ordine del video: Demo, Results, How it works (prima: Classify e Models).
+- Demo: tabella domande × modelli accanto alla foto, tutta visibile a 1440 × 900 senza scorrere (screenshot
+  `02b-video-frame` del test).
+- Results: gruppo di valutazione della challenge, tabella per domanda sul test held-out (perspective 0.198 → 0.755).
+- How it works: schema della pipeline, passi di training con tempi e costi (`RISULTATI.md:45-47, 60-62`).
+- Verificato: build, lint (solo avvisi già presenti), test E2E passato, pytest 103 passati e 6 saltati dopo il pull
+  di main; prova dal vivo con la chiave vera su una foto sintetica, 70B + 8B in 9,4 s, nessun errore in console.
+- Non verificato: modelli allenati su GPU e registrazioni vere (opzione A ancora da lanciare).

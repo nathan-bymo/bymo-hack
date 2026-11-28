@@ -16,11 +16,11 @@ type RunStatus = { state: 'running' | 'done' | 'error'; error?: ApiErrorBody; se
 const UNSURE = 0.6
 
 const SET_PHRASE: Record<string, string> = {
-  kaggle_dev: 'on the Kaggle leaderboard',
-  'prompt-test': 'on our held-out test',
-  coverage: 'on our rare-class test',
-  base: 'on our internal test',
-  validation_450: 'on a small balanced test',
+  kaggle_dev: 'Kaggle leaderboard',
+  'prompt-test': 'our held-out test',
+  coverage: 'our rare-class test',
+  base: 'our internal test',
+  validation_450: 'a small balanced test',
 }
 
 function errorMessage(e: ApiErrorBody | undefined): string {
@@ -31,71 +31,86 @@ function errorMessage(e: ApiErrorBody | undefined): string {
   return e.message
 }
 
-function Bar({ p, alt }: { p: number; alt?: boolean }) {
+function Bar({ p }: { p: number }) {
   return (
-    <div className={`${alt ? 'h-1' : 'h-2'} w-full bg-canvas`}>
-      <div className={`grow h-full ${alt ? 'bg-bar-alt' : p < UNSURE ? 'bg-signal' : 'bg-graphite'}`} style={{ width: `${Math.max(1, Math.round(p * 100))}%` }} />
+    <div className="h-1 w-full bg-canvas">
+      <div className={`grow h-full ${p < UNSURE ? 'bg-signal' : 'bg-graphite'}`} style={{ width: `${Math.max(1, Math.round(p * 100))}%` }} />
     </div>
   )
 }
 
-function Percent({ p }: { p: number | null }) {
-  if (p === null) return <span className="text-slate">n/a</span>
-  return <span className={`font-bold ${p < UNSURE ? 'text-signal' : ''}`}>{Math.round(p * 100)}%</span>
-}
-
-function Answer({ dimension, d, big }: { dimension: string; d: DimensionResult; big: boolean }) {
+/** Una cella della tabella: la risposta in parole semplici, quanto è sicuro il modello, e (con un solo modello) le alternative. */
+function AnswerCell({ dimension, d, single }: { dimension: string; d: DimensionResult; single: boolean }) {
   const next = (d.top_k ?? []).slice(1).filter((t) => t.p >= 0.01)
+  const nextText = next.map((t) => `${plainLabel(dimension, t.label)} ${Math.round(t.p * 100)}%`).join(', ')
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-4">
-        <span className={`${big ? 'text-[26px] leading-tight' : 'text-[18px]'} font-bold tracking-tight ${d.applicable ? '' : 'text-slate'}`}
-          title={d.label ? `Official class: ${d.label}` : undefined}>
+    <div title={[d.label ? `Official class: ${d.label}` : '', nextText ? `Next guesses: ${nextText}` : ''].filter(Boolean).join('\n') || undefined}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className={`${single ? 'text-[19px]' : 'text-[16px]'} font-bold leading-snug tracking-tight ${d.applicable ? '' : 'text-slate'}`}>
           {plainLabel(dimension, d.label)}
         </span>
-        <span className={big ? 'text-[20px]' : 'text-[16px]'}><Percent p={d.confidence} /></span>
+        {d.confidence !== null && (
+          <span className={`shrink-0 tabular-nums ${single ? 'text-[17px]' : 'text-[15px]'} ${d.confidence < UNSURE ? 'font-bold text-signal' : 'text-graphite'}`}>{Math.round(d.confidence * 100)}%</span>
+        )}
       </div>
-      {d.confidence !== null && <div className="mt-1.5"><Bar p={d.confidence} /></div>}
-      <div className="mt-1.5 text-[13px] text-slate">
-        {!d.applicable ? 'Not counted for this kind of image (official rule).'
-          : d.confidence !== null && d.confidence < UNSURE ? 'The model is unsure. '
-            : ''}
-        {d.applicable && next.length > 0 && <>Next guesses: {next.map((t) => `${plainLabel(dimension, t.label)} ${Math.round(t.p * 100)}%`).join(', ')}.</>}
-        {d.applicable && next.length === 0 && d.confidence !== null && d.confidence >= UNSURE && 'No other answer above 1%.'}
-      </div>
+      {d.confidence !== null && <div className="mt-1"><Bar p={d.confidence} /></div>}
+      {!d.applicable && <div className="mt-1 text-[12px] text-slate">Not scored for this kind of image</div>}
+      {single && d.applicable && next.length > 0 && <div className="mt-1 text-[13px] text-slate">Next: {nextText}</div>}
     </div>
   )
 }
 
-function QuestionBlock({ dimension, models, preds }: { dimension: string; models: ModelSummary[]; preds: Map<string, PredictionResult> }) {
-  const answers = models.map((m) => preds.get(m.model_id)?.dimensions[dimension]).filter((d): d is DimensionResult => !!d)
-  const labels = answers.filter((d) => d.label && d.applicable).map((d) => d.label)
-  const disagree = labels.length >= 2 && new Set(labels).size > 1
-  const q = QUESTIONS[dimension]
+function columnNote(run: RunStatus | undefined, pred: PredictionResult | undefined): string {
+  if (run?.state === 'running') return 'Working…'
+  if (run?.state === 'error') return 'No answer'
+  if (pred?.mode === 'recorded') {
+    const r = pred.recorded
+    return `Recorded${r?.gpu_name ? ` on ${r.gpu_name}` : ''}${r?.images_per_second ? `, ${r.images_per_second} img/s` : ''}`
+  }
+  if (run?.state === 'done' && run.seconds !== undefined) return `Answered in ${run.seconds.toFixed(1)} s`
+  if (pred) return 'Answered earlier'
+  return 'Waiting'
+}
+
+/** Le sei domande in righe, i modelli scelti in colonne: si confrontano le risposte sulla stessa foto con un colpo d'occhio. */
+function AnswerTable({ models, preds, runs }: { models: ModelSummary[]; preds: Map<string, PredictionResult>; runs: Record<string, RunStatus> }) {
+  const single = models.length === 1
+  const anyAnswer = models.some((m) => preds.has(m.model_id))
   return (
-    <section data-testid={`try-dim-${dimension}`} className={`border-t-2 pt-4 ${disagree ? 'border-signal' : 'border-graphite'}`}>
-      <div className="mb-3 flex items-baseline justify-between gap-4">
-        <h3 className="m-0 text-[19px] font-bold leading-snug tracking-tight">{q.question}</h3>
-        {disagree
-          ? <span data-testid="try-disagree" className="shrink-0 text-[13px] font-bold text-signal">Models disagree</span>
-          : <span className="shrink-0 text-[13px] text-slate">{q.name}</span>}
-      </div>
-      {models.length === 1 ? (
-        answers[0] ? <Answer dimension={dimension} d={answers[0]} big /> : <p className="m-0 text-slate">No answer.</p>
-      ) : (
-        <div className="space-y-4">
-          {models.map((m) => {
-            const d = preds.get(m.model_id)?.dimensions[dimension]
-            return (
-              <div key={m.model_id}>
-                <div className="mb-0.5 text-[13px] text-slate">{m.short_name}</div>
-                {d ? <Answer dimension={dimension} d={d} big={false} /> : <p className="m-0 text-slate">No answer yet.</p>}
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </section>
+    <table className="mt-5 w-full table-fixed border-collapse text-left" data-testid={anyAnswer ? 'try-results' : 'try-pending'}>
+      <thead>
+        <tr className="border-b-2 border-graphite align-bottom">
+          <th className="w-[34%] py-2 pr-3 text-[13px] font-normal text-slate">Question</th>
+          {models.map((m) => (
+            <th key={m.model_id} className="py-2 pl-3 font-normal" data-testid={`col-${m.model_id}`}>
+              <span className="block text-[15px] font-bold leading-tight">{m.short_name}</span>
+              <span className="block text-[12px] text-slate">{columnNote(runs[m.model_id], preds.get(m.model_id))}</span>
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {DIMENSIONS.map((dim) => {
+          const answers = models.map((m) => preds.get(m.model_id)?.dimensions[dim])
+          const labels = answers.filter((d): d is DimensionResult => !!d && !!d.label && d.applicable).map((d) => d.label)
+          const disagree = labels.length >= 2 && new Set(labels).size > 1
+          return (
+            <tr key={dim} data-testid={`try-dim-${dim}`} className="border-b border-rule align-top">
+              <td className={`py-2.5 pr-3 ${disagree ? 'border-l-2 border-signal pl-2.5' : ''}`}>
+                <span className="block text-[15px] font-bold leading-snug" title={QUESTIONS[dim].name}>{QUESTIONS[dim].question}</span>
+                {disagree && <span data-testid="try-disagree" className="block text-[12px] font-bold text-signal">Models disagree</span>}
+              </td>
+              {models.map((m, i) => (
+                <td key={m.model_id} className="py-2.5 pl-3">
+                  {answers[i] ? <AnswerCell dimension={dim} d={answers[i]!} single={single} />
+                    : <span className="text-[15px] text-bar-alt">{runs[m.model_id]?.state === 'running' ? '…' : '—'}</span>}
+                </td>
+              ))}
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
@@ -151,7 +166,7 @@ function ProductDetails({ image, onSaved }: { image: ImageItem; onSaved: () => v
 function statusText(m: ModelSummary): string {
   const av = availability(m)
   if (av.tone === 'live') return 'Runs live'
-  if (av.tone === 'recorded') return 'Recorded answers'
+  if (av.tone === 'recorded') return 'Recorded on a GPU'
   if (m.runtime === 'worker_gpu') return 'Needs a GPU'
   if (m.runtime === 'remote_openai') return 'Needs the API key'
   return 'Scores only'
@@ -169,10 +184,9 @@ export default function ClassifyPage() {
   const [allRuns, setAllRuns] = useState<Record<string, RunStatus>>({})   // chiave: immagine|modello
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [showMore, setShowMore] = useState(false)
 
   const all = useMemo(() => sortForShow(models.data?.models ?? []), [models.data])
-  const visible = all.filter((m) => (m.featured || showMore) && m.runtime !== 'none')
+  const visible = all.filter((m) => m.featured && m.runtime !== 'none')
   const usable = (m: ModelSummary) => m.modes.length > 0
   const chosen = (selected ?? visible.filter(usable).map((m) => m.model_id)).filter((id) => visible.some((m) => m.model_id === id && usable(m)))
   const chosenModels = visible.filter((m) => chosen.includes(m.model_id))
@@ -234,23 +248,25 @@ export default function ClassifyPage() {
   const shown = chosenModels.filter((m) => preds.has(m.model_id))
   const hasRecorded = shown.some((m) => preds.get(m.model_id)?.mode === 'recorded')
 
+  const liveAndTrained = shown.some((m) => preds.get(m.model_id)?.mode === 'live') && shown.some((m) => m.runtime !== 'remote_openai')
+
   return (
     <AppShell>
-      <h1>Classify a product image</h1>
-      <p className="lead mt-3">Drop a product photo. Each Apertus model answers the same six questions Galaxus asks about every image, and shows how sure it is.</p>
+      <h1>Six answers for every product photo</h1>
+      <p className="lead mt-2 max-w-none">Drop a product photo and pick the Apertus models: each answers the six questions Galaxus asks about every image.</p>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div className="mt-7 grid items-start gap-10 lg:grid-cols-[400px_minmax(0,1fr)]">
         {/* ---- foto ---- */}
-        <div>
+        <div className="lg:sticky lg:top-6">
           <div {...getRootProps()} data-testid="try-dropzone"
-            className={`relative flex aspect-square items-center justify-center bg-canvas p-6 ${isDragActive ? 'outline-2 outline-signal' : ''}`}>
+            className={`relative flex aspect-square items-center justify-center bg-canvas p-5 ${isDragActive ? 'outline-2 outline-signal' : ''}`}>
             <input {...getInputProps()} data-testid="try-file-input" />
             {image.data ? (
               <img src={image.data.file_url} alt="The photo being classified" data-testid="try-image" className="max-h-full max-w-full object-contain" />
             ) : (
-              <div className="max-w-[28ch] text-center text-slate">
+              <div className="max-w-[26ch] text-center text-slate">
                 <p className="m-0 text-[19px] font-bold text-graphite">Drop a photo here</p>
-                <p className="m-0 mt-1">JPEG, PNG or WebP. Use your own photos, never the Kaggle dev or final images.</p>
+                <p className="m-0 mt-1 text-[15px]">JPEG, PNG or WebP. Use your own photos, never the Kaggle dev or final images.</p>
               </div>
             )}
             {isDragActive && <div className="absolute inset-0 flex items-center justify-center bg-white/85 text-[19px] font-bold">Release to add the photo</div>}
@@ -265,7 +281,7 @@ export default function ClassifyPage() {
                 {images.data!.map((i) => (
                   <button key={i.image_id} type="button" onClick={() => pick(i.image_id)} title={i.original_filename}
                     aria-pressed={i.image_id === imageId}
-                    className={`h-11 w-11 overflow-hidden border-2 bg-canvas p-0 ${i.image_id === imageId ? 'border-signal' : 'border-transparent'}`}>
+                    className={`h-10 w-10 overflow-hidden border-2 bg-canvas p-0 ${i.image_id === imageId ? 'border-signal' : 'border-transparent'}`}>
                     <img src={i.thumbnail_url} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}
@@ -276,68 +292,62 @@ export default function ClassifyPage() {
           {image.data && <ProductDetails key={image.data.image_id} image={image.data} onSaved={() => qc.invalidateQueries({ queryKey: ['image', imageId] })} />}
         </div>
 
-        {/* ---- modelli ---- */}
+        {/* ---- modelli e risposte ---- */}
         <div>
-          <h2>Choose the models</h2>
-          <p className="m-0 mt-1 text-[15px] text-slate">Models marked “Runs live” answer now. The trained ones run on a GPU, which is not connected to this laptop.</p>
-          <ul className="m-0 mt-5 list-none divide-y divide-rule border-y border-rule p-0" data-testid="try-models">
-            {visible.map((m) => {
-              const head = headlineScore(m)
-              const run = runs[m.model_id]
-              const ok = usable(m)
-              return (
-                <li key={m.model_id}>
-                  <label className={`flex gap-3 py-3 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                    <input type="checkbox" className="mt-1 h-4 w-4 accent-signal" disabled={!ok} checked={chosen.includes(m.model_id)}
+          <fieldset className="m-0 border-0 p-0" data-testid="try-models">
+            <legend className="p-0 text-[13px] text-slate">
+              {visible.some((m) => m.runtime === 'worker_gpu' && m.modes.includes('recorded'))
+                ? 'Models: the trained ones answer from recordings made on a GPU, the others run live'
+                : 'Models: the trained ones need a GPU, not connected to this laptop; the others run live through the Apertus API'}
+            </legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              {visible.map((m) => {
+                const head = headlineScore(m)
+                const ok = usable(m)
+                const on = chosen.includes(m.model_id)
+                return (
+                  <label key={m.model_id} title={m.description ?? undefined}
+                    className={`flex gap-2.5 border px-3 py-2.5 ${on ? 'border-graphite bg-white shadow-[inset_0_0_0_1px_var(--color-graphite)]' : 'border-rule'} ${ok ? 'cursor-pointer hover:border-graphite' : 'cursor-not-allowed opacity-50'}`}>
+                    <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-signal" disabled={!ok} checked={on}
                       onChange={(e) => toggle(m.model_id, e.target.checked)} data-testid={`try-model-${m.model_id}`} />
-                    <span className={`flex-1 ${ok ? '' : 'opacity-55'}`}>
-                      <span className="flex flex-wrap items-baseline justify-between gap-x-4">
-                        <span className="text-[16px] font-bold">{m.short_name}</span>
-                        <span className={`text-[13px] ${ok ? 'font-bold' : 'text-slate'}`}>
-                          {run?.state === 'running' ? 'Working…' : run?.state === 'done' && run.seconds !== undefined ? `Answered in ${run.seconds.toFixed(1)} s` : statusText(m)}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 block text-[14px] leading-snug text-slate">{m.description}</span>
-                      {head && <span className="mt-0.5 block text-[13px] text-slate">Score {head.macro_f1!.toFixed(3)} {SET_PHRASE[head.set] ?? head.set}</span>}
+                    <span className="min-w-0 leading-tight">
+                      <span className="block text-[15px] font-bold">{m.short_name}</span>
+                      {head && <span className="mt-0.5 block text-[12px] text-slate">{head.macro_f1!.toFixed(3)} on {SET_PHRASE[head.set] ?? head.set}</span>}
+                      <span className={`mt-0.5 block text-[12px] ${ok ? 'font-bold' : 'text-slate'}`}>{statusText(m)}</span>
                     </span>
                   </label>
-                </li>
-              )
-            })}
-          </ul>
-          <label className="mt-2 block text-[13px] text-slate"><input type="checkbox" checked={showMore} onChange={(e) => setShowMore(e.target.checked)} /> Also show early experiments</label>
-          <button type="button" onClick={classify} disabled={!imageId || running || chosenModels.length === 0} data-testid="try-classify"
-            className="mt-5 bg-signal px-6 py-3 text-[16px] font-bold text-white hover:bg-[#b82216] disabled:cursor-not-allowed disabled:opacity-40">
-            {running ? 'Classifying…' : chosenModels.length > 1 ? `Classify with ${chosenModels.length} models` : 'Classify'}
-          </button>
-          {!imageId && <p className="m-0 mt-2 text-[14px] text-slate">Add a photo first.</p>}
+                )
+              })}
+              <div className="flex flex-col justify-center gap-1.5">
+                <button type="button" onClick={classify} disabled={!imageId || running || chosenModels.length === 0} data-testid="try-classify"
+                  className="h-full min-h-12 bg-signal px-5 text-[16px] font-bold text-white hover:bg-[#b82216] disabled:cursor-not-allowed disabled:opacity-40">
+                  {running ? 'Classifying…' : chosenModels.length > 1 ? `Classify with ${chosenModels.length} models` : 'Classify'}
+                </button>
+              </div>
+            </div>
+          </fieldset>
+          {shown.length === 0 && (
+            <p className="m-0 mt-3 text-[15px] text-slate" data-testid="try-empty">
+              {!imageId ? 'Add a photo to start.' : chosenModels.length === 0 ? 'Pick at least one model.' : 'Press Classify: the answers fill the table.'}
+            </p>
+          )}
           {Object.entries(runs).filter(([, r]) => r.state === 'error').map(([id, r]) => (
             <p key={id} className="m-0 mt-2 text-[14px] text-signal" data-testid="try-error" role="alert">{all.find((m) => m.model_id === id)?.short_name}: {errorMessage(r.error)}</p>
           ))}
+
+          <section aria-live="polite">
+            {chosenModels.length > 0 && <AnswerTable models={chosenModels} preds={preds} runs={runs} />}
+            {shown.length > 0 && (
+              <p className="m-0 mt-3 text-[13px] leading-relaxed text-slate" data-testid="try-legend">
+                The percentage is how sure the model is; red means below {UNSURE * 100}%, or models that disagree.
+                {liveAndTrained && ' Models without training and trained models measure certainty differently: compare the answers, not the percentages.'}
+                {hasRecorded && ' Recorded answers were computed earlier on a GPU by the same model.'}
+                {image.data && Object.keys(image.data.context).length === 0 && ' These answers use the photo only, without product details.'}
+              </p>
+            )}
+          </section>
         </div>
       </div>
-
-      {/* ---- risposte ---- */}
-      <section className="mt-16" aria-live="polite">
-        {shown.length > 0 ? (
-          <>
-            <h2>The six answers</h2>
-            <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">
-              The bar shows how sure the model is. Red means the model is unsure (below {UNSURE * 100}%) or that the models give different answers.
-              {shown.length > 1 && ' Live models without training and trained models measure certainty in different ways: compare the answers, not the percentages.'}
-              {hasRecorded && ' Answers marked as recorded were computed earlier on a GPU, with the same model.'}
-              {image.data && Object.keys(image.data.context).length === 0 && ' These answers use the photo only, without product details.'}
-            </p>
-            <div className="mt-8 grid gap-x-12 gap-y-10 md:grid-cols-2" data-testid="try-results">
-              {DIMENSIONS.map((d) => <QuestionBlock key={d} dimension={d} models={shown} preds={preds} />)}
-            </div>
-          </>
-        ) : (
-          <p className="m-0 border-t-2 border-graphite pt-4 text-[17px] text-slate" data-testid="try-empty">
-            {imageId ? 'Press Classify. The six answers appear here.' : 'Add a photo to start.'}
-          </p>
-        )}
-      </section>
     </AppShell>
   )
 }
