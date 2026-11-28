@@ -22,6 +22,9 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('col-reference')).toContainText('Training label')   // l'etichetta di train.csv, separata dal modello
   await expect(page.getByTestId('reference-subject')).toContainText('The whole product')
   await expect(page.getByTestId('reference-text_language')).toContainText('Not a human label')
+  await page.getByTestId('sample').nth(1).click()   // un altro sample SOVRASCRIVE la foto corrente: la lista non cresce
+  await expect(page.getByTestId('try-thumbs')).toHaveCount(0)
+  await expect(page.getByTestId('col-reference')).toHaveCount(0)   // il secondo sample non ha etichette: la colonna del primo è sparita
   await page.getByTestId('try-remove').click()   // si toglie dalla pagina per ripartire da vuoto
   await expect(page.getByTestId('try-empty')).toContainText('Add a photo')
 

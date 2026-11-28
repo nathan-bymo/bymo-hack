@@ -266,7 +266,8 @@ export default function ClassifyPage() {
     if (usable(m) && imageId) void classifyOne(m, imageId)
   }
   const choose = (id: string) => { pick(id); if (chosenModel && usable(chosenModel)) void classifyOne(chosenModel, id) }
-  const upload = async (files: File[]) => {
+  /** `replace`: la foto da sostituire (un sample prende il posto della foto corrente invece di aggiungersi alla lista). */
+  const upload = async (files: File[], replace?: string | null) => {
     if (!sessionId || !files.length) return
     setUploading(true)
     setUploadError(null)
@@ -278,7 +279,9 @@ export default function ClassifyPage() {
       const res = await api<UploadResponse>('/images', { method: 'POST', body: form })
       await qc.invalidateQueries({ queryKey: ['images'] })
       const added = res.images.map((i) => i.image_id)
-      if (added.some((id) => removed.includes(id))) updateRemoved(removed.filter((id) => !added.includes(id)))   // la stessa foto ricaricata torna visibile
+      const replaced = replace && !added.includes(replace) ? [replace] : []
+      const next = [...removed.filter((id) => !added.includes(id)), ...replaced]   // la stessa foto ricaricata torna visibile
+      if (next.length !== removed.length || next.some((id, i) => id !== removed[i])) updateRemoved(next)
       if (res.images[0]) choose(res.images[0].image_id)
       if (res.rejected.length) setUploadError(`Not added: ${res.rejected.map((r) => `${r.original_filename} (${r.error.message})`).join('; ')}`)
     } catch (e) {
@@ -292,14 +295,14 @@ export default function ClassifyPage() {
     setOpeningSample(sample.sample_id)
     try {
       const blob = await (await fetch(sample.file_url)).blob()
-      await upload([new File([blob], sample.filename, { type: blob.type || 'image/jpeg' })])
+      await upload([new File([blob], sample.filename, { type: blob.type || 'image/jpeg' })], imageId)   // sovrascrive la foto corrente
     } catch {
       setUploadError('The sample photo could not be loaded. Check that the demo server is running.')
     } finally {
       setOpeningSample(null)
     }
   }
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ onDrop: upload, noClick: true, noKeyboard: true, accept: { 'image/*': [] } })
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ onDrop: (files) => upload(files), noClick: true, noKeyboard: true, accept: { 'image/*': [] } })
   const pred = chosenModel ? preds.get(chosenModel.model_id) : undefined
   const reference = (image.data && samples.data?.find((x) => x.sha256 === image.data!.sha256)?.reference_labels) || null
   const run = chosenModel ? runs[chosenModel.model_id] : undefined

@@ -52,6 +52,7 @@ def main(root: Path) -> None:
     samples = root / "data" / "samples"   # foto di esempio: la prima ha le registrazioni segnaposto qui sotto
     samples.mkdir(parents=True, exist_ok=True)
     (samples / "01-sample red box.jpg").write_bytes(jpeg(COLORS[0]))
+    (samples / "02-sample green box.jpg").write_bytes(jpeg(COLORS[1]))
     (samples / "labels.json").write_text(json.dumps({"01-sample red box": {   # etichetta di riferimento segnaposto (come train.csv)
         "subject": {"label": "full_product", "human": True}, "background": {"label": "white", "human": True},
         "perspective": {"label": "front_head_on", "human": True}, "individuals": {"label": "none", "human": True},
