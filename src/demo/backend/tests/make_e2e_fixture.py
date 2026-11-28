@@ -49,6 +49,14 @@ def main(root: Path) -> None:
         (files / f"synthetic-{i + 1}.jpg").write_bytes(data)
         shas.append(hashlib.sha256(data).hexdigest())
     (files / "bad.png").write_bytes(b"this is not an image")
+    samples = root / "data" / "samples"   # foto di esempio: la prima ha le registrazioni segnaposto qui sotto
+    samples.mkdir(parents=True, exist_ok=True)
+    (samples / "01-sample red box.jpg").write_bytes(jpeg(COLORS[0]))
+    (samples / "02-sample green box.jpg").write_bytes(jpeg(COLORS[1]))
+    (samples / "labels.json").write_text(json.dumps({"01-sample red box": {   # etichetta di riferimento segnaposto (come train.csv)
+        "subject": {"label": "full_product", "human": True}, "background": {"label": "white", "human": True},
+        "perspective": {"label": "front_head_on", "human": True}, "individuals": {"label": "none", "human": True},
+        "text_classification": {"label": "none", "human": True}, "text_language": {"label": "none", "human": False}}}))
     ctx = context_hash({})
     runs = {
         "apertus-8b-lora-heads-p11": ("run-e2e-a", "TEST-GPU-A", "left_side"),

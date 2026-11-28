@@ -49,18 +49,16 @@ Modi di esecuzione: (1) tutto su un host GPU; (2) laptop + worker remoto via tun
 (`DEMO_WORKER_URL_<FAMIGLIA>`); (3) **laptop senza GPU** (default): zero-shot live via Keera + modelli allenati in
 modalità *registrato*.
 
-### Pagine (tre, nell'ordine del video, 28/11)
-- `/` — **Demo**: foto a sinistra; a destra i modelli (riquadri con punteggio e stato), il pulsante Classify e una
-  tabella con le sei domande in righe e i modelli in colonne. A 1440 × 900 sta tutto in uno schermo. Rosso solo per
-  "incerto" (< 60%) e "modelli in disaccordo". Dettagli prodotto facoltativi sotto la foto. Zero-shot live; modelli
-  allenati live (worker GPU) o registrati.
-- `/results` — **Results**: classifica Kaggle dev con i riferimenti degli organizzatori e il gruppo di valutazione;
-  le sei domande una per una sul test held-out (prompt-test, 4 modelli), con macro e weighted F1; velocità, ore e costo
-  per 100.000 immagini, memoria; in fondo i dettagli per esperti (per classe, altri set, matrice della prospettiva).
-- `/how` — **How it works**: schema della pipeline del modello finale (nero = allenato da noi, contorno = modelli
-  open-weights usati così come sono), i tre passi di training con tempi e costi, cosa ha contato e cosa no, i modelli
-  usati a runtime.
-- I vecchi indirizzi portano alle pagine nuove (`/models` → `/results`, il resto → `/`). Le API del backend sono invariate.
+### Pagine (28/11)
+- `/shop`, `/shop/:id` — **Storefront** (lato cliente): negozio di prova costruito dal catalogo; mostra solo le foto
+  pubblicate e applica le regole scelte nel catalogo.
+- `/catalog`, `/catalog/:id` — **Catalog** (lato admin): prodotti, foto, pubblicazione e regole della vetrina.
+- `/` — **Demo**: foto a sinistra; a destra i modelli (riquadri con punteggio e stato) e una tabella con le sei
+  domande in righe e i modelli in colonne. A 1440 × 900 sta tutto in uno schermo. Rosso solo per "incerto" (< 60%) e
+  "modelli in disaccordo". Dettagli prodotto facoltativi sotto la foto; in fondo il pannello per pubblicare la foto nel
+  catalogo. Zero-shot live; modelli allenati live (worker GPU) o registrati.
+- Le pagine **Results** e **How it works** sono state tolte (28/11, i contenuti stanno nel paper e nella
+  presentazione): `/results`, `/how` e `/models` portano a `/`. Le API delle metriche del backend sono rimaste.
 - Script parlato del video: [docs/demo/SCRIPT_VIDEO.md](../../docs/demo/SCRIPT_VIDEO.md).
 - Foto di esempio con risposte registrate: `scripts/import_probs.py` trasforma i file `*.probs.pt` dei job di
   valutazione in registrazioni (`data/demo/recorded/`, fuori da git). All'upload di una foto registrata la demo
@@ -74,6 +72,37 @@ famiglia finta) → si copiano in `data/demo/recorded/` e si fa `POST /api/recor
 "Recorded <data> on <GPU>" ovunque compaia un risultato registrato. Lookup per sha256 + hash del contesto: se manca,
 `RECORDED_MISSING`.
 
+### Lingue
+L'interfaccia è in **inglese** (predefinito) e si può cambiare in **italiano, francese e tedesco** con il selettore EN · IT · FR · DE in
+alto a destra; la scelta resta nel browser. Il testo inglese è la chiave (`tr('…')` in `frontend/src/i18n/`); le traduzioni stanno in
+`it.json`, `fr.json`, `de.json` (ortografia svizzera: «ss», non «ß»). I dati dei prodotti (titoli, marche) non si traducono; le categorie
+del dataset sì. `npm run check:i18n` (in `frontend/`) verifica che ogni frase del codice esista nelle tre lingue con gli stessi segnaposto;
+il test E2E controlla che dopo il cambio di lingua non resti visibile nessuna frase inglese. Una frase nuova nel codice senza traduzione
+fa fallire il controllo.
+
+### Foto di esempio (per il video)
+La pagina **Classify** mostra una fila "Sample photos": un clic e la foto entra come se fosse caricata; se il modello
+scelto ha una risposta registrata per quella foto compare l'etichetta "Ready" e la risposta arriva subito. Le foto sono i
+file di `data/demo/samples/` (fuori da git; senza persone; oggi 7 foto di dev ammesse in `allow.txt`, una per vista). Con una foto
+propria la demo funziona come prima: il modello gira dal vivo (worker GPU o gateway) e ci vuole qualche secondo.
+Le foto di sample **di train** (sei, con `labels.json` accanto alle foto) mostrano subito una colonna **"Training label"**: sono le etichette
+di `train.csv`, non una risposta di un modello, e la colonna lo dice. Le foto di dev non hanno etichette.
+Per avere le risposte registrate di ogni modello serve una GPU:
+```sh
+python src/demo/scripts/export_session.py --session <id della sessione con le foto di esempio>   # laptop
+python src/demo/scripts/record.py --model <id> --export data/demo/export/<id sessione>           # host GPU, un modello alla volta
+# copiare data/demo/recorded/<modello>/<run>/ sul laptop e POST /api/recorded/rescan
+```
+`record.py` copre i modelli con un adapter (`vadapter_heads`, `lora_heads`, `fullft_heads`); il modello `mixed` non ne ha
+uno: per quello si usa `import_probs.py` con le probabilità di un job di valutazione.
+Poiché le foto sono di dev, nessun modello le ha viste in training e per ognuno esistono già le probabilità delle
+submission Kaggle: basta `import_probs.py` con il suo `*.probs.pt` di dev, **senza GPU**:
+```sh
+python src/demo/scripts/import_probs.py --model <id> --probs <modello>_dev.probs.pt --rows data/hackapertus-galaxus/dev.csv \
+  --ids ids.json --gpu-name "<GPU del job>" --source "<job o report>"      # ids.json: gli image_id dei sample
+```
+Fatto così: `apertus-8b-fullft-heads` dal file `data/share/fullft_3ep_dev_probs.pt` (A100 80GB, job HF 6b09cdb4).
+
 ## 8. Metriche
 Numeri riportati dai file del repo, riletti con la loro riga (`scripts/import_reported.py`); ogni numero ha set,
 fonte, dati di training e badge (validità + provenienza). `dev` e `final` sono rifiutati. Il full fine-tune mostra
@@ -82,7 +111,10 @@ i set visti in training salvo `--allow-contaminated`); l'API legge `data/demo/ev
 per primi (badge "recomputed"). Usa la GPU o il gateway: **solo con ok esplicito**, mai 13:00–14:30 di sabato.
 
 ## 9. Immagini
-Mai immagini dev o final (guardia sugli sha256: `scripts/build_guard_index.py`). Test con immagini sintetiche.
+Mai immagini dev o final (guardia sugli sha256: `scripts/build_guard_index.py`), **tranne** le poche foto di dev
+elencate in `data/demo/guard/allow.txt` (una riga per hash, `#` per i commenti): le regole della challenge permettono di
+mostrare poche foto della competizione in demo e video. Oggi sono 7, usate come sample. Tutte le altre restano
+rifiutate. Test con immagini sintetiche.
 Nessuna immagine, CSV, database o screenshot in git: `scripts/check_no_data.py` prima di ogni commit.
 
 ## 10. Test

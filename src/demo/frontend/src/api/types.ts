@@ -105,6 +105,15 @@ export interface ScoreInfo {
   set: string; macro_f1: number | null; weighted_f1?: number | null; validity: string; source: string
   source_label?: string | null; note?: string | null; checkpoint?: string | null
 }
+export interface SamplePhoto {
+  sample_id: string
+  title: string
+  filename: string
+  file_url: string
+  sha256: string
+  recorded_models: string[]   // modelli con una risposta già registrata per questa foto: rispondono subito
+  reference_labels: Record<string, { label: string; human: boolean }> | null   // etichette di train.csv (foto di train), non di un modello
+}
 export interface KaggleReference { name: string; score: number; source: string }
 export interface ModelsResponse {
   models: ModelSummary[]

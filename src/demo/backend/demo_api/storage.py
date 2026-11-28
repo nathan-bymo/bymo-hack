@@ -12,7 +12,7 @@ class Storage:
         self.root = Path(root)
 
     def ensure(self) -> None:
-        for sub in ("uploads", "thumbs", "recorded", "export", "eval", "guard", "logs"):
+        for sub in ("uploads", "thumbs", "recorded", "export", "eval", "guard", "logs", "samples"):
             (self.root / sub).mkdir(parents=True, exist_ok=True)
 
     def upload_path(self, sha256: str, ext: str) -> Path:
@@ -20,6 +20,10 @@ class Storage:
 
     def thumb_path(self, sha256: str) -> Path:
         return self.root / "thumbs" / f"{sha256}.jpg"
+
+    @property
+    def samples_dir(self) -> Path:
+        return self.root / "samples"
 
     @property
     def recorded_dir(self) -> Path:

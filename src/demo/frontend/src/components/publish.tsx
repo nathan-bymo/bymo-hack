@@ -4,10 +4,12 @@ import { useAttachImage, useCatalog, useCreateProduct } from '../api/catalog'
 import { errorText } from '../api/client'
 import type { ImageItem } from '../api/types'
 import { ruleBlockers } from '../lib/catalog'
+import { useI18n } from '../i18n'
 import { useToast } from './ui'
 
 /** Dalla risposta del modello allo scaffale: crea o riusa un prodotto, pubblica la foto, porta in vetrina. */
 export function PublishPanel({ image, hasAnswer }: { image: ImageItem; hasAnswer: boolean }) {
+  const { t, tn } = useI18n()
   const catalog = useCatalog('', null)
   const create = useCreateProduct()
   const attach = useAttachImage()
@@ -52,7 +54,7 @@ export function PublishPanel({ image, hasAnswer }: { image: ImageItem; hasAnswer
       const attached = detail.images.find((i) => i.image_id === image.image_id)
       const hidden = attached ? ruleBlockers(attached.values, attached.confidence, detail.filters) : []
       setResult({ productId, title: productTitle, hidden })
-      toast('ok', `“${productTitle}” is now in the catalog.`)
+      toast('ok', t('“{title}” is now in the catalog.', { title: productTitle }))
     } catch (e) {
       setError(errorText(e))
     }
@@ -61,82 +63,82 @@ export function PublishPanel({ image, hasAnswer }: { image: ImageItem; hasAnswer
   return (
     <section className="mt-8 border-t-2 border-signal pt-4" data-testid="publish-panel">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="m-0 text-[20px] font-bold tracking-tight">Add this photo to the storefront</h2>
-        <span className="text-[12px] font-bold uppercase tracking-[0.1em] text-signal">From answer to shelf</span>
+        <h2 className="m-0 text-[20px] font-bold tracking-tight">{t('Add this photo to the storefront')}</h2>
+        <span className="text-[12px] font-bold uppercase tracking-[0.1em] text-signal">{t('From answer to shelf')}</span>
       </div>
       <p className="m-0 mt-1 max-w-[70ch] text-[14px] leading-relaxed text-slate">
-        The six answers become the catalog values. Give the product a name, or add the photo to an existing product as another view.
+        {t('The six answers become the catalog values. Give the product a name, or add the photo to an existing product as another view.')}
       </p>
 
       {result ? (
         <div className="mt-4 border border-graphite bg-white p-4" data-testid="publish-done">
-          <p className="m-0 text-[16px] font-bold">“{result.title}” is in the catalog.</p>
+          <p className="m-0 text-[16px] font-bold">{t('“{title}” is in the catalog.', { title: result.title })}</p>
           {result.hidden.length > 0 ? (
             <p className="m-0 mt-1 text-[14px] leading-relaxed text-signal" data-testid="publish-hidden">
-              It is published, but the current shop rules hide it: {result.hidden.join(', ')}.
-              {' '}<Link to="/catalog" className="font-bold">Change the rules</Link> to put it on the shelf.
+              {t('It is published, but the current shop rules hide it: {reasons}.', { reasons: result.hidden.join(', ') })}
+              {' '}<Link to="/catalog" className="font-bold">{t('Change the rules')}</Link> {t('to put it on the shelf.')}
             </p>
           ) : (
             <p className="m-0 mt-1 text-[14px] text-slate" data-testid="publish-visible">
-              It is published and visible in the storefront right now.
+              {t('It is published and visible in the storefront right now.')}
             </p>
           )}
           <div className="mt-3 flex flex-wrap gap-3">
             <Link to={`/shop/${result.productId}`} data-testid="publish-open-shop"
               className="bg-graphite px-4 py-2 text-[14px] font-bold text-white no-underline hover:bg-signal">
-              Open the product page →
+              {t('Open the product page →')}
             </Link>
             <Link to={`/shop?q=${encodeURIComponent(result.title)}`} data-testid="publish-search-shop"
               className="border border-graphite px-4 py-2 text-[14px] font-bold no-underline hover:bg-canvas">
-              Search the shop
+              {t('Search the shop')}
             </Link>
             <Link to={`/catalog/${result.productId}`}
               className="border border-rule px-4 py-2 text-[14px] font-bold no-underline hover:border-graphite">
-              Admin view
+              {t('Admin view')}
             </Link>
           </div>
         </div>
       ) : !hasAnswer ? (
         <p className="m-0 mt-3 border border-rule px-3 py-2 text-[14px] text-slate" data-testid="publish-needs-answer">
-          Classify the photo first: the shop uses the model’s answers as catalog values.
+          {t('Classify the photo first: the shop uses the model’s answers as catalog values.')}
         </p>
       ) : (
         <div className="mt-3 space-y-3">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Where to add the photo">
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t('Where to add the photo')}>
             <button type="button" onClick={() => setMode('new')} aria-pressed={mode === 'new'}
               className={`border px-3 py-1.5 text-[13px] font-bold ${mode === 'new' ? 'border-graphite bg-graphite text-white' : 'border-rule bg-white hover:border-graphite'}`}>
-              New product
+              {t('New product')}
             </button>
             <button type="button" onClick={() => setMode('existing')} aria-pressed={mode === 'existing'}
               disabled={existing.length === 0}
               className={`border px-3 py-1.5 text-[13px] font-bold disabled:opacity-40 ${mode === 'existing' ? 'border-graphite bg-graphite text-white' : 'border-rule bg-white hover:border-graphite'}`}>
-              Another view of an existing product ({existing.length})
+              {t('Another view of an existing product ({n})', { n: existing.length })}
             </button>
           </div>
 
           {mode === 'new' ? (
             <div className="grid gap-2 sm:grid-cols-3">
-              <label className="flex flex-col text-[12px] text-slate sm:col-span-3">Product title
+              <label className="flex flex-col text-[12px] text-slate sm:col-span-3">{t('Product title')}
                 <input value={title} onChange={(e) => setTitle(e.target.value)} data-testid="publish-title"
                   className="mt-0.5 border border-rule px-2.5 py-1.5 text-[15px] text-graphite focus:border-graphite" />
               </label>
-              <label className="flex flex-col text-[12px] text-slate">Brand
+              <label className="flex flex-col text-[12px] text-slate">{t('Brand')}
                 <input value={brand} onChange={(e) => setBrand(e.target.value)} data-testid="publish-brand"
                   className="mt-0.5 border border-rule px-2.5 py-1.5 text-[15px] text-graphite focus:border-graphite" />
               </label>
-              <label className="flex flex-col text-[12px] text-slate sm:col-span-2">Category
+              <label className="flex flex-col text-[12px] text-slate sm:col-span-2">{t('Category')}
                 <input value={category} onChange={(e) => setCategory(e.target.value)} data-testid="publish-category"
                   className="mt-0.5 border border-rule px-2.5 py-1.5 text-[15px] text-graphite focus:border-graphite" />
               </label>
             </div>
           ) : (
-            <label className="flex flex-col text-[12px] text-slate">Existing product
+            <label className="flex flex-col text-[12px] text-slate">{t('Existing product')}
               <select value={existingId} onChange={(e) => setExistingId(e.target.value)} data-testid="publish-existing"
                 className="mt-0.5 border border-rule bg-white px-2.5 py-1.5 text-[15px] text-graphite focus:border-graphite">
-                <option value="">Choose a product…</option>
+                <option value="">{t('Choose a product…')}</option>
                 {existing.map((p) => (
                   <option key={p.product_id} value={p.product_id}>
-                    {p.title}{p.brand ? ` — ${p.brand}` : ''} ({p.image_count} {p.image_count === 1 ? 'photo' : 'photos'})
+                    {p.title}{p.brand ? ` — ${p.brand}` : ''} ({tn(p.image_count, '{n} photo', '{n} photos')})
                   </option>
                 ))}
               </select>
@@ -146,10 +148,10 @@ export function PublishPanel({ image, hasAnswer }: { image: ImageItem; hasAnswer
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={submit} disabled={!canSubmit} data-testid="publish-submit"
               className="bg-signal px-5 py-2 text-[14px] font-bold text-white hover:bg-graphite disabled:cursor-not-allowed disabled:opacity-40">
-              {busy ? 'Publishing…' : mode === 'existing' ? 'Add as another view' : 'Publish to the storefront'}
+              {busy ? t('Publishing…') : mode === 'existing' ? t('Add as another view') : t('Publish to the storefront')}
             </button>
             <span className="text-[12px] text-slate">
-              {mode === 'new' ? 'The first photo of a product becomes its cover.' : 'The photo keeps its own perspective in the gallery.'}
+              {mode === 'new' ? t('The first photo of a product becomes its cover.') : t('The photo keeps its own perspective in the gallery.')}
             </span>
           </div>
           {error && <p className="m-0 text-[14px] text-signal" role="alert">{error}</p>}

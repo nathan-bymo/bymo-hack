@@ -36,9 +36,14 @@ PREFERRED_MODELS = (
     "apertus-8b-zeroshot-v2",
 )
 
+# Regola unica per l'ordine delle viste di un prodotto, valida in catalogo, vetrina e per la copertina automatica:
+#   1. viste ad angolo a sinistra, 2. viste ad angolo a destra (davanti prima del retro),
+#   3. tutte le altre viste (frontale, lati, retro, dall'alto, dal basso),
+#   4. in fondo le foto senza vista letta. A parità di vista resta l'ordine di inserimento.
+# La copertina scelta dall'admin va sempre per prima; se non ne ha scelta una, lo diventa la prima vista in regola.
 PERSPECTIVE_ORDER = (
-    "front_head_on", "front_angle_left", "front_angle_right", "left_side", "right_side",
-    "back_head_on", "back_angle_left", "back_angle_right", "top_down", "bottom_up",
+    "front_angle_left", "back_angle_left", "front_angle_right", "back_angle_right",
+    "front_head_on", "left_side", "right_side", "back_head_on", "top_down", "bottom_up",
 )
 
 NON_PHOTO_SUBJECTS = {"placeholder", "logo", "energy_label", "infographic"}
@@ -167,7 +172,20 @@ def _load_images(db: Database, product_id: str) -> list[dict]:
         "WHERE pi.product_id = ? ORDER BY pi.position, pi.created_at, i.rowid", (product_id,))
     ids = [r["image_id"] for r in rows]
     preds, reviews = _latest_predictions(db, ids), _latest_reviews(db, ids)
-    return [_image_payload(db, row, preds.get(row["image_id"]), reviews.get(row["image_id"])) for row in rows]
+    images = [_image_payload(db, row, preds.get(row["image_id"]), reviews.get(row["image_id"])) for row in rows]
+    # copertina scelta dall'admin per prima, poi la regola delle viste; sort stabile: a parità vale l'inserimento
+    images.sort(key=lambda i: (not (i["catalog"]["is_cover"] and i["catalog"]["published"]), _perspective_rank(i["values"])))
+    explicit = bool(images) and images[0]["catalog"]["is_cover"] and images[0]["catalog"]["published"]
+    for index, image in enumerate(images):
+        image["catalog"]["position"] = index   # la posizione mostrata segue sempre la regola
+        image["catalog"]["is_cover"] = False
+    if explicit:
+        images[0]["catalog"]["is_cover"] = True
+    else:   # nessuna scelta dell'admin: copertina automatica = la prima foto pubblicata in regola (calcolata a ogni lettura)
+        first = next((i for i in images if i["catalog"]["published"]), None)
+        if first:
+            first["catalog"]["is_cover"] = True
+    return images
 
 
 def _perspective_rank(values: dict[str, str | None]) -> int:
@@ -303,24 +321,20 @@ def _next_position(db: Database, product_id: str) -> int:
 
 
 def _renumber(db: Database, product_id: str) -> None:
-    rows = db.all("SELECT image_id FROM product_images WHERE product_id = ? "
-                  "ORDER BY is_cover DESC, position, created_at, rowid", (product_id,))
-    for index, row in enumerate(rows):
-        db.execute("UPDATE product_images SET position = ? WHERE image_id = ?", (index, row["image_id"]))
+    for index, image in enumerate(_load_images(db, product_id)):   # già nell'ordine della regola
+        db.execute("UPDATE product_images SET position = ? WHERE image_id = ?", (index, image["image_id"]))
 
 
 def _ensure_cover(db: Database, product_id: str) -> None:
+    """Salva solo la copertina scelta dall'admin (una sola, e pubblicata); senza scelta decide la regola a ogni lettura."""
     rows = db.all("SELECT image_id, published, is_cover FROM product_images WHERE product_id = ? "
                   "ORDER BY is_cover DESC, position, created_at, rowid", (product_id,))
     cover = next((r for r in rows if r["is_cover"] and r["published"]), None)
     if cover:
         db.execute("UPDATE product_images SET is_cover = 0 WHERE product_id = ? AND image_id <> ?",
                    (product_id, cover["image_id"]))
-        return
-    db.execute("UPDATE product_images SET is_cover = 0 WHERE product_id = ?", (product_id,))
-    first = next((r for r in rows if r["published"]), None)
-    if first:
-        db.execute("UPDATE product_images SET is_cover = 1 WHERE image_id = ?", (first["image_id"],))
+    else:
+        db.execute("UPDATE product_images SET is_cover = 0 WHERE product_id = ?", (product_id,))
 
 
 def update_image(db: Database, image_id: str, body: dict) -> dict:
@@ -476,7 +490,7 @@ def seed(db: Database) -> int:
                 "INSERT OR IGNORE INTO product_images "
                 "(image_id, product_id, position, published, is_cover, note, created_at, updated_at) "
                 "VALUES (?,?,?,?,?,?,?,?)",
-                (row["image_id"], product_id, index, int(published), int(published), None, now, now))
+                (row["image_id"], product_id, index, int(published), 0, None, now, now))   # copertina: la decide la regola
             created += 1
         _ensure_cover(db, product_id)
     return created

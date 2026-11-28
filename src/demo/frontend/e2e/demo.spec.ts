@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const files = (...names: string[]) => names.map((n) => join(process.env.E2E_ROOT!, 'files', n))
@@ -13,95 +14,147 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('try-empty')).toContainText('Add a photo')
   await shot(page, '01-empty')
 
+  // 1b. foto di esempio: un clic e la risposta registrata compare subito, senza caricare nulla
+  await expect(page.getByTestId('samples')).toBeVisible()
+  await page.getByTestId('sample').first().click()
+  await expect(page.getByTestId('try-image')).toBeVisible()
+  await expect(page.getByTestId('try-results')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('sample').first()).toHaveAttribute('data-ready', 'true')
+  await expect(page.getByTestId('col-reference')).toContainText('Training label')   // l'etichetta di train.csv, separata dal modello
+  await expect(page.getByTestId('reference-subject')).toContainText('The whole product')
+  await expect(page.getByTestId('reference-text_language')).toContainText('Not a human label')
+  await page.getByTestId('sample').nth(1).click()   // un altro sample SOVRASCRIVE la foto corrente: la lista non cresce
+  await expect(page.getByTestId('try-thumbs')).toHaveCount(0)
+  await expect(page.getByTestId('col-reference')).toHaveCount(0)   // il secondo sample non ha etichette: la colonna del primo è sparita
+  await page.getByTestId('try-remove').click()   // si toglie dalla pagina per ripartire da vuoto
+  await expect(page.getByTestId('try-empty')).toContainText('Add a photo')
+
   // 2. upload di 3 immagini sintetiche + un file non valido
   await page.getByTestId('try-file-input').setInputFiles(files('synthetic-1.jpg', 'synthetic-2.jpg', 'synthetic-3.jpg', 'bad.png'))
   await expect(page.getByTestId('try-thumbs').locator('button')).toHaveCount(3)
   await expect(page.getByRole('alert')).toContainText('bad.png')
   await expect(page.getByTestId('try-image')).toBeVisible()
 
-  // 3. due modelli registrati (registrazioni segnaposto del test) a confronto sulla stessa foto
-  await expect(page.getByTestId('try-model-apertus-8b-lora-heads-p11')).toBeChecked()   // scelta iniziale
-  await expect(page.getByTestId('try-model-apertus-8b-zeroshot-v2')).toHaveCount(0)   // senza chiave non compare
-  await expect(page.getByTestId('try-model-apertus-8b-vadapter-lora-heads-final')).toHaveCount(0)   // nessuna registrazione nel test
-  await expect(page.getByText(/needs a gpu/i)).toHaveCount(0)
+  // 3. un modello alla volta: si sceglie e compaiono le risposte e il suo punteggio
+  await expect(page.getByTestId('try-models').locator('input[type=radio]:checked')).toHaveCount(1)   // un solo modello scelto
+  await expect(page.getByTestId('try-model-apertus-8b-zeroshot-v2')).toBeDisabled()   // senza chiave non risponde: si vede ma non si sceglie
   await page.getByTestId('try-model-apertus-8b-fullft-heads').check()
   await page.getByTestId('try-thumbs').locator('button').first().click()
   await expect(page.getByTestId('try-results')).toBeVisible({ timeout: 30_000 })   // nessun pulsante: le risposte arrivano da sole
   await expect(page.getByTestId('try-classify')).toHaveCount(0)
   await expect(page.getByTestId('col-apertus-8b-fullft-heads')).toContainText('Recorded', { timeout: 30_000 })
-  for (const d of DIMENSIONS) await expect(page.getByTestId(`try-dim-${d}`)).toBeVisible()
-  await expect(page.getByTestId('try-dim-perspective').getByTestId('try-disagree')).toBeVisible()
+  for (const d of DIMENSIONS) {
+    await expect(page.getByTestId(`try-dim-${d}`)).toBeVisible()
+    await expect(page.getByTestId(`classes-${d}`).getByTestId('class-percent').first()).toHaveText(/^\d+%$/)   // ogni domanda: classe e percentuale
+  }
+  await expect(page.getByTestId('model-score')).toHaveCount(0)   // nessuna macro F1 nella pagina di classificazione
+  await expect(page.getByTestId('try-disagree')).toHaveCount(0)
   await expect(page.getByTestId('try-error')).toHaveCount(0)
   await expect(page.getByText(/invalid/i)).toHaveCount(0)
-  await expect(page.getByText('These answers use the photo only')).toBeVisible()
-  await expect(page.getByTestId('col-apertus-8b-lora-heads-p11')).toContainText('Recorded')
-  await shot(page, '02-classify-two-models')
+  await expect(page.getByText('It uses the photo only')).toBeVisible()
+  await shot(page, '02-classify-one-model')
   await shot(page, '02b-video-frame', false)   // quello che si vede nel video, senza scorrere
 
-  // 3b. dettagli prodotto facoltativi: si salvano e restano sulla foto
+  // 4. cambio modello sulla stessa foto: cambiano risposte e punteggio, non c'è nessuna media tra modelli
+  await page.getByTestId('try-model-apertus-8b-lora-heads-p11').check()
+  await expect(page.getByTestId('col-apertus-8b-lora-heads-p11')).toContainText('Recorded', { timeout: 30_000 })
+  await expect(page.getByTestId('col-apertus-8b-fullft-heads')).toHaveCount(0)
+  await page.getByTestId('try-thumbs').locator('button').nth(1).click()
+  await expect(page.getByTestId('try-dim-subject')).toContainText('The whole product', { timeout: 30_000 })
+  await shot(page, '03-classify-other-photo')
+
+  // 4a. dettagli prodotto facoltativi: si salvano e restano sulla foto (cambiano il contesto, quindi per ultimi)
   await page.getByTestId('product-details').getByRole('button').first().click()
   await page.getByTestId('ctx-product_title').fill('Ceramic mug 350 ml')
   await page.getByTestId('ctx-brand').fill('Demo brand')
   await page.getByTestId('save-context').click()
   await expect(page.getByTestId('product-details')).toContainText('2 of 5 filled')
 
-  // 4. un solo modello su un'altra foto
-  await page.getByTestId('try-model-apertus-8b-fullft-heads').uncheck()
-  await page.getByTestId('try-thumbs').locator('button').nth(1).click()
-  await expect(page.getByTestId('try-dim-subject')).toContainText('The whole product', { timeout: 30_000 })
-  await expect(page.getByTestId('try-disagree')).toHaveCount(0)
-  await shot(page, '03-classify-one-model')
+  // 4b. un modello che non risponde in questa demo non si può scegliere
+  await expect(page.getByTestId('try-model-apertus-team-best-submission')).toBeDisabled()
 
-  // 5. Results: classifica Kaggle con il gruppo di valutazione, domanda per domanda, velocità e costo
-  await page.getByRole('link', { name: 'Results', exact: true }).click()
-  const kaggle = page.getByTestId('board-kaggle_dev')
-  await expect(kaggle.getByTestId('board-row')).toHaveCount(12)   // 9 punteggi del team + 3 riferimenti
-  await expect(kaggle.getByTestId('board-row').first()).toContainText('0.917')
-  await expect(kaggle).toContainText('0.832')
-  await expect(page.getByTestId('assessment-group')).toContainText('Ensemble of two models (0.847) is in the middle assessment group: above both Gemini references')
-  await expect(kaggle.getByTestId('board-row').nth(1)).toContainText('0.847')
-  await expect(page.getByTestId('pq-macro')).toContainText('0.821')
-  await expect(page.getByTestId('pq-weighted')).toContainText('0.917')
-  await expect(page.getByTestId('pq-perspective')).toContainText('0.755')
-  await expect(page.getByTestId('pq-perspective')).toContainText('0.198')
-  await expect(page.getByTestId('pq-macro')).toContainText('0.847')   // P13
-  await expect(kaggle).toContainText('0.829')
-  await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-fullft-heads"]')).toContainText('$7.27')
-  await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-lora-heads-p11"]')).toContainText('22 GB measured')
-  await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-fullft-heads"]').getByTestId('hours-100k')).toHaveText('2.9 h')
-  await expect(page.getByText(/invalid/i)).toHaveCount(0)
-  await shot(page, '04-results')
+  // 4c. si può togliere una foto dalla pagina (solo nel browser) e resta tolta dopo il refresh
+  const thumbs = page.getByTestId('try-thumbs').locator('button')
+  await expect(thumbs).toHaveCount(3)
+  await page.getByTestId('try-remove').click()
+  await expect(thumbs).toHaveCount(2)
+  await page.reload()
+  await expect(thumbs).toHaveCount(2)
+  await page.getByTestId('try-remove').click()
+  await page.getByTestId('try-remove').click()
+  await expect(page.getByTestId('try-image')).toHaveCount(0)
+  await expect(page.getByTestId('try-remove')).toHaveCount(0)
+  await expect(page.getByTestId('try-empty')).toContainText('Add a photo')
+  await page.reload()
+  await expect(page.getByTestId('try-image')).toHaveCount(0)   // dopo il refresh non ricompare
+  await page.getByTestId('try-file-input').setInputFiles(files('synthetic-1.jpg'))   // la stessa foto ricaricata torna visibile
+  await expect(page.getByTestId('try-image')).toBeVisible()
 
-  // 6. dettagli per esperti, chiusi di default
-  await expect(page.getByTestId('expert-scores')).toHaveCount(0)
-  await page.getByTestId('toggle-details').click()
-  const final = page.locator('[data-testid="model-card"][data-model="apertus-8b-vadapter-lora-heads-final"]')
-  await expect(final.getByTestId('card-macro')).toHaveText('0.821')
-  await page.getByTestId('set-select').selectOption('coverage')
-  await expect(page.getByTestId('model-card')).toHaveCount(5)   // solo i modelli con un punteggio su questo set
-  await expect(page.locator('[data-testid="model-card"][data-model="apertus-8b-lora-heads-p11"]').getByTestId('card-macro')).toHaveText('0.781')
-  await expect(page.getByTestId('dimension-chart')).toBeVisible()
-  await expect(page.getByTestId('per-class')).toBeVisible()
-  await expect(page.getByTestId('confusion')).toBeVisible()
-  await expect(page.getByText(/invalid/i)).toHaveCount(0)
-  await shot(page, '05-results-details')
+  // 4d. pagina Challenge: spiega la sfida e mostra pochi risultati, presi dai punteggi del registro dei modelli
+  await page.getByRole('link', { name: 'Challenge', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Teach Apertus to read every product photo')
+  await expect(page.getByTestId('challenge-task').locator('li').first()).toContainText('classes')
+  await expect(page.getByTestId('challenge-judging')).toContainText('macro F1')
+  const rows = page.getByTestId('challenge-row')
+  await expect(rows.first()).toContainText('0.917')   // il riferimento degli organizzatori (Qwen) è il punteggio più alto
+  await expect(page.getByTestId('challenge-chart')).toContainText('Gemini 4 Argon')
+  expect(await rows.count()).toBeGreaterThanOrEqual(5)   // riferimenti + i nostri migliori
+  await expect(page.getByTestId('challenge-sentence')).toContainText('below the organisers’ fine-tuned Qwen')
+  await shot(page, '07-challenge')
 
-  // 7. How it works: schema, passi di training, cosa ha contato, modelli a runtime
-  await page.getByRole('link', { name: 'How it works', exact: true }).click()
-  await expect(page.getByTestId('pipeline')).toContainText('SigLIP 2')
-  await expect(page.getByTestId('walkthrough').locator('li')).toHaveCount(4)
-  await expect(page.getByTestId('experiments').getByTestId('experiment')).toHaveCount(21)   // P0–P15, full fine-tune, modello finale, mixed, LoRA su SigLIP, ensemble
-  await expect(page.getByTestId('experiments')).toContainText('P13')
-  await expect(page.getByTestId('training-steps').locator('tbody tr')).toHaveCount(3)
-  await expect(page.getByTestId('insights-mattered').locator('li')).toHaveCount(5)
-  await expect(page.getByTestId('insights-not').locator('li')).toHaveCount(4)
-  await expect(page.getByTestId('runtime-models')).toContainText('docTR')
-  await shot(page, '06-how')
-  await shot(page, '06b-how-frame', false)
-
-  // 8. i vecchi indirizzi portano alle pagine nuove
-  await page.goto('/models')
-  await expect(page).toHaveURL(/\/results/)
+  // 5. Results e How it works non esistono più: i vecchi indirizzi portano alla pagina Demo
+  for (const old of ['/models', '/results', '/how']) {
+    await page.goto(old)
+    await expect(page).toHaveURL(/\/(\?.*)?$/)
+  }
   await page.goto('/image-classification')
   await expect(page.getByRole('heading', { name: 'Six answers for every product photo' })).toBeVisible()
+})
+
+/** Lingue: inglese di partenza, italiano / francese / tedesco a scelta; nessuna frase inglese deve restare visibile. */
+test('lingue dell\'interfaccia', async ({ page }) => {
+  const dict = (lang: string): Record<string, string> =>
+    JSON.parse(readFileSync(join(import.meta.dirname, '..', 'src', 'i18n', `${lang}.json`), 'utf8'))
+  const visibleTexts = () => page.evaluate(() => {
+    const out = new Set<string>()
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+    while (walker.nextNode()) { const t = walker.currentNode.textContent?.trim(); if (t) out.add(t) }
+    document.querySelectorAll('[title],[aria-label],[placeholder],[alt]').forEach((el) => {
+      if (el.closest('[data-testid=language-switch]')) return   // i nomi delle lingue si scrivono nella lingua stessa
+      ['title', 'aria-label', 'placeholder', 'alt'].forEach((a) => { const v = el.getAttribute(a); if (v) out.add(v.trim()) })
+    })
+    return [...out]
+  })
+  const expected: Record<string, { nav: string; h1: string; title: string }> = {
+    it: { nav: 'Classifica', h1: 'Sei risposte per ogni foto di prodotto', title: 'Classificazione delle immagini' },
+    fr: { nav: 'Classifier', h1: 'Six réponses pour chaque photo de produit', title: "Classification d'images" },
+    de: { nav: 'Klassifizieren', h1: 'Sechs Antworten für jedes Produktfoto', title: 'Bildklassifizierung' },
+  }
+
+  await page.goto('/')   // inglese di partenza
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Six answers for every product photo')
+  await expect(page.getByTestId('lang-en')).toHaveAttribute('aria-pressed', 'true')
+
+  for (const lang of ['it', 'fr', 'de']) {
+    await page.goto('/')
+    await page.getByTestId(`lang-${lang}`).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', lang)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(expected[lang].h1)
+    await expect(page.getByRole('link', { name: expected[lang].nav, exact: true })).toBeVisible()
+    await expect(page).toHaveTitle(new RegExp(expected[lang].title))
+    await page.reload()   // la scelta resta dopo il refresh
+    await expect(page.locator('html')).toHaveAttribute('lang', lang)
+    for (const path of ['/', '/challenge', '/catalog', '/shop', '/shop?q=nulla-del-genere']) {
+      await page.goto(path)
+      await expect(page.getByTestId(`lang-${lang}`)).toHaveAttribute('aria-pressed', 'true')
+      await page.waitForTimeout(400)
+      const leftovers = (await visibleTexts()).filter((t) => dict(lang)[t] !== undefined && dict(lang)[t] !== t)
+      expect(leftovers, `${lang} ${path}: frasi rimaste in inglese`).toEqual([])
+    }
+  }
+
+  await page.goto('/')
+  await page.getByTestId('lang-en').click()   // si torna all'inglese
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Six answers for every product photo')
 })

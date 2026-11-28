@@ -164,3 +164,34 @@ def test_seed_publishes_one_photo_per_product_and_keeps_drafts(client):
     assert [i["catalog"]["published"] for i in detail["images"]] == [True, False]
     assert detail["images"][0]["values"]["perspective"] == "front_head_on"
     assert client.get("/api/storefront").json()["products"][0]["image_count"] == 1
+
+
+def test_view_order_rule_applies_everywhere(client):
+    """Prima le viste ad angolo a sinistra, poi a destra, poi le altre; senza vista in fondo; la copertina scelta per prima."""
+    session = new_session(client)
+    values = {"subject": "full_product", "background": "white", "individuals": "none",
+              "text_classification": "none", "text_language": "none"}
+    order_in = ["top_down", "front_angle_right", "front_head_on", "back_angle_left", "front_angle_left", None]
+    product = create_product(client, title="Rule chair", brand="Bymo", category="Furniture")
+    ids = {}
+    for index, view in enumerate(order_in):
+        image = upload(client, session, f"view-{index}.jpg")
+        add_prediction(client, image, values | {"perspective": view})
+        attach(client, image["image_id"], product["product_id"], published=True)
+        ids[view] = image["image_id"]
+
+    def views(images):
+        return [i["values"]["perspective"] for i in images]
+
+    expected = ["front_angle_left", "back_angle_left", "front_angle_right", "front_head_on", "top_down", None]
+    detail = client.get(f"/api/catalog/products/{product['product_id']}").json()
+    assert views(detail["images"]) == expected                      # catalogo
+    assert [i["catalog"]["position"] for i in detail["images"]] == list(range(6))
+    assert detail["images"][0]["catalog"]["is_cover"]                 # senza scelta dell'admin: la prima vista in regola
+    shop = client.get(f"/api/storefront/products/{product['product_id']}").json()
+    assert views(shop["images"]) == expected                        # vetrina
+    cards = client.get("/api/storefront").json()["products"]
+    assert cards[0]["perspectives"] == [v for v in expected if v]   # elenco delle viste nella scheda
+
+    detail = attach(client, ids["top_down"], product["product_id"], is_cover=True)   # copertina scelta dall'admin: va per prima
+    assert views(detail["images"]) == ["top_down", "front_angle_left", "back_angle_left", "front_angle_right", "front_head_on", None]

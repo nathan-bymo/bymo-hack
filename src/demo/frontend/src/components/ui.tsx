@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 import { Link } from 'react-router-dom'
 import { errorText } from '../api/client'
 import type { BatchInfo, ModelSummary, RecordedInfo } from '../api/types'
+import { useI18n } from '../i18n'
 import { S } from '../strings'
 
 /* ---- confidenza: numero + icona + colore, mai solo colore (D.3) ---- */
@@ -15,12 +16,14 @@ const CHIP = {
 } as const
 
 export function ConfidenceChip({ value, method, onClick }: { value: number | null; method?: string | null; onClick?: () => void }) {
+  const { t } = useI18n()
   if (value === null || value === undefined)
-    return <span className="rounded bg-toolbtn px-1.5 py-0.5 text-xs text-muted" title="No confidence available for this value">n/a</span>
+    return <span className="rounded bg-toolbtn px-1.5 py-0.5 text-xs text-muted" title={t('No confidence available for this value')}>{t('n/a')}</span>
   const c = CHIP[bin(value)]
-  const tip = `${c.word} confidence — ${method ? S.confidence[method] ?? method : ''}`
+  const word = c.word === 'high' ? t('high') : c.word === 'medium' ? t('medium') : t('low')
+  const tip = `${t('{word} confidence', { word })}${method ? ` — ${S.confidence[method] ?? method}` : ''}`
   return (
-    <button type="button" onClick={onClick} title={tip} aria-label={`Confidence ${value.toFixed(2)} (${c.word})`}
+    <button type="button" onClick={onClick} title={tip} aria-label={t('Confidence {value} ({word})', { value: value.toFixed(2), word })}
       data-testid="confidence-chip"
       className={`inline-flex items-center gap-1 rounded border-0 px-1.5 py-0.5 text-xs font-semibold ${c.cls}`}>
       <span aria-hidden="true">{c.icon}</span>{value.toFixed(2)}

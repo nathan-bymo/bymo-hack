@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import type { ApiErrorBody } from './types'
 
 export class ApiClientError extends Error {
@@ -38,7 +39,13 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
   return (await response.json()) as T
 }
 
+/** Messaggio del server nella lingua scelta: le frasi con numeri si traducono dal codice, le altre dalla frase inglese. */
+export function apiMessage(code: string, message: string): string {
+  if (code === 'FILE_TOO_LARGE') return tr('A file is too large, or too many files were sent at once.')
+  return tr(message)
+}
+
 export function errorText(error: unknown): string {
-  if (error instanceof ApiClientError) return error.code === 'NETWORK' ? error.message : `${error.message} (${error.code})`
-  return error instanceof Error ? error.message : 'Unexpected error'
+  if (error instanceof ApiClientError) return error.code === 'NETWORK' ? tr('Backend unreachable') : `${apiMessage(error.code, error.message)} (${error.code})`
+  return error instanceof Error ? tr(error.message) : tr('Unexpected error')
 }
