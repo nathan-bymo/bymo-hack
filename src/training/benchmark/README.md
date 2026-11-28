@@ -63,7 +63,7 @@ del Mac di Nikola avevano tutti una copia online identica (stesso SHA-256).
 | P13 | — | `MANNIK14/galaxus-vlh-private/synth-ft-1128-0243/model/best` |
 | P14 | — | `MANNIK14/galaxus-vlh-private/eyes512-run1-1128-0431/model/best` |
 | P15 | — | `MANNIK14/galaxus-vlh-private/base224-all-1128-0539/model/last` |
-| LoRA su SigLIP | — | `MANNIK14/galaxus-vlh-private/siglip-lora-1128-0815/model/best` |
+| LoRA su SigLIP | `apertus-8B-siglip-lora-heads/` | `MANNIK14/galaxus-vlh-private/siglip-lora-1128-0815/model/best` |
 | mixed | `apertus-8B-mixed-lora-heads-final/` | repository privato di Nathan |
 | P11 | `lora_heads_256_p11/` | `MANNIK14/galaxus-lora-heads-private/archive/p11_lora_heads_256_coverage0781` |
 | P12 | — | `MANNIK14/galaxus-lora-heads-private/archive/p12_lora_heads_pool_512_coverage0806` |

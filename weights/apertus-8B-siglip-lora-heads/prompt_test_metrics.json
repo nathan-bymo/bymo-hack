@@ -1,0 +1,35 @@
+{
+  "images": 1193,
+  "seconds": 176.9,
+  "images_per_second": 6.75,
+  "peak_memory_gb": 79.8,
+  "gpu": "NVIDIA H200",
+  "gpus": 1,
+  "dtype": "bfloat16",
+  "fp32_safe_mode": false,
+  "first_non_finite": [],
+  "batch_size": 32,
+  "context": true,
+  "checkpoint": "/tmp/work/data/run/model/best",
+  "tta_flip": false,
+  "flipped_images": 0,
+  "images_replaced_by_blank": 0,
+  "seconds_per_stage": {
+    "images": 8.6,
+    "siglip": 26.2,
+    "vq": 76.9,
+    "ocr": 64.7,
+    "forward": 88.8,
+    "tta": 0.0
+  },
+  "note": "images, siglip, vq and ocr run in a thread one batch ahead of forward: stages overlap",
+  "macro_f1": 0.8356425755561654,
+  "dimensions": {
+    "subject": 0.8595616068754819,
+    "background": 0.8730427861998288,
+    "perspective": 0.7774415285763072,
+    "individuals": 0.9700694487124332,
+    "text_classification": 0.7933171903294439,
+    "text_language": 0.7404228926434969
+  }
+}
