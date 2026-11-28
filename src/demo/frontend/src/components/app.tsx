@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { S } from '../strings'
 
 /** Guscio dell'app di presentazione: marchio, tre voci, contenuto allineato a sinistra su una griglia larga. */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation()
-  const inErp = /^\/(image-classification|product|storefront-preview)/.test(pathname)
   const link = ({ isActive }: { isActive: boolean }) =>
     `border-b-2 pb-1 no-underline ${isActive ? 'border-signal text-graphite' : 'border-transparent text-slate hover:text-graphite'}`
   return (
@@ -22,7 +20,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           <nav aria-label="Main" className="flex gap-7 text-[15px]">
             <NavLink to="/" end className={link}>Classify</NavLink>
             <NavLink to="/models" className={link}>Models</NavLink>
-            <NavLink to="/image-classification" className={() => link({ isActive: inErp })}>In the ERP</NavLink>
           </nav>
           <span data-testid="demo-badge" className="ml-auto text-[13px] text-slate">{S.badgeDemo}</span>
         </div>

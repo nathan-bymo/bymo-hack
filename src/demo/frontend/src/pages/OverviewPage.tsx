@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useModels } from '../api/hooks'
 import type { ModelSummary } from '../api/types'
 import { AppShell } from '../components/app'
+import ExpertScores from '../components/ExpertScores'
 import { bestSpeed, memoryText, sortForShow, usd } from '../lib/models'
 
 interface Row { key: string; name: string; note: string; score: number; ours: boolean }
@@ -36,6 +36,7 @@ function scoreOn(m: ModelSummary, set: string) {
 export default function OverviewPage() {
   const models = useModels()
   const [showMore, setShowMore] = useState(false)
+  const [details, setDetails] = useState(false)
   const list = sortForShow(models.data?.models ?? []).filter((m) => m.featured || showMore)
   const refs = models.data?.kaggle_references ?? []
   const target = models.data?.throughput_target_images_per_second ?? 2
@@ -119,10 +120,17 @@ export default function OverviewPage() {
         <ScoreChart rows={testRows} testId="board-prompt-test" />
       </section>
 
-      <div className="mt-14 flex flex-wrap items-center gap-6 border-t border-rule pt-5 text-[14px] text-slate">
-        <label><input type="checkbox" checked={showMore} onChange={(e) => setShowMore(e.target.checked)} data-testid="show-secondary" /> Also show early experiments</label>
-        <Link to="/image-classification/performance?set=coverage">Scores per class, for experts</Link>
-      </div>
+      <label className="mt-6 block text-[14px] text-slate"><input type="checkbox" checked={showMore} onChange={(e) => setShowMore(e.target.checked)} data-testid="show-secondary" /> Also show early experiments</label>
+
+      <section className="mt-16 border-t-2 border-graphite pt-4">
+        <button type="button" onClick={() => setDetails((d) => !d)} aria-expanded={details} data-testid="toggle-details"
+          className="flex w-full items-baseline justify-between border-0 bg-transparent p-0 text-left">
+          <h2>Details per question and class</h2>
+          <span className="text-[15px] text-slate">{details ? 'Hide' : 'Show'}</span>
+        </button>
+        <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">For experts: how each model does on each of the six questions and on every class, on our internal tests.</p>
+        {details && <div className="mt-6"><ExpertScores /></div>}
+      </section>
     </AppShell>
   )
 }

@@ -1,19 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useModels } from '../api/hooks'
 import type { MetricBlock, ModelSummary } from '../api/types'
-import { ConfusionMatrix, DimensionBarChart, MODEL_COLORS, PerClassTable } from '../components/dashboard'
-import { ErpShell, TitleBar } from '../components/shell'
-import { ErrorState } from '../components/ui'
+import { ConfusionMatrix, DimensionBarChart, MODEL_COLORS, PerClassTable } from './dashboard'
+import { ErrorState } from './ui'
 import { sortForShow } from '../lib/models'
 import { DIMENSION_NAMES } from '../strings'
 
-/** Set interni con una descrizione semplice. I numeri si confrontano solo dentro lo stesso set. */
+/** Dettagli per esperti nella pagina Models (prima pagina "Scores per class").
+ *  Set interni con una descrizione semplice. I numeri si confrontano solo dentro lo stesso set. */
 const SETS: { key: string; label: string; about: string }[] = [
-  { key: 'coverage', label: 'Rare-class test, 2,532 images', about: 'Our internal test with extra examples of the rare classes. It is harder than the leaderboard, on purpose.' },
   { key: 'prompt-test', label: 'Held-out test, 1,193 images', about: 'Labelled images never used to train or tune these models, with the natural mix of classes.' },
+  { key: 'coverage', label: 'Rare-class test, 2,532 images', about: 'Our internal test with extra examples of the rare classes. It is harder than the leaderboard, on purpose.' },
   { key: 'base', label: 'Natural test, 2,363 images', about: 'The same images as the rare-class test, without the extra rare examples.' },
   { key: 'validation_450', label: 'Small balanced test, 450 images', about: 'The same number of images for every class. Used for the early experiments.' },
 ]
@@ -33,17 +32,17 @@ function ModelCard({ model, block }: { model: ModelSummary; block?: MetricBlock 
 
 function Block({ title, about, children, testId }: { title: string; about?: string; children: React.ReactNode; testId?: string }) {
   return (
-    <section className="mt-12" data-testid={testId}>
-      <h2>{title}</h2>
+    <section className="mt-10" data-testid={testId}>
+      <h3 className="m-0 text-[20px] font-bold tracking-tight">{title}</h3>
       {about && <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">{about}</p>}
       <div className="mt-5">{children}</div>
     </section>
   )
 }
 
-export default function PerformancePage() {
-  const [params, setParams] = useSearchParams()
-  const set = SETS.find((s) => s.key === params.get('set')) ?? SETS[0]
+export default function ExpertScores() {
+  const [setKey, setSetKey] = useState('prompt-test')
+  const set = SETS.find((s) => s.key === setKey) ?? SETS[0]
   const models = useModels()
   const list = useMemo(() => sortForShow(models.data?.models ?? []).filter((m) => m.scores.length > 0), [models.data])
   const ids = list.map((m) => m.model_id).join(',')
@@ -68,15 +67,10 @@ export default function PerformancePage() {
   const cmResult = cmModel ? blocks[cmModel.model_id]?.results.find((r) => r.confusion) : undefined
 
   return (
-    <ErpShell>
-      <TitleBar title="Scores per class" />
-      <p className="m-0 max-w-[70ch] text-[15px] text-slate" data-testid="coverage-banner">
-        A closer look for experts: how each model does on every question and every class, on our internal test sets.
-        For the official comparison, see the Kaggle leaderboard on the Models page.
-      </p>
-      <div className="mt-6 flex flex-wrap items-center gap-3 text-[15px]">
+    <div data-testid="expert-scores">
+      <div className="flex flex-wrap items-center gap-3 text-[15px]">
         <label htmlFor="set-select" className="font-bold">Test set</label>
-        <select id="set-select" data-testid="set-select" value={set.key} onChange={(e) => setParams({ set: e.target.value })}
+        <select id="set-select" data-testid="set-select" value={set.key} onChange={(e) => setSetKey(e.target.value)}
           className="border border-graphite bg-white px-3 py-1.5 text-[15px]">
           {SETS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
         </select>
@@ -113,7 +107,7 @@ export default function PerformancePage() {
           <ConfusionMatrix data={cmResult.confusion.perspective} />
         </Block>
       )}
-      <p className="mt-12 text-[13px] text-slate">Every number comes from the team’s result files in the repository; hover a model to see the file. {DIMENSION_NAMES.text_classification} = added text on the image.</p>
-    </ErpShell>
+      <p className="mt-10 text-[13px] text-slate">Every number comes from the team’s result files in the repository; hover a model to see the file. {DIMENSION_NAMES.text_classification} = added text on the image.</p>
+    </div>
   )
 }

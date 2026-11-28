@@ -49,13 +49,15 @@ Modi di esecuzione: (1) tutto su un host GPU; (2) laptop + worker remoto via tun
 (`DEMO_WORKER_URL_<FAMIGLIA>`); (3) **laptop senza GPU** (default): zero-shot live via Keera + modelli allenati in
 modalità *registrato*.
 
-### Pagine per la presentazione
-- `/image-classification/models` — **Models**: una classifica per set (Kaggle dev con i riferimenti, prompt-test,
-  coverage; i modelli che hanno visto il set in training compaiono come "seen during training"), più la tabella con
-  velocità, memoria GPU, costo per 100.000 immagini (solo da velocità end to end su GPU nota), dati di training e pesi.
-- `/image-classification/try` — **Try a model**: un'immagine → sei classi con probabilità e alternative; più modelli
-  sulla stessa immagine con accordo/disaccordo per dimensione. Zero-shot live; modelli allenati live (worker GPU) o
-  registrati.
+### Pagine (solo due, 28/11)
+- `/` — **Classify**: si carica una foto, si scelgono i modelli, compaiono le sei domande in parole semplici con la
+  risposta di ogni modello, la barra di sicurezza e le alternative; rosso solo per "incerto" e "modelli in disaccordo".
+  Zero-shot live; modelli allenati live (worker GPU) o registrati.
+- `/models` — **Models**: classifica Kaggle dev con i riferimenti degli organizzatori, velocità e costo per 100.000
+  immagini, test interno (prompt-test) in un grafico separato; in fondo "Details per question and class" (per esperti:
+  set interni, F1 per domanda e per classe, matrice di confusione della prospettiva).
+- Le pagine del guscio ERP (coda, confronto in batch, dettaglio, anteprima negozio, pagina prodotto) sono state tolte
+  perché ripetevano Classify; restano nella storia di git. I vecchi indirizzi portano a `/`. Le API del backend sono invariate.
 
 ## 7. Modalità registrato
 `scripts/export_session.py --session <id>` crea `data/demo/export/<id>/` (immagini + `manifest.json` senza nomi) →
