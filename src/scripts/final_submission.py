@@ -11,7 +11,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(ROOT / "src" / "training" / "apertus-8B-lora-heads"), str(ROOT / "src" / "training")]
+PHASE = ROOT / "src" / "training" / "phase-3" / "src" / "training"  # the delivered phase: one copy of the code
+sys.path[:0] = [str(PHASE / "apertus-8B-lora-heads"), str(PHASE)]
 import data as D  # noqa: E402
 import make_submission as S  # noqa: E402
 

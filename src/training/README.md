@@ -16,9 +16,10 @@ The model directories contain the actual training, encoding, prediction and Hugg
 
 | Model | Training code | Results | Generated job |
 |---|---|---|---|
-| LoRA + heads | [apertus-8B-lora-heads](apertus-8B-lora-heads/) | [RESULTS.md](apertus-8B-lora-heads/RESULTS.md) | `hf_job_lora_heads.py` |
-| Fine-tuned decoder + heads | [apertus-8B-fullft-heads](apertus-8B-fullft-heads/) | [RESULTS.md](apertus-8B-fullft-heads/RESULTS.md) | `hf_job_fullft.py` |
-| Visual adapter + LoRA + heads + OCR | [apertus-8B-vadapter-lora-heads](apertus-8B-vadapter-lora-heads/) | [RESULTS.md](apertus-8B-vadapter-lora-heads/RESULTS.md) | `hf_job_vlh.py` |
+| LoRA + heads | `apertus-8B-lora-heads/` | [phase 1](phase-1/RESULTS.md) (P11), [phase 2](phase-2/RESULTS.md) (P12) | `hf_job_lora_heads.py` |
+| Fine-tuned decoder + heads | `apertus-8B-fullft-heads/` | [phase 1](phase-1/RESULTS.md) | `hf_job_fullft.py` |
+| Visual adapter + LoRA + heads + OCR | `apertus-8B-vadapter-lora-heads/` | [phase 1](phase-1/RESULTS.md), [phase 2](phase-2/RESULTS.md) | `hf_job_vlh.py` |
+| DINOv3 and mixed (delivered) | `apertus-8B-dinov3-lora-heads/`, `apertus-8B-mixed-lora-heads/` | [phase 3](phase-3/RESULTS.md), [phase 4](phase-4/RESULTS.md) | `hf_job_dinov3.py`, `hf_job_mixed.py` |
 
 Each job uploads checkpoints and logs to the private `UPLOAD_REPO`; training and data acquisition require appropriately configured HF and Kaggle access. Use private repositories for competition data and artifacts. Set credentials as local environment variables or Hugging Face Jobs secrets; do not put them in source files. The commands below create scripts or show launch patterns; they do not submit competition predictions.
 
@@ -59,7 +60,7 @@ The full fine-tuning implementation imports shared data, encoder and head code f
 
 ## Visual adapter + LoRA + heads + OCR
 
-The job supports a private dataset through `DATA_REPO` or Kaggle, checkpoint continuation with `INIT_FROM`, separate output paths with `RUN_NAME`, `OCR=1`, and `PART=training|all_but_test|all`. The historical final model is a **sequence** of runs, not a single fresh run. See its `RESULTS.md` for the actual sequence, data and limits. The following is a continuation pattern, not a claim that it exactly reproduces all historical settings:
+The job supports a private dataset through `DATA_REPO` or Kaggle, checkpoint continuation with `INIT_FROM`, separate output paths with `RUN_NAME`, `OCR=1`, and `PART=training|all_but_test|all`. The historical final model is a **sequence** of runs, not a single fresh run. See [phase 1](phase-1/RESULTS.md) and [phase 2](phase-2/RESULTS.md) results for the actual sequence, data and limits. The following is a continuation pattern, not a claim that it exactly reproduces all historical settings:
 
 ```sh
 hf jobs uv run --flavor h200 --timeout 3h --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \
@@ -70,4 +71,4 @@ hf jobs uv run --flavor h200 --timeout 3h --secrets HF_TOKEN --secrets KAGGLE_AP
 
 Use `DATA_REPO` when a suitable private HF dataset is already available. `build_hf_job.py --upload-data` uploads competition data and must only be used when the destination and data permissions are appropriate. The generated job supports `CHECK_ONLY=1` for a CPU preflight, `PREDICT_FROM` and `DEV_ONLY=1` for inference, and uploads the best checkpoints to the configured private repository. Verify the exact historical flags against the private logs before claiming an exact reproduction.
 
-GPU type, available quota and cost must be checked for a new run; historical runtimes and prices in `RESULTS.md` are not current quotes.
+GPU type, available quota and cost must be checked for a new run; historical runtimes and prices in the phase `RESULTS.md` files are not current quotes.

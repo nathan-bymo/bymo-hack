@@ -11,7 +11,7 @@ Files: `lora/` (Apertus LoRA rank 32 on 24 layers), `vision_lora/` (SigLIP 2 LoR
 
 Base: `swiss-ai/Apertus-v1.5-8B`, revision `1519de0ae7f3d114879291810a58259966f64c99`. SigLIP:
 `google/siglip2-base-patch16-224`. Started from `../apertus-8B-vadapter-lora-heads-final/`. Recipe and results:
-`src/training/apertus-8B-vadapter-lora-heads/results_siglip_lora.md`.
+[phase-2 results](../../src/training/phase-2/RESULTS.md#trainable-siglip-lora-on-final-abt-run-siglip-lora-1128-0815).
 
 ```sh
 python src/training/apertus-8B-vadapter-lora-heads/predict.py \

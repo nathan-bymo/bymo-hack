@@ -36,9 +36,9 @@ We adapt Apertus 1.5, a language model with a native vector-quantised (VQ) image
 \end{abstract}
 
 \section{Introduction}
-Product catalog images have to be described consistently, whatever their viewpoint, background, packaging or visible text. We study a six-output classification task with Apertus 1.5 and try to balance predictive quality against the cost of adapting and serving an 8B-parameter model. The work went through several stages (Figure~\ref{fig:scores}). We began with zero-shot prompting of the 8B and 70B models (Section~\ref{sec:zero}) and then ran three exploratory micro-training phases (Section~\ref{sec:micro}). Full training followed in three phases. In the first we ran three adaptation strategies in parallel (Section~\ref{sec:three}). In the second we added spatial readouts and extended the strongest strategy (Section~\ref{sec:phase2}), and in the third we fused a second image encoder into it (Section~\ref{sec:phase3}). Section~\ref{sec:inference} describes the optimised inference path. Some problems come back throughout the paper: rare classes, left/right perspective, small text, and how far comparisons across evaluation splits can be trusted.
+Product catalog images have to be described consistently, whatever their viewpoint, background, packaging or visible text. We study a six-output classification task with Apertus 1.5 and try to balance predictive quality against the cost of adapting and serving an 8B-parameter model. The work went through several stages (Figure~\ref{fig:scores}), and each was motivated by what the previous one showed. We started from the data: an exploration of the dataset fixed how we train and how we measure (Section~\ref{sec:data}). A zero-shot benchmark of the 8B and 70B models then told us whether training was needed at all (Section~\ref{sec:zero}), and three exploratory micro-training phases chose the training formulation (Section~\ref{sec:micro}). Full training followed in three phases. In the first we ran three adaptation strategies in parallel (Section~\ref{sec:three}). In the second we added spatial readouts and extended the strongest strategy (Section~\ref{sec:phase2}), and in the third we fused a second image encoder into it (Section~\ref{sec:phase3}). Section~\ref{sec:inference} describes the optimised inference path. Some problems come back throughout the paper: rare classes, left/right perspective, small text, and how far comparisons across evaluation splits can be trusted.
 
-In this paper we contribute (i) a quantified zero-shot baseline that shows how strongly prompt design affects Apertus on this task; (ii) a classification-head formulation that keeps Apertus' native VQ tokens and adds continuous SigLIP~2 and DINOv3 features through a shared set of 49 soft tokens; (iii) spatial readouts that address the mirror symmetry of mean-pooled features; (iv) an inference path that nearly doubles the throughput of our original export (11.7 against 6.0 images/s on dev, and 14.3 without test-time augmentation on an H100), with a measured effect on predictions; (v) an evaluation protocol for a dataset whose rarest classes have a few dozen examples, with its resolution quantified; and (vi) analyses of what the product context and the grouping of images by product contribute.
+In this paper we contribute (i) a dataset exploration whose findings are tied to the design and evaluation choices that follow; (ii) a quantified zero-shot baseline that shows how strongly prompt design affects Apertus on this task; (iii) a classification-head formulation that keeps Apertus' native VQ tokens and adds continuous SigLIP~2 and DINOv3 features through a shared set of 49 soft tokens; (iv) spatial readouts that address the mirror symmetry of mean-pooled features; (v) an inference path that nearly doubles the throughput of our original export (11.7 against 6.0 images/s on dev, and 14.3 without test-time augmentation on an H100), with a measured effect on predictions; and (vi) an evaluation protocol for a dataset whose rarest classes have a few dozen examples, with its resolution quantified.
 
 \begin{figure}[t]
 \centering
@@ -69,39 +69,21 @@ In this paper we contribute (i) a quantified zero-shot baseline that shows how s
     \node[font=\scriptsize,anchor=\anc,align=center,inner xsep=1pt] at (\bx,0.6) {\lbl\\\b};
   }
 \end{tikzpicture}
-\caption{Public development leaderboard macro F1 of our submitted models, in increasing order, against the organiser baselines (dashed). Colours mark the model family: LoRA + heads (blue), decoder fine-tuning (green), SigLIP~2 visual adapter (orange), mixed SigLIP~2 + DINOv3 model (pink) and a two-decoder ensemble (grey). Each bar is a single submission without an uncertainty estimate \cite{benchmark,mixed,siglip_lora}.}
+\caption{Public development leaderboard macro F1 of our submitted models, in increasing order, against the organiser baselines (dashed). Colours mark the model family: LoRA + heads (blue), decoder fine-tuning (green), SigLIP~2 visual adapter (orange), mixed SigLIP~2 + DINOv3 model (pink) and a two-decoder ensemble (grey). Each bar is a single submission without an uncertainty estimate.}
 \label{fig:scores}
 \end{figure}
 
-\section{Apertus and the visual representation}
-Apertus 1.5 processes images through a VQ visual tokenizer, mapping $16\times16$-pixel patches to discrete vocabulary tokens that the language model processes alongside text tokens \cite{apertus,project} (Figure~\ref{fig:native}). The 8B model has 32 decoder layers. Because quantisation is an argmax, there is no gradient path from the decoder back into the image representation, so the visual input cannot be adapted end to end. For fine-grained product classification, this leaves open whether discretisation and the resolution budget keep enough detail for small text and viewpoint. We treat this as a design hypothesis; we have not shown that it causes our errors. Square inputs of 256 and 512 pixels correspond to 256 and 1,024 visual tokens, so every step up in resolution costs a large amount of sequence length \cite{project}.
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.85\textwidth]{figures/apertus-native.png}
-\caption{Native Apertus 1.5 inference: the image passes through the frozen VQ tokenizer, the product context through the text tokenizer, and the decoder generates text.}
-\label{fig:native}
-\end{figure}
-
-\section{Data and evaluation}
+\section{Dataset exploration}
 \label{sec:data}
-\subsection{Dataset}
-The challenge dataset comprises 22,429 images from 14,118 products: 11,876 labelled training images, 5,261 public development images and 5,292 final images. The six dimensions are subject, background, perspective, individuals, text classification and text language, with 41 classes in total \cite{challenge}. Some label cells are model prelabels rather than human labels, and applicability depends on the image and the dimension. Text language is the most affected: only 59\% of its relevant labels are human. The official metric evaluates relevant human-labelled cells, computes class-macro F1 within each dimension and averages the six dimensions. The classes of a dimension are all classes in the labels \emph{plus every valid class a model predicts}, so a false positive on an absent rare class adds a class with zero F1 \cite{challenge}. On frequent classes, weighted F1 complements the official metric.
+Before choosing a model we looked at what the data allow us to learn and to measure. This section reports what we found and the decision each finding led to; Table~\ref{tab:findings} collects the links to the later sections.
 
-The classes are strongly imbalanced. In the 9,344-image training split of the LoRA-heads experiment, human-labelled subject counts range from 5,210 full-product examples to 69 product-grouping examples; text-language counts include 1,241 English, 18 Italian and only two Dutch examples \cite{lora}. Because one product can have several images, we always split by product. The imbalance led us to try rare-class repetition, class-weighted and focal losses and synthetic examples (Section~\ref{sec:phase2}), and we tested each of them instead of assuming it would help.
+\subsection{Data and metric}
+The challenge dataset comprises 22,429 images from 14,118 products: 11,876 labelled training images, 5,261 public development images and 5,292 final images. Train, dev and final share no product. The six dimensions are subject, background, perspective, individuals, text classification and text language, with 41 classes in total \cite{challenge}. Each label cell is either set or confirmed by a human, or an unchecked model prelabel, and a relevance flag marks cells where the dimension has no meaning. The official metric evaluates relevant human-labelled cells, computes class-macro F1 within each dimension and averages the six dimensions. The classes of a dimension are all classes in the labels \emph{plus every valid class a model predicts}, so a false positive on an absent rare class adds a class with zero F1. The organisers provide three reference scores on public dev: a fine-tuned Qwen 3.5 9B (0.917), Gemini 4 Argon (0.834) and Gemini 3.8 Flash (0.806). Only Apertus and open-weights supporting models may run at inference time \cite{challenge}.
 
-The organisers provide three reference scores on public dev: a fine-tuned Qwen 3.5 9B (0.917), Gemini 4 Argon (0.834) and Gemini 3.8 Flash (0.806) \cite{challenge}. Only Apertus and open-weights supporting models may run at inference time \cite{challenge}.
+\subsection{Findings and the decisions they drove}
+The first four findings come from our initial exploration and shaped the design. The last four come from analyses we ran later to test the choices that the first ones had motivated; we report them here because they describe the data.
 
-\subsection{Evaluation protocol}
-\label{sec:protocol}
-Our local sets are built by hashing products into ten buckets, so every machine derives the same split without sharing image identifiers \cite{experiments}. \emph{Prompt-test} (1,193 images of 713 products, 10\% of the training data) is one bucket. \emph{Coverage} (2,532 images) adds a second bucket and 169 rare-class images to it, for comparing methods on rare classes. We used a balanced 450-image prototype set only for the early micro-training.
-
-\paragraph{Why one fixed, product-level holdout.} The classes that are hardest to measure are rare in the data itself, and not only in our split (Table~\ref{tab:rare}). \texttt{train.csv} holds 21 human-labelled Dutch cells, 47 Italian and 60 certification seals. Any holdout can therefore contain only a handful of them. Prompt-test holds its proportional share; doubling it to 20\% would add no Dutch example and would remove Italian and seal examples from training, where they are scarcest. $K$-fold cross-validation would evaluate on every example, but it multiplies the cost of each experiment by $K$. Our 8B training runs took one to three GPU-hours each, which put that out of reach in the time and budget of a hackathon. We therefore fixed one split with three properties:
-\begin{itemize}\itemsep0pt
-\item it is \emph{product-disjoint}, so no image of a test product leaks into training;
-\item it keeps the \emph{natural class distribution}, so its macro F1 estimates the leaderboard metric; train and dev have nearly the same category mix (total-variation distance 0.026), and only 0.3\% of dev images belong to a product type unseen in training;
-\item it stays the \emph{same for every experiment}, so all comparisons are paired on identical images, which narrows their uncertainty.
-\end{itemize}
+\paragraph{F1: the rarest classes are rare in the whole dataset.} \texttt{train.csv} holds only 21 human-labelled Dutch cells, 47 Italian and 60 certification seals (Table~\ref{tab:rare}). In the 9,344-image split of our first LoRA run, subject ranges from 5,210 full-product examples to 69 product groupings. Because macro F1 weights every class equally, these few examples carry as much weight as thousands of common ones. \emph{Decisions:} rare-class repetition and class-balanced focal loss, which we tested rather than assumed (Section~\ref{sec:micro}); synthetic overlays for the rarest text classes (Section~\ref{sec:extend}); a coverage set enriched with rare classes for method comparison; and the evaluation protocol of Section~\ref{sec:protocol}.
 
 \begin{table}[ht]
 \centering
@@ -117,32 +99,94 @@ Text language: other & 110 & 10 & 100 & 22 / 88 \\\bottomrule
 \label{tab:rare}
 \end{table}
 
-\paragraph{Two complementary signals.} Dev labels are hidden, so only prompt-test gives us per-dimension and per-class diagnostics. The public dev leaderboard scores 5,261 images that we never label or train on, but it returns one overall number per submission. We used prompt-test to diagnose errors and to choose among checkpoints of a run, and public dev to decide between models. We quantified the resolution of prompt-test with a product-level bootstrap (2,000 resamples) \cite{dbexplore}. The delivered model scores 0.843 with a 95\% interval of [0.816, 0.864]. Paired differences between closely related checkpoints are resolved down to about 0.016, and between less similar models to about 0.03. For classes with four to six examples the per-class intervals span most of [0, 1]. We therefore treated a gain smaller than this, or one carried by the rarest classes, as unconfirmed until public dev agreed. By this rule the synthetic-data model stays unconfirmed (Section~\ref{sec:extend}). The delivered mixed model improves on its predecessor on both signals (+0.021 [0.006, 0.038] on prompt-test, +0.010 on dev). In phase three we also used prompt-test to choose the epoch within the run, because a separate validation set would have taken more rare examples away from training. It was a choice among five checkpoints of one run, and public dev confirmed it.
+\paragraph{F2: part of the labels are unchecked prelabels.} About a fifth of the label cells are model prelabels, mostly where a dimension is not relevant. Among relevant cells the share of human labels exceeds 99.7\% everywhere except text language, where it is 59\%. \emph{Decision:} every loss and every local score uses only human, relevant cells, exactly as the leaderboard does; local scores use the official metric implementation.
 
-\subsection{Dataset analysis}
-\label{sec:dbanalysis}
-We ran two further analyses to see what information the inputs carry \cite{dbexplore}.
+\paragraph{F3: images come in product groups.} Products have 1.64 labelled images on average, and the same photo occasionally appears for two products. \emph{Decision:} all our splits are product-disjoint, derived from a hash of the product identifier so that every machine reproduces them without sharing image identifiers.
 
-\paragraph{Product context alone.} Each image comes with a product title, type, brand, category and subcategory. A class-balanced logistic regression on word n-grams of these fields, trained on the images outside prompt-test, reaches 0.438 macro F1 on prompt-test, against 0.187 for the majority class and 0.376 for the majority class of each product type (Table~\ref{tab:context}). It helps most on text language (0.518), largely through the language of the title, and on its own it already beats Apertus 8B zero-shot with a rule-based JSON prompt (0.225). On every dimension it stays far below the image-based model. The gap to the full model has to be closed by the image and the OCR text; the context is a useful prior, and our models receive it as part of the prompt.
+\paragraph{F4: image formats and the token budget.} Images reach 2,048 pixels on the longest side, about 4\% are PNGs with a transparent background (labelled as white), and a few are tiny, down to $1\times1$ pixel. Apertus' VQ tokenizer turns a 256-pixel square into 256 tokens and a 512-pixel square into 1,024 (Section~\ref{sec:apertus}). \emph{Decisions:} transparent images are composited on white; an unreadable image is replaced by a blank one so that every row gets a prediction; image resolution is treated as an explicit speed--accuracy trade-off (Section~\ref{sec:pooling}); and small text is read by OCR on the full-resolution image instead of relying on the VQ grid alone (Section~\ref{sec:extend}).
+
+\paragraph{F5: a local split has limited resolution.} With a product-level bootstrap (2,000 resamples) on our 1,193-image test split, the delivered model scores 0.843 with a 95\% interval of [0.816, 0.864], and the per-class intervals of classes with four to six examples span most of [0, 1]. Paired differences between related checkpoints are resolved down to about 0.016, and between less similar models to about 0.03. \emph{Decision:} the two-signal protocol of Section~\ref{sec:protocol}.
+
+\paragraph{F6: train and dev look alike.} The category mix of train and dev is nearly identical (total-variation distance 0.026), and only 0.3\% of dev images belong to a product type absent from training. \emph{Consequence:} a local split with the natural class distribution is a fair proxy for the leaderboard, and differences between local and public scores are better explained by F5 than by a distribution shift.
+
+\paragraph{F7: the product context alone carries some signal.} A class-balanced logistic regression on word n-grams of title, type, brand, category and subcategory reaches 0.438 macro F1 on prompt-test, against 0.187 for the majority class and 0.376 for the majority class of each product type (Figure~\ref{fig:context}). It is strongest on text language (0.518, mostly from the language of the title). \emph{Consequence:} the context is worth giving to the model, and all our models receive it in the prompt; but it leaves a large gap that only the image and the text inside it can close.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[x=1cm,y=4.2cm]
+  \foreach \t in {0,0.2,0.4,0.6,0.8,1.0} {
+    \draw[gray!25] (-0.2,\t) -- (13.6,\t);
+    \node[font=\scriptsize,gray,left] at (-0.2,\t) {\t};
+  }
+  \foreach \d/\name in {0/Subject,1/Background,2/Perspective,3/Individuals,4/Text class.,5/Text lang.,6/Macro F1} {
+    \node[font=\scriptsize,below] at (\d*1.95+0.75,0) {\name};
+  }
+  \foreach \d/\a/\b/\c/\m/\lo/\hi in {
+    0/0.056/0.285/0.340/0.868/0.821/0.899, 1/0.305/0.370/0.474/0.875/0.823/0.918,
+    2/0.053/0.329/0.335/0.776/0.731/0.813, 3/0.486/0.689/0.613/0.970/0.936/0.994,
+    4/0.150/0.333/0.349/0.769/0.688/0.839, 5/0.075/0.251/0.518/0.798/0.684/0.871,
+    6/0.187/0.376/0.438/0.843/0.816/0.864} {
+    \pgfmathsetmacro{\x}{\d*1.95}
+    \fill[gray!35] (\x,0) rectangle (\x+0.36,\a);
+    \fill[lorac!70] (\x+0.38,0) rectangle (\x+0.74,\b);
+    \fill[vlhc] (\x+0.76,0) rectangle (\x+1.12,\c);
+    \fill[mixc] (\x+1.14,0) rectangle (\x+1.50,\m);
+    \draw[black] (\x+1.32,\lo) -- (\x+1.32,\hi);
+    \draw[black] (\x+1.26,\lo) -- (\x+1.38,\lo); \draw[black] (\x+1.26,\hi) -- (\x+1.38,\hi);
+  }
+  \foreach \x/\y/\c/\l in {0/1.17/gray!35/{Majority class},6.5/1.17/lorac!70/{Majority by product type},0/1.10/vlhc/{Context: TF-IDF + logistic regression},6.5/1.10/mixc/{Delivered model (image + context + OCR), 95\% CI}} {
+    \fill[\c] (\x,\y-0.02) rectangle (\x+0.3,\y+0.02);
+    \node[font=\scriptsize,right] at (\x+0.32,\y) {\l};
+  }
+\end{tikzpicture}
+\caption{F7: what the product context predicts on its own, against the delivered model, on prompt-test (macro F1 per dimension). Error bars are product-bootstrap 95\% intervals of the delivered model. The context helps most on text language and through product-type priors; every dimension needs the image.}
+\label{fig:context}
+\end{figure}
+
+\paragraph{F8: images of one product share some labels, not all.} Among products with at least two scored images, all images share the label for 86\% of products on individuals, 74\% on background and 71\% on text classification, but only 63\% on text language, 41\% on subject and 20\% on perspective: a product's images deliberately show different views. Even a vote that uses the true labels of the sibling images gets 7--14\% of images wrong on individuals, background and text classification, 24\% on text language and 66\% on perspective. \emph{Consequence:} a product-level vote could at most break ties; we classify each image on its own.
 
 \begin{table}[ht]
 \centering
-\caption{Context-only predictors against the delivered model on prompt-test (macro F1).}
-\resizebox{\textwidth}{!}{\begin{tabular}{lrrrrrrr}\toprule
-Predictor & Macro F1 & Subject & Backgr. & Persp. & Indiv. & Text cl. & Text lang. \\\midrule
-Majority class & 0.187 & 0.056 & 0.305 & 0.053 & 0.486 & 0.150 & 0.075 \\
-Majority by product type & 0.376 & 0.285 & 0.370 & 0.329 & 0.689 & 0.333 & 0.251 \\
-TF-IDF + logistic regression & 0.438 & 0.340 & 0.474 & 0.335 & 0.613 & 0.349 & 0.518 \\
-Delivered model (image + context + OCR) & 0.843 & 0.868 & 0.875 & 0.776 & 0.970 & 0.769 & 0.798 \\\bottomrule
+\caption{Findings from the dataset exploration and where they shape the work.}
+\resizebox{\textwidth}{!}{\begin{tabular}{lll}\toprule
+Finding & Decision & Section \\\midrule
+F1 rare classes are rare in the whole dataset & repetition, class-balanced losses (tested), synthetic text, coverage set, protocol & \ref{sec:micro}, \ref{sec:extend}, \ref{sec:protocol} \\
+F2 prelabels, 59\% human in text language & loss and scores on human, relevant cells only & all \\
+F3 images in product groups & product-disjoint hashed splits & \ref{sec:protocol} \\
+F4 large, transparent and tiny images; token budget & white compositing, blank fallback, resolution trade-off, OCR on full image & \ref{sec:pooling}, \ref{sec:extend} \\
+F5 limited resolution of a local split (later analysis) & two signals: local split for diagnostics, public dev to decide & \ref{sec:protocol}, \ref{sec:extend} \\
+F6 train and dev alike (later analysis) & natural-distribution local split as a proxy & \ref{sec:protocol} \\
+F7 context alone reaches 0.438 (later analysis) & context in the prompt; the image is needed & \ref{sec:zero} \\
+F8 labels partly shared within a product (later analysis) & per-image classification & -- \\\bottomrule
 \end{tabular}}
-\label{tab:context}
+\label{tab:findings}
 \end{table}
 
-\paragraph{Consistency within a product.} Products have 1.64 labelled images on average, and 48\% of dev images have a sibling image of the same product. Among products with at least two scored images, all images share the label for 86\% of products on individuals, 74\% on background and 71\% on text classification. The figures fall to 63\% on text language (78\% among images with text), 41\% on subject and 20\% on perspective. That is expected, because the images of one product deliberately show different views. Even a vote that uses the true labels of the sibling images gets 7--14\% of images wrong on individuals, background and text classification, 24\% on text language and 66\% on perspective. A product-level vote could therefore serve at most as a tie-breaker, mainly for text language. We classify each image on its own.
+\subsection{Evaluation protocol}
+\label{sec:protocol}
+Following F1, F3 and F6, our local sets come from hashing products into ten buckets. \emph{Prompt-test} (1,193 images of 713 products, 10\% of the training data) is one bucket and keeps the natural class distribution. \emph{Coverage} (2,532 images) adds a second bucket and 169 rare-class images, for comparing methods on rare classes. A balanced 450-image prototype set served the early micro-training only.
 
-\section{Zero-shot baselines and prompt design}
+\paragraph{Why one fixed, product-level holdout.} F1 means that any holdout can contain only a handful of the rarest examples: prompt-test holds its proportional share, and doubling it to 20\% would add no Dutch example while removing Italian and seal examples from training, where they are scarcest. $K$-fold cross-validation would evaluate on every example, but it multiplies the cost of each experiment by $K$; our 8B training runs took one to three GPU-hours each, which put that out of reach in the time and budget of a hackathon. We therefore fixed one split that is product-disjoint, keeps the natural class distribution (a fair proxy by F6) and stays the same for every experiment, so that all comparisons are paired on identical images.
+
+\paragraph{Two complementary signals.} Dev labels are hidden, so only prompt-test gives per-dimension and per-class diagnostics; the public leaderboard scores 5,261 images we never label or train on, but returns one overall number per submission. We used prompt-test to diagnose errors and to choose among checkpoints of a run, and public dev to decide between models. By F5, a gain below about 0.016 on prompt-test, or one carried by the rarest classes, counted as unconfirmed until public dev agreed. In the third phase prompt-test also chose the epoch within the run, because a separate validation set would have taken more rare examples away from training; it was a choice among five checkpoints of one run, and public dev confirmed it.
+
+\section{Benchmark: can Apertus solve the task without training?}
 \label{sec:zero}
-We evaluated Apertus 1.5 8B and 70B through the hackathon's Keera API at 512-pixel resolution and temperature zero. Our early prompts asked for all six labels at once in JSON, with either brief or detailed instructions. On a balanced diagnostic sample, long rule-laden instructions pushed almost every subject prediction onto \texttt{full\_product} (subject macro F1 0.01 for 8B and 0.07 for 70B). When we replaced the rules with one line per class and asked for a free-text description first, subject macro F1 rose to 0.54 and 0.63 \cite{prompt}. This became the \emph{v2} protocol, which sends seven sequential requests per image: one description, then six one-letter questions. We selected prompts on prompt-dev and checked them afterwards on prompt-test \cite{plainbench}.
+The first decision was whether to spend our GPU budget on training at all. We therefore benchmarked Apertus as it comes, through prompting only.
+
+\subsection{Apertus and its visual representation}
+\label{sec:apertus}
+Apertus 1.5 processes images through a VQ visual tokenizer that maps $16\times16$-pixel patches to discrete vocabulary tokens, which the language model reads alongside text tokens \cite{apertus} (Figure~\ref{fig:native}). The 8B model has 32 decoder layers. Because quantisation is an argmax, there is no gradient path from the decoder back into the image representation. For fine-grained product classification this leaves open whether discretisation and the resolution budget keep enough detail for small text and viewpoint; we treat it as a design hypothesis, not a demonstrated cause of our errors.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/apertus-native.png}
+\caption{Native Apertus 1.5 inference: the image passes through the frozen VQ tokenizer, the product context through the text tokenizer, and the decoder generates text.}
+\label{fig:native}
+\end{figure}
+
+\subsection{Prompt design and zero-shot results}
+We evaluated Apertus 1.5 8B and 70B through the hackathon's Keera API at 512-pixel resolution and temperature zero. Our early prompts asked for all six labels at once in JSON, with either brief or detailed instructions. On a balanced diagnostic sample, long rule-laden instructions pushed almost every subject prediction onto \texttt{full\_product} (subject macro F1 0.01 for 8B and 0.07 for 70B). When we replaced the rules with one line per class and asked for a free-text description first, subject macro F1 rose to 0.54 and 0.63. This became the \emph{v2} protocol, which sends seven sequential requests per image: one description, then six one-letter questions. We selected prompts on prompt-dev and checked them afterwards on prompt-test.
 
 \begin{table}[ht]
 \centering
@@ -157,20 +201,43 @@ Model & Prompt & Coverage (2,532) & Prompt-test (1,193) & Images/s \\\midrule
 \end{tabular}
 \label{tab:zero}
 \end{table}
-The prompt alone changes the score by more than a factor of two (Table~\ref{tab:zero}), and under v2 the 70B model beats 8B by 0.055 [0.041, 0.069] on coverage \cite{benchmark70}. Perspective is still the weakest dimension for 70B v2 (0.274 on coverage, against 0.899 for individuals), with zero F1 on \texttt{front\_angle\_left} and on both \texttt{back\_angle} classes. The v2 protocol is also slow, since it needs about 10,000 prompt tokens per image. We considered distilling the 70B model, but even at confidence above 0.90 it is right on perspective only 63\% of the time, so it would be a poor teacher for our weakest dimension \cite{benchmark70}.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[x=1cm,y=4.2cm]
+  \foreach \t in {0,0.2,0.4,0.6,0.8,1.0} {
+    \draw[gray!25] (-0.2,\t) -- (11.4,\t);
+    \node[font=\scriptsize,gray,left] at (-0.2,\t) {\t};
+  }
+  \foreach \d/\name/\a/\b in {0/Subject/0.471/0.546,1/Background/0.580/0.631,2/Perspective/0.203/0.274,3/Individuals/0.904/0.899,4/Text class./0.527/0.618,5/Text lang./0.485/0.529} {
+    \pgfmathsetmacro{\x}{\d*1.9}
+    \fill[lorac!70] (\x,0) rectangle (\x+0.6,\a);
+    \fill[vlhc] (\x+0.65,0) rectangle (\x+1.25,\b);
+    \node[font=\tiny,above] at (\x+0.3,\a) {\a};
+    \node[font=\tiny,above] at (\x+0.95,\b) {\b};
+    \node[font=\scriptsize,below] at (\x+0.62,0) {\name};
+  }
+  \fill[lorac!70] (0,1.10) rectangle (0.3,1.15); \node[font=\scriptsize,right] at (0.32,1.125) {Apertus 8B, v2};
+  \fill[vlhc] (3.2,1.10) rectangle (3.5,1.15); \node[font=\scriptsize,right] at (3.52,1.125) {Apertus 70B, v2};
+\end{tikzpicture}
+\caption{Zero-shot macro F1 per dimension on coverage with the v2 protocol. Perspective is the weakest dimension for both models.}
+\label{fig:zeroshot}
+\end{figure}
+
+The prompt alone changes the score by more than a factor of two (Table~\ref{tab:zero}), and under v2 the 70B model beats 8B by 0.055 [0.041, 0.069] on coverage. Figure~\ref{fig:zeroshot} shows where both fail: perspective stays near 0.2--0.3, with zero F1 on \texttt{front\_angle\_left} and on both \texttt{back\_angle} classes for 70B. The v2 protocol is also slow, since it needs about 10,000 prompt tokens per image. Two comparisons settled the question. First, 8B v2 reaches 0.502 on prompt-test, only 0.064 above what the product context alone gives (F7), so zero-shot Apertus 8B extracts little from the image. Second, we considered distilling the 70B model, but even at confidence above 0.90 it is right on perspective only 63\% of the time, so it would be a poor teacher for our weakest dimension. \emph{Decision:} train the 8B model on the task, with perspective as a main target.
 
 \section{Exploratory micro-training}
 \label{sec:micro}
-Before committing GPU budget to full training runs, we ran three small experiments on a 1,500-image training split, evaluated on the balanced 450-image set.
+The benchmark said that we had to train; it did not say how. Before committing GPU budget to full runs, we ran three small experiments on a 1,500-image training split, evaluated on the balanced 450-image set, to answer three questions: which decoder layer carries the most useful features and whether a class-balanced loss pays off (F1); whether a generative formulation beats classification heads; and whether continuous image features can be injected next to the VQ tokens.
 
 \subsection{Micro phase 1: classification heads on frozen Apertus}
-We first trained six classification heads with a shared 512-unit hidden layer on frozen Apertus 8B representations of 512-pixel images. Each representation was the last-prompt-token state concatenated with the mean of the image-token states. We probed layers 12 to 32, and layer 24 gave the best internal-validation score (0.673 for cross-entropy); this is why we later truncated the decoder to its first 24 layers. On the balanced 450-image set, cross-entropy reached 0.542 macro F1 against 0.528 for focal loss \cite{focal} in a single-seed run, and a pixel-only baseline reached about 0.257. Over five seeds, strongly weighted cross-entropy averaged 0.557 and strongly weighted focal loss 0.547. Focal loss was a plausible answer to the imbalance, but in these frozen-feature tests it did not beat cross-entropy. GradNorm did not help either \cite{micro1}.
+We first trained six classification heads with a shared 512-unit hidden layer on frozen Apertus 8B representations of 512-pixel images. Each representation was the last-prompt-token state concatenated with the mean of the image-token states. We probed layers 12 to 32, and layer 24 gave the best internal-validation score (0.673 for cross-entropy); this is why we later truncated the decoder to its first 24 layers. On the balanced 450-image set, cross-entropy reached 0.542 macro F1 against 0.528 for focal loss \cite{focal} in a single-seed run, and a pixel-only baseline reached about 0.257. Over five seeds, strongly weighted cross-entropy averaged 0.557 and strongly weighted focal loss 0.547. Focal loss was a plausible answer to the imbalance of F1, but in these frozen-feature tests it did not beat cross-entropy, and GradNorm did not help either. \emph{Decisions:} truncate the decoder at layer 24, and keep the loss choice open per branch instead of adopting focal loss everywhere.
 
 \subsection{Micro phase 2: generative LoRA}
-A generative LoRA \cite{lora_paper} trained on 1,500 images reached 0.696 on the 450-image set and 0.734 on coverage, with a large advantage on perspective (0.484 against 0.230 for the heads). We cannot attribute the gap to LoRA alone, because the training set, resolution (256 against 512 pixels) and output format all differed from the frozen-head runs \cite{micro2}.
+A generative LoRA \cite{lora_paper} trained on 1,500 images reached 0.696 on the 450-image set and 0.734 on coverage, with a large advantage on perspective (0.484 against 0.230 for the heads). We cannot attribute the gap to LoRA alone, because the training set, resolution (256 against 512 pixels) and output format all differed from the frozen-head runs. \emph{Decision:} adapt the decoder (with LoRA or full fine-tuning) instead of freezing it, but keep classification heads, which give a probability for every class and cannot produce invalid outputs (the generative model produced 9 invalid answers on the 450-image set).
 
 \subsection{Micro phase 3: a continuous visual adapter}
-In parallel, we tested a frozen SigLIP~2 encoder \cite{siglip2} with a trainable two-layer projector that supplies 49 continuous image tokens to a frozen Apertus, alongside the native VQ tokens. This projector-only model still generated JSON. It obtained 0.467 and 0.516 on the 450-image set after the first and second epochs, but the second epoch also changed the batch size and restarted the optimiser. The experiment showed that continuous tokens can be injected next to VQ tokens. We did not compare it with a matched VQ-only model, so it does not show that the encoder adds information \cite{adapterprobe}.
+In parallel, we tested a frozen SigLIP~2 encoder \cite{siglip2} with a trainable two-layer projector that supplies 49 continuous image tokens to a frozen Apertus, alongside the native VQ tokens. This projector-only model still generated JSON. It obtained 0.467 and 0.516 on the 450-image set after the first and second epochs, but the second epoch also changed the batch size and restarted the optimiser. The experiment showed that continuous tokens can be injected next to VQ tokens. We did not compare it with a matched VQ-only model, so it does not show that the encoder adds information. \emph{Decision:} carry the adapter into full training as one of three directions.
 
 \section{Training phase one: three directions}
 \label{sec:three}
@@ -183,11 +250,11 @@ Full training went through three phases. Phase one compares three adaptation str
 \label{fig:architecture}
 \end{figure}
 
-\emph{Decoder fine-tuning} truncates Apertus to its first 24 layers and trains those layers together with the heads, keeping the VQ tokenizer and embeddings frozen. The run trained about 5.24 billion parameters on all 11,876 labelled images with focal loss, class weights, rare-class repetition and mirroring. It took about 165 minutes on an A100 80~GB, with 57.1~GB peak memory \cite{fullft}.
+\emph{Decoder fine-tuning} truncates Apertus to its first 24 layers and trains those layers together with the heads, keeping the VQ tokenizer and embeddings frozen. The run trained about 5.24 billion parameters on all 11,876 labelled images with focal loss, class weights, rare-class repetition and mirroring. It took about 165 minutes on an A100 80~GB, with 57.1~GB peak memory.
 
-\emph{LoRA with heads} jointly trained rank-32 LoRA adapters and six heads on the full 32-layer decoder. The initial P11 run used 9,344 training images (excluding all coverage products), 256-pixel inputs, three epochs, unweighted cross-entropy and about 83.9 million trainable parameters. It reached 0.781 macro F1 on coverage and 0.791 on prompt-test \cite{lora}.
+\emph{LoRA with heads} jointly trained rank-32 LoRA adapters and six heads on the full 32-layer decoder. The initial P11 run used 9,344 training images (excluding all coverage products), 256-pixel inputs, three epochs, unweighted cross-entropy and about 83.9 million trainable parameters. It reached 0.781 macro F1 on coverage and 0.791 on prompt-test.
 
-The \emph{visual adapter} combined frozen SigLIP~2, a trainable projector, native VQ tokens, rank-32 LoRA and six heads on the 24-layer decoder. Its first checkpoint, trained on 8,403 images, reached 0.742 on coverage and 0.750 on prompt-test, \emph{below} P11 \cite{phase1}. Only the phase-two improvements made it the strongest branch (Section~\ref{sec:phase2}).
+The \emph{visual adapter} combined frozen SigLIP~2, a trainable projector, native VQ tokens, rank-32 LoRA and six heads on the 24-layer decoder. Its first checkpoint, trained on 8,403 images, reached 0.742 on coverage and 0.750 on prompt-test, \emph{below} P11. Only the phase-two improvements made it the strongest branch (Section~\ref{sec:phase2}).
 
 \begin{table}[ht]
 \centering
@@ -201,7 +268,7 @@ Visual adapter, final-abt & + OCR, spatial features, pooling & 8,403 $\rightarro
 \end{tabular}}
 \label{tab:three}
 \end{table}
-We used the comparison in Table~\ref{tab:three} to decide which direction to continue. It does not isolate the architecture, since training data, augmentation, supervision, decoder depth, resolution and auxiliary inputs all differ. Decoder fine-tuning used all labelled images and therefore has no valid held-out score. Because final-abt trained on the coverage products outside prompt-test, its coverage score is not valid either. Decoder fine-tuning is the fastest model at inference (14.6 images/s on an H200, against 13.3 for P11 and 6.9 for final-abt) but stores 10.5~GB of decoder weights instead of a few hundred megabytes of adapters \cite{benchh200}.
+We used the comparison in Table~\ref{tab:three} to decide which direction to continue. It does not isolate the architecture, since training data, augmentation, supervision, decoder depth, resolution and auxiliary inputs all differ. Decoder fine-tuning used all labelled images and therefore has no valid held-out score. Because final-abt trained on the coverage products outside prompt-test, its coverage score is not valid either. Decoder fine-tuning is the fastest model at inference (14.6 images/s on an H200, against 13.3 for P11 and 6.9 for final-abt) but stores 10.5~GB of decoder weights instead of a few hundred megabytes of adapters.
 
 \section{Training phase two: spatial readouts and extensions}
 \label{sec:phase2}
@@ -209,17 +276,17 @@ The main error of phase one was left/right perspective. Phase two addresses it i
 
 \subsection{Spatial information and pooling}
 \label{sec:pooling}
-All three branches mixed up left and right. P11, for example, confused \texttt{front\_angle\_left} and \texttt{front\_angle\_right} 136 times on coverage \cite{lora}. The cause is structural. The mean of the image-token states is nearly identical for an image and its mirror, and Apertus encodes positions only through rotary embeddings, which a mean discards. With mean features, the visual adapter chose the correct side only 55\% of the time, and 92\% of its left/right probabilities lay between 0.35 and 0.65 \cite{adapter_it}.
+All three branches mixed up left and right. P11, for example, confused \texttt{front\_angle\_left} and \texttt{front\_angle\_right} 136 times on coverage. The cause is structural. The mean of the image-token states is nearly identical for an image and its mirror, and Apertus encodes positions only through rotary embeddings, which a mean discards. With mean features, the visual adapter chose the correct side only 55\% of the time, and 92\% of its left/right probabilities lay between 0.35 and 0.65.
 
-We therefore added two readouts to the visual adapter, both through zero-initialised branches so that a resumed checkpoint is unchanged at step 0. \emph{Spatial features} are the differences between the mean states of the left and right halves and of the top and bottom halves of each image-token grid; they change sign under mirroring. \emph{Two-dimensional attention pooling} uses eight learned queries over all image tokens, with keys augmented by Fourier features of each token's row and column. In the training step that introduced them, prompt-test perspective rose from 0.54 to 0.76. The same step also added data and epochs, so we cannot credit the gain to the readouts alone \cite{adapter_it}.
+We therefore added two readouts to the visual adapter, both through zero-initialised branches so that a resumed checkpoint is unchanged at step 0. \emph{Spatial features} are the differences between the mean states of the left and right halves and of the top and bottom halves of each image-token grid; they change sign under mirroring. \emph{Two-dimensional attention pooling} uses eight learned queries over all image tokens, with keys augmented by Fourier features of each token's row and column. In the training step that introduced them, prompt-test perspective rose from 0.54 to 0.76. The same step also added data and epochs, so we cannot credit the gain to the readouts alone.
 
-We then ported the method to the LoRA-heads branch as P12, together with 512-pixel inputs and two epochs in place of three. Coverage macro F1 rose from 0.781 to 0.806 and public dev from 0.796 to 0.806, while prompt-test stayed at 0.791. On coverage, left/right swaps fell from 200 to 85 and perspective improved from 0.625 to 0.744, while subject and background declined slightly. Inference became 3.4 times slower (3.9 against 13.2 images/s), mostly because of the larger image. Resolution, pooling and training length changed together, and none of them can be credited on its own \cite{pooling}.
+We then ported the method to the LoRA-heads branch as P12, together with 512-pixel inputs and two epochs in place of three. Coverage macro F1 rose from 0.781 to 0.806 and public dev from 0.796 to 0.806, while prompt-test stayed at 0.791. On coverage, left/right swaps fell from 200 to 85 and perspective improved from 0.625 to 0.744, while subject and background declined slightly. Inference became 3.4 times slower (3.9 against 13.2 images/s), mostly because of the larger image. Resolution, pooling and training length changed together, and none of them can be credited on its own.
 
 \subsection{Extending the visual adapter}
 \label{sec:extend}
-The visual adapter reached its final-abt checkpoint in three stages. Starting from the first checkpoint, an OCR stage added text read by docTR \cite{doctr} (a \texttt{fast\_base} detector and a multilingual PARSeq recogniser \cite{parseq}) on the original full-resolution image. The text, at most 300 characters with the largest text first, enters the prompt as a plain \texttt{<ocr>} block; there are no OCR-specific parameters. This stage did not raise overall prompt-test macro F1 (0.750 to 0.741) but improved German (0.79 to 0.86) and French (0.63 to 0.69) on coverage. It also added an epoch and halved the learning rates, so the effect is confounded \cite{phase2}. The third stage added spatial features and attention pooling, trained for three more epochs on all 9,645 images outside prompt-test and an internal validation set, and reached 0.821 on prompt-test and 0.832 on public dev. It has about 98 million trainable parameters. An early random-crop augmentation removed more than 1\% of the image content in 231 of 300 sampled crops (more than 5\% in 129), enough to turn some full-product views into close-ups. We replaced it with a label-preserving rescaling of the VQ input. The first checkpoint, and possibly the OCR stage, were trained with the old crops \cite{adapter_data}.
+The visual adapter reached its final-abt checkpoint in three stages. Starting from the first checkpoint, an OCR stage added text read by docTR \cite{doctr} (a \texttt{fast\_base} detector and a multilingual PARSeq recogniser \cite{parseq}) on the original full-resolution image. The text, at most 300 characters with the largest text first, enters the prompt as a plain \texttt{<ocr>} block; there are no OCR-specific parameters. This stage did not raise overall prompt-test macro F1 (0.750 to 0.741) but improved German (0.79 to 0.86) and French (0.63 to 0.69) on coverage. It also added an epoch and halved the learning rates, so the effect is confounded. The third stage added spatial features and attention pooling, trained for three more epochs on all 9,645 images outside prompt-test and an internal validation set, and reached 0.821 on prompt-test and 0.832 on public dev. It has about 98 million trainable parameters. An early random-crop augmentation removed more than 1\% of the image content in 231 of 300 sampled crops (more than 5\% in 129), enough to turn some full-product views into close-ups. We replaced it with a label-preserving rescaling of the VQ input. The first checkpoint, and possibly the OCR stage, were trained with the old crops.
 
-We then tested three continuations of final-abt and one encoder change (Figure~\ref{fig:lineage}, Table~\ref{tab:phase2}). For \emph{synthetic text} (P13) we generated 1,040 images from training products, adding promotional banners in under-represented languages (Dutch, Italian, other languages, French), generic seal-like badges and wordless icons. The generator labels the text dimensions, and the other dimensions keep the source image's labels \cite{synthcode}. One extra epoch with 939 of these images raised prompt-test to 0.847 (+0.026, 95\% CI [0.004, 0.045]), and text language rose from 0.720 to 0.840. Public dev, however, fell slightly to 0.829. The prompt-test gain sat in classes with four to ten examples; without classes below ten examples it shrinks to about +0.010 \cite{p13}. With \emph{a larger encoder} (P14), SigLIP~2 so400m at 512 pixels pooled to 196 soft tokens with a new projector, the model reached 0.833 on prompt-test (+0.012, CI [$-0.001$, 0.027]) and had the best subject and text-classification scores. We did not score it on public dev, and it needed 80.7~GB at inference \cite{p14}. The \emph{all data} run (P15) trained one more epoch on all 11,876 images and gave 0.831 on public dev, a tie with final-abt \cite{p14}. Finally, we made the \emph{encoder trainable} with a rank-16 LoRA on SigLIP, trained together with the rest of the model for two epochs. This gave 0.835 on public dev (+0.0035) \cite{siglip_lora}.
+We then tested three continuations of final-abt and one encoder change (Figure~\ref{fig:lineage}, Table~\ref{tab:phase2}). For \emph{synthetic text} (P13) we generated 1,040 images from training products, adding promotional banners in under-represented languages (Dutch, Italian, other languages, French), generic seal-like badges and wordless icons. The generator labels the text dimensions, and the other dimensions keep the source image's labels. One extra epoch with 939 of these images raised prompt-test to 0.847 (+0.026, 95\% CI [0.004, 0.045]), and text language rose from 0.720 to 0.840. Public dev, however, fell slightly to 0.829. The prompt-test gain sat in classes with four to ten examples; without classes below ten examples it shrinks to about +0.010. With \emph{a larger encoder} (P14), SigLIP~2 so400m at 512 pixels pooled to 196 soft tokens with a new projector, the model reached 0.833 on prompt-test (+0.012, CI [$-0.001$, 0.027]) and had the best subject and text-classification scores. We did not score it on public dev, and it needed 80.7~GB at inference. The \emph{all data} run (P15) trained one more epoch on all 11,876 images and gave 0.831 on public dev, a tie with final-abt. Finally, we made the \emph{encoder trainable} with a rank-16 LoRA on SigLIP, trained together with the rest of the model for two epochs. This gave 0.835 on public dev (+0.0035).
 
 \begin{figure}[ht]
 \centering
@@ -246,11 +313,34 @@ P15 (all data) & -- & & & & & & & 0.831 \\\bottomrule
 \label{tab:phase2}
 \end{table}
 
-These variants are where the second signal of Section~\ref{sec:protocol} mattered. \emph{After final-abt, the gains we saw on prompt-test were not confirmed on public dev.} P13's +0.026 on prompt-test became $-0.003$ on dev, and the SigLIP LoRA's +0.015 became +0.0035. Both gains were concentrated in classes with four to ten prompt-test examples, where one prediction changes a class's recall by 0.10 to 0.25 and the per-class intervals span most of [0, 1] \cite{dbexplore}. Train and dev have nearly the same category mix, so a distribution shift does not explain the gap; the size of the rarest classes does. Synthetic overlays may also differ from real packaging text. By our rule these gains remain unconfirmed. None of the variants went into the delivered model, which builds on final-abt.
+These variants are where the second signal of Section~\ref{sec:protocol} mattered. \emph{After final-abt, the gains we saw on prompt-test were not confirmed on public dev.} P13's +0.026 on prompt-test became $-0.003$ on dev, and the SigLIP LoRA's +0.014 became +0.0035. Both gains were concentrated in classes with four to ten prompt-test examples, where one prediction changes a class's recall by 0.10 to 0.25 and the per-class intervals span most of [0, 1]. Train and dev have nearly the same category mix, so a distribution shift does not explain the gap; the size of the rarest classes does. Synthetic overlays may also differ from real packaging text. By our rule these gains remain unconfirmed. None of the variants went into the delivered model, which builds on final-abt.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[x=1cm,y=120cm]
+  \fill[gray!12] (-0.3,-0.016) rectangle (10.3,0.016);
+  \node[font=\scriptsize,gray,anchor=south east] at (10.3,-0.0158) {prompt-test resolution ($\pm$0.016)};
+  \foreach \t in {-0.01,0,0.01,0.02,0.03,0.04} {
+    \draw[gray!30] (-0.3,\t) -- (10.3,\t);
+    \node[font=\scriptsize,gray,left] at (-0.3,\t) {\t};
+  }
+  \draw[black] (-0.3,0) -- (10.3,0);
+  \foreach \x/\name/\p/\d in {0/{P13: synthetic text}/0.0257/-0.0031,3.5/{Trainable SigLIP LoRA}/0.0142/0.0035,7/{Mixed (delivered)}/0.0214/0.0104} {
+    \fill[lorac!70] (\x+0.3,0) rectangle (\x+1.3,\p);
+    \fill[mixc] (\x+1.4,0) rectangle (\x+2.4,\d);
+    \node[font=\scriptsize] at (\x+1.35,-0.0175) {\name};
+  }
+  \draw[black] (7.8,0.006) -- (7.8,0.038); \draw[black] (7.7,0.006) -- (7.9,0.006); \draw[black] (7.7,0.038) -- (7.9,0.038);
+  \fill[lorac!70] (0.3,0.044) rectangle (0.6,0.0465); \node[font=\scriptsize,right] at (0.62,0.0452) {gain on prompt-test};
+  \fill[mixc] (3.6,0.044) rectangle (3.9,0.0465); \node[font=\scriptsize,right] at (3.92,0.0452) {gain on public dev};
+\end{tikzpicture}
+\caption{Gains over final-abt on the two signals of the protocol. P13 and the trainable SigLIP LoRA gain on prompt-test but not, or barely, on public dev; the delivered mixed model gains on both (paired 95\% interval on prompt-test shown as a bar). Two variants without both scores (P14, P15) are omitted.}
+\label{fig:signals}
+\end{figure}
 
 \section{Training phase three: fusing DINOv3 into a single decoder}
 \label{sec:phase3}
-SigLIP~2 is trained to align images with text. We hypothesised that a self-supervised encoder trained on dense features, DINOv3 \cite{dinov3}, would add geometric information useful for perspective. A \emph{DINO-only} variant replaced SigLIP and the VQ tokens with 81 DINOv3 ViT-B/16 tokens (288-pixel padded input), warm-started LoRA, heads and pooling from final-abt, and trained with synthetic text. On prompt-test it was weaker overall than final-abt (0.808 against 0.821), much weaker on subject (0.772 against 0.846), but the best single model on perspective (0.783) and better on text language (0.781 against 0.720) \cite{phase3}. The two encoders turned out to be complementary. A 50/50 probability ensemble of final-abt and DINO-only scored 0.850 on prompt-test and \textbf{0.847 on public dev}, our best leaderboard score, but it needs two decoders and therefore halves throughput.
+SigLIP~2 is trained to align images with text. We hypothesised that a self-supervised encoder trained on dense features, DINOv3 \cite{dinov3}, would add geometric information useful for perspective. A \emph{DINO-only} variant replaced SigLIP and the VQ tokens with 81 DINOv3 ViT-B/16 tokens (288-pixel padded input), warm-started LoRA, heads and pooling from final-abt, and trained with synthetic text. On prompt-test it was weaker overall than final-abt (0.808 against 0.821), much weaker on subject (0.772 against 0.846), but the best single model on perspective (0.783) and better on text language (0.781 against 0.720). The two encoders turned out to be complementary. A 50/50 probability ensemble of final-abt and DINO-only scored 0.850 on prompt-test and \textbf{0.847 on public dev}, our best leaderboard score, but it needs two decoders and therefore halves throughput.
 
 \begin{figure}[ht]
 \centering
@@ -259,9 +349,31 @@ SigLIP~2 is trained to align images with text. We hypothesised that a self-super
 \label{fig:mixed}
 \end{figure}
 
-With the \emph{mixed} model we tried to keep what each encoder contributes to the ensemble while using a single decoder (Figure~\ref{fig:mixed}). DINOv3 runs at 288 pixels; its $18\times18$ patch grid is average-pooled to $7\times7$ and added to the pooled SigLIP features through a residual LayerNorm and $768\times768$ linear layer whose weight starts at zero. At step 0 the model therefore reproduces final-abt exactly. Before training, an assertion on the GPU checks this, along with a finite, non-zero gradient into the fusion layer. DINOv3 adds no tokens, so the decoder sequence is as long as final-abt's. The VQ tokenizer, both encoders, OCR and the Apertus base weights stay frozen; the fusion layer, projector, heads and decoder LoRA are trained, about 98.5 million parameters in total \cite{phase3}.
+With the \emph{mixed} model we tried to keep what each encoder contributes to the ensemble while using a single decoder (Figure~\ref{fig:mixed}). DINOv3 runs at 288 pixels; its $18\times18$ patch grid is average-pooled to $7\times7$ and added to the pooled SigLIP features through a residual LayerNorm and $768\times768$ linear layer whose weight starts at zero. At step 0 the model therefore reproduces final-abt exactly. Before training, an assertion on the GPU checks this, along with a finite, non-zero gradient into the fusion layer. DINOv3 adds no tokens, so the decoder sequence is as long as final-abt's. The VQ tokenizer, both encoders, OCR and the Apertus base weights stay frozen; the fusion layer, projector, heads and decoder LoRA are trained, about 98.5 million parameters in total.
 
-Training ran on one H200 on Modal from cached frozen features: 10,683 real images outside prompt-test, 521 rescaled views of rare text classes and all 1,040 synthetic images, whose loss is restricted to the two text dimensions and weighted 0.25. A half epoch trained only the fusion layer, then up to four joint epochs trained all trainable parts with AdamW (learning rates $6\times10^{-5}$ for fusion, $4\times10^{-5}$ for projector and heads, $1.5\times10^{-5}$ for LoRA) and focal loss with class-balanced weights \cite{cbloss}. We selected the checkpoint on prompt-test. Macro F1 there rose from 0.821 (step 0) to 0.829 after the fusion-only half epoch and to 0.843 after the third joint epoch. The fourth epoch lowered it to 0.837 while the training loss kept falling, so the third was selected. The hyperparameters above are those of the committed code at the time of training. The job took about two hours: 23 minutes to build the feature cache and about 18 minutes per joint epoch, with 61~GiB peak memory \cite{mixed}.
+Training ran on one H200 on Modal from cached frozen features: 10,683 real images outside prompt-test, 521 rescaled views of rare text classes and all 1,040 synthetic images, whose loss is restricted to the two text dimensions and weighted 0.25. A half epoch trained only the fusion layer, then up to four joint epochs trained all trainable parts with AdamW (learning rates $6\times10^{-5}$ for fusion, $4\times10^{-5}$ for projector and heads, $1.5\times10^{-5}$ for LoRA) and focal loss with class-balanced weights \cite{cbloss}. We selected the checkpoint on prompt-test. Macro F1 there rose from 0.821 (step 0) to 0.829 after the fusion-only half epoch and to 0.843 after the third joint epoch. The fourth epoch lowered it to 0.837 while the training loss kept falling, so the third was selected. The hyperparameters above are those of the committed code at the time of training. The job took about two hours: 23 minutes to build the feature cache and about 18 minutes per joint epoch, with 61~GiB peak memory (Figure~\ref{fig:trajectory}).
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[x=2.1cm,y=260cm]
+  \foreach \t in {0.820,0.825,0.830,0.835,0.840,0.845} {
+    \draw[gray!25] (-0.1,\t) -- (5.1,\t);
+    \node[font=\scriptsize,gray,left] at (-0.1,\t) {\t};
+  }
+  \foreach \i/\name in {0/{step 0},1/{fusion 0.5 ep.},2/{joint 1},3/{joint 2},4/{joint 3},5/{joint 4}} {
+    \node[font=\scriptsize,below] at (\i,0.8195) {\name};
+  }
+  \draw[mixc,very thick] (0,0.82116) -- (1,0.82872) -- (2,0.83321) -- (3,0.83661) -- (4,0.84308) -- (5,0.83661);
+  \foreach \i/\v/\tl in {0/0.82116/{--},1/0.82872/0.694,2/0.83321/0.501,3/0.83661/0.255,4/0.84308/0.159,5/0.83661/0.114} {
+    \fill[mixc!80!black] (\i,\v) circle (2pt);
+    \node[font=\tiny,above] at (\i,\v+0.0006) {\v};
+    \node[font=\tiny,gray] at (\i,0.8178) {train loss \tl};
+  }
+  \draw[black,dashed] (4,0.8195) -- (4,0.8455); \node[font=\scriptsize,anchor=west] at (4.05,0.8455) {selected};
+\end{tikzpicture}
+\caption{Training trajectory of the mixed model: macro F1 on prompt-test after each stage. The fourth joint epoch lowers the score while the training loss keeps falling, so the third is kept.}
+\label{fig:trajectory}
+\end{figure}
 
 \begin{table}[ht]
 \centering
@@ -280,9 +392,9 @@ Teacher (subject from mixed) & 0.860 & 0.868 & 0.897 & 0.833 & 0.970 & 0.776 & 0
 
 On public dev the mixed model gains 0.010 over final-abt at the same decoder cost per token (Table~\ref{tab:phase3}). On prompt-test its gain over final-abt (+0.021, paired 95\% interval [0.006, 0.038]) exceeds the resolution of the split, and public dev confirms it. The prompt-test figure is somewhat larger, which is what we would expect when the epoch is chosen on the same set. Adding the DINO-only probabilities on top of the mixed model still helps perspective (0.776 to 0.833) but hurts subject, which is why we built a per-dimension teacher. We did not run a matched control that trains final-abt for the same epochs without DINOv3, so part of the gain may come from additional training of the other components.
 
-\paragraph{Distillation (designed, not executed).} To transfer the ensemble's advantage into one decoder, we built soft teacher targets on the unlabelled public dev images, which the rules allow. Cells are masked by the scoring rules and by a per-dimension confidence threshold at which the teacher's precision on prompt-test is at least 0.90; this keeps 59\% of perspective cells and 76--93\% of the others. The pilot compares a distillation branch (masked soft cross-entropy at weight 0.5) with a supervised control trained for the same number of updates, and promotes the student only if macro F1 gains at least 0.008 with positive bootstrap lower bounds and at least 90\% of the original throughput. The code passes its CPU tests. At the time of writing, however, the pilot has not been run on a GPU, so we report no result \cite{mixed}.
+\paragraph{Distillation (designed, not executed).} To transfer the ensemble's advantage into one decoder, we built soft teacher targets on the unlabelled public dev images, which the rules allow. Cells are masked by the scoring rules and by a per-dimension confidence threshold at which the teacher's precision on prompt-test is at least 0.90; this keeps 59\% of perspective cells and 76--93\% of the others. The pilot compares a distillation branch (masked soft cross-entropy at weight 0.5) with a supervised control trained for the same number of updates, and promotes the student only if macro F1 gains at least 0.008 with positive bootstrap lower bounds and at least 90\% of the original throughput. The code passes its CPU tests. At the time of writing, however, the pilot has not been run on a GPU, so we report no result.
 
-\paragraph{Label-error search (negative result).} We flagged training cells where at least two models that had not seen the product confidently agreed on a different class. Of 57 candidates, visual inspection of the most extreme case per dimension found no certain error in six cases: four human labels were correct and two were ambiguous. In these cases, confident disagreement among models reflects blind spots the models share, not label noise. We did not submit the list \cite{mixed}.
+\paragraph{Label-error search (negative result).} We flagged training cells where at least two models that had not seen the product confidently agreed on a different class. Of 57 candidates, visual inspection of the most extreme case per dimension found no certain error in six cases: four human labels were correct and two were ambiguous. In these cases, confident disagreement among models reflects blind spots the models share, not label noise. We did not submit the list.
 
 \section{Efficient inference}
 \label{sec:inference}
@@ -310,19 +422,22 @@ Fast + TF32 + selective TTA (delivery) & H200, 32 & 11.68 & 29~GiB & -- & 97.5\%
 \label{tab:inference}
 \end{table}
 
-At 11.68 images/s, 100,000 images need about 2.4 H200 GPU-hours, roughly \$12 at the \$5/h rate we used for estimates. The figure excludes model loading (76 seconds) and data transfer, and it is not an invoice. For comparison, the 70B zero-shot v2 protocol ran at 2.8 images/s on a shared gateway, and our earlier single-encoder model final-abt at 6.9 images/s on an H200 \cite{benchh200}. Extrapolating, the 5,292 final images would take about eight minutes at this rate. The public dev score of 0.842 came from the original export path. The delivery path agrees with it on at least 99.4\% of predictions outside perspective and 97.5\% for perspective, but it has no public score of its own.
+At 11.68 images/s, 100,000 images need about 2.4 H200 GPU-hours, roughly \$12 at the \$5/h rate we used for estimates. The figure excludes model loading (76 seconds) and data transfer, and it is not an invoice. For comparison, the 70B zero-shot v2 protocol ran at 2.8 images/s on a shared gateway, and our earlier single-encoder model final-abt at 6.9 images/s on an H200. Extrapolating, the 5,292 final images would take about eight minutes at this rate. The public dev score of 0.842 came from the original export path. The delivery path agrees with it on at least 99.4\% of predictions outside perspective and 97.5\% for perspective, but it has no public score of its own.
 
 \section{Discussion and limitations}
 Prompt design and task-specific training both moved performance a long way, from 0.229 with an unsuitable zero-shot prompt to 0.842 on public dev for a trained 8B model with two frozen image encoders. Continuous encoders appear to complement Apertus' discrete tokens. The SigLIP branch started below LoRA + heads and overtook it only once OCR, spatial readouts and more data were added, and DINOv3 added 0.010 on public dev. We did not compare either encoder with a matched VQ-only or SigLIP-only control trained for the same budget.
 
 Mean-pooled readouts are blind to mirroring by construction. In both branches, large perspective gains came with the addition of spatial differences and position-aware pooling, although other settings changed at the same time. Selective mirroring at inference adds a small gain whose confidence interval excludes zero.
 
-With classes of 21 to 60 labelled examples in the whole dataset, no local split can measure small gains on rare classes. We handled this with a two-signal protocol. A fixed, product-disjoint split, quantified by bootstrap intervals, serves for diagnostics and checkpoint choice, and the public leaderboard decides between models. The protocol leaves unconfirmed the gains of up to 0.026 that did not carry over and confirms the one that did. The context fields alone reach 0.438, so the image and the OCR text account for the large gap to the delivered model's 0.843.
+The dataset exploration shaped the protocol as much as the model. With classes of 21 to 60 labelled examples in the whole dataset (F1), no local split can measure small gains on rare classes. We handled this with a two-signal protocol. A fixed, product-disjoint split, quantified by bootstrap intervals, serves for diagnostics and checkpoint choice, and the public leaderboard decides between models. The protocol leaves unconfirmed the gains of up to 0.026 that did not carry over and confirms the one that did. The context fields alone reach 0.438, so the image and the OCR text account for the large gap to the delivered model's 0.843.
 
-Other limitations remain. Most runs use a single seed, and several changes were made together in every phase. Per-class scores of the rarest classes (Dutch, Italian, seals) rest on four to six prompt-test examples, and the delivered model's prompt-test score includes the choice of its epoch. The combined delivery configuration has no labelled score of its own. Finally, we have not demonstrated an offline, on-premise deployment, although every runtime component is open-weights and runs locally. The distillation pilot remains the most direct route to recover the ensemble's extra 0.005 in a single decoder.
+Other limitations remain. Most runs use a single seed, and several changes were made together in every phase. Per-class scores of the rarest classes (Dutch, Italian, seals) rest on four to six prompt-test examples, and the delivered model's prompt-test score includes the choice of its epoch. The combined delivery configuration has no labelled score of its own. Finally, we have not demonstrated an offline, on-premise deployment, although every runtime component is open-weights and runs locally. The distillation pilot remains the most direct route to recover the ensemble's extra 0.005 in a single decoder. A last step follows from F1: once the model and its epoch are chosen, the held-out images can return to training. A final fit of the mixed model on all 11,876 labelled images (phase four) was being trained at the time of writing; by the protocol, it replaces the delivered model only if public dev confirms a gain beyond the leaderboard's resolution.
 
 \section{Conclusion}
 Apertus 1.5 8B can be turned into a competitive product-image classifier. Our model keeps its native VQ tokens and fuses frozen SigLIP~2 and DINOv3 features into 49 soft tokens. OCR text goes into the prompt, and six heads with spatially aware readouts are trained through LoRA. The delivered model reaches 0.842 macro F1 on public dev, between the organisers' Gemini Flash and Qwen references, and classifies 11.7 images per second on one GPU.
+
+\section*{Code availability}
+Code, configurations, the dataset analyses and the delivered model weights are available at \url{https://github.com/nathan-bymo/bymo-hack}.
 
 \begin{thebibliography}{99}
 \sloppy
@@ -335,30 +450,5 @@ Apertus 1.5 8B can be turned into a competitive product-image classifier. Our mo
 \bibitem{parseq} D.~Bautista and R.~Atienza, \emph{Scene Text Recognition with Permuted Autoregressive Sequence Models}, ECCV 2022, arXiv:2207.06966.
 \bibitem{doctr} Mindee, \emph{docTR: Document Text Recognition}, \url{https://github.com/mindee/doctr}.
 \bibitem{challenge} Challenge description, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/challenge_description.md}.
-\bibitem{project} Project research notes, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/README.md}.
-\bibitem{experiments} Experiment registry, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/EXPERIMENTS.md}.
-\bibitem{prompt} Prompt evaluation, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/plain-benchmark/apertus-8B-benchmark/prompt_eval.md}.
-\bibitem{dbexplore} Dataset exploration: validation power, context baseline, product consistency, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/db_exploration/RESULTS.md}.
-\bibitem{plainbench} Zero-shot results, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/plain-benchmark/RESULTS.md}.
-\bibitem{benchmark70} 70B benchmark, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/plain-benchmark/apertus-70B-benchmark/README.md}.
-\bibitem{micro1} Frozen-head micro-training, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/micro-training/phase-1/RESULTS.md}.
-\bibitem{micro2} Generative LoRA micro-training, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/micro-training/phase-2/RESULTS.md}.
-\bibitem{adapterprobe} Visual-adapter prototype, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/micro-training/phase-3/RESULTS.md}.
-\bibitem{phase1} Training phase 1 results, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/phase-1/RESULTS.md}.
-\bibitem{fullft} Decoder fine-tuning results, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-fullft-heads/RESULTS.md}.
-\bibitem{lora} LoRA and heads results, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-lora-heads/results_full_h200.md}.
-\bibitem{pooling} Spatial pooling results (P12), \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-lora-heads/results_p12_512_pooling.md}.
-\bibitem{adapter} Visual-adapter results, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-vadapter-lora-heads/RESULTS.md}.
-\bibitem{adapter_it} Visual-adapter run log (in Italian), \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-vadapter-lora-heads/RISULTATI.md}.
-\bibitem{adapter_data} Visual-adapter data notes (in Italian), \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-vadapter-lora-heads/DATI.md}.
-\bibitem{phase2} Training phase 2 results, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/phase-2/RESULTS.md}.
-\bibitem{synthcode} Synthetic overlay generator, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/scripts/make_synthetic_text.py}.
-\bibitem{p13} Synthetic-data continuation (P13), \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md}.
-\bibitem{p14} Larger encoder and all-data runs (P14, P15), \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md}.
-\bibitem{siglip_lora} Trainable SigLIP LoRA, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-vadapter-lora-heads/results_siglip_lora.md}.
-\bibitem{phase3} Training phase 3 results, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/phase-3/RESULTS.md}.
-\bibitem{mixed} Mixed model results, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/apertus-8B-mixed-lora-heads/RESULTS.md}.
-\bibitem{benchmark} Model statistics and Kaggle submissions, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/src/training/benchmark/README.md}.
-\bibitem{benchh200} H200 dev benchmark of three 8B models, \url{https://github.com/nathan-bymo/bymo-hack/blob/main/docs/benchmark_dev_h200.md}.
 \end{thebibliography}
 \end{document}

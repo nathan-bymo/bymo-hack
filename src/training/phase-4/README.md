@@ -3,7 +3,7 @@
 Phase 4 continues the phase-3 mixed checkpoint (`mixed-modal-20261128-033303/model/best`, public dev 0.84215) on
 **all 11,876 labelled images**, prompt-test included, plus the 1,040 synthetic text overlays. Unlike the other phase
 folders, it has no code copy: it uses the live implementation in
-[`src/training/apertus-8B-mixed-lora-heads/`](../apertus-8B-mixed-lora-heads/) with the `--fit-all` mode
+`src/training/apertus-8B-mixed-lora-heads/` with the `--fit-all` mode
 (`train_mixed.py`) and the `FIT_ALL` variable of the job generator (`build_hf_job.py`).
 
 ## Why this data
@@ -77,4 +77,4 @@ time, the job keeps the unchanged phase-3 checkpoint (nothing is lost). Outputs 
 ## Status
 
 Prepared and tested on CPU on 28 November (7 mixed tests pass; the fit-all data path was checked on the real
-`train.csv`: 11,876 + 579 + 1,040 = 13,495 views). Not yet run on GPU. Results will be added to `RESULTS.md`.
+`train.csv`: 11,876 + 579 + 1,040 = 13,495 views). Not yet run on GPU. Results will be added to [RESULTS.md](RESULTS.md) (currently pending).

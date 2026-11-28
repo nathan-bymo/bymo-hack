@@ -99,7 +99,7 @@ meets the constraint, and what is still missing:**
 - **Where it runs:** local weights in a single PyTorch process (bf16 decoder; VQ tokenizer in fp32 with optional
   TF32). For the competition this process ran on cloud GPUs (Modal H200/H100).
 - **Setup details:** prompt = Apertus chat template + soft-token slots + VQ block + `<context>` + `<ocr>` + a fixed
-  task sentence (`src/training/apertus-8B-vadapter-lora-heads/encoders.py`). LoRA is merged into the weights for
+  task sentence (`src/training/phase-3/src/training/apertus-8B-vadapter-lora-heads/encoders.py`). LoRA is merged into the weights for
   inference. No quantisation. Serving stack: plain PyTorch + Transformers fork; no inference server.
 - **Zero-shot findings** (8B and 70B, 512 px, temperature 0): the best prompt asks for a description and then one
   letter per dimension (seven requests per image). 70B scored 0.583 on coverage, 8B 0.528; a long rule-based JSON
@@ -181,7 +181,7 @@ meets the constraint, and what is still missing:**
   training memory 61.25 GiB.
 - **Runtime:** Python 3.12, torch 2.8.0, torchvision 0.23.0, swiss-ai Transformers fork
   `3797303dda74844e3d1f8977ff5518bb91f818b4`, peft 0.22.0, accelerate 1.16.0, python-doctr 1.1.0
-  (pins in [build_hf_job.py](src/training/apertus-8B-vadapter-lora-heads/build_hf_job.py), reused by the
+  (pins in [build_hf_job.py](src/training/phase-3/src/training/apertus-8B-vadapter-lora-heads/build_hf_job.py), reused by the
   inference job).
 - **Seeds:** 3407 globally and for the fusion stage, 3408 for the joint stage; bootstrap seed 3407. The selected
   checkpoint is joint epoch 3 of run `mixed-modal-20261128-033303`.
@@ -193,34 +193,42 @@ meets the constraint, and what is still missing:**
 **Run the delivered model** (judges: use the local path; the Modal path reads our private Hugging Face repositories):
 
 ```sh
-# 1. setup (Linux, one CUDA GPU, Python 3.12), from the repository root
+# 1. setup (Linux, one CUDA GPU, Python 3.12)
 git lfs pull                                    # our weights: weights/apertus-8B-mixed-lora-heads-final/
-pip install -r src/training/apertus-8B-vadapter-lora-heads/requirements-gpu.txt python-doctr==1.1.0 kaggle==2.2.5 six
-apt-get install -y libgl1 libglib2.0-0 p7zip-full   # OpenCV for docTR, 7z for the final archive
 export HF_TOKEN=…            # access to the gated Apertus 1.5 8B and DINOv3 weights
 export KAGGLE_API_TOKEN=…    # competition data
-python src/scripts/db_download.py               # data/ with train.csv, dev.csv, images, final_encrypted.bin
+python src/scripts/db_download.py               # from the repository root: data/ with CSVs, images, final_encrypted.bin
+cd src/training/phase-3                         # standalone working root of the delivered phase
+ln -s ../../../data data                        # its own data/ (or copy the files there)
+pip install -r src/training/apertus-8B-vadapter-lora-heads/requirements-gpu.txt python-doctr==1.1.0 kaggle==2.2.5 six
+apt-get install -y libgl1 libglib2.0-0 p7zip-full   # OpenCV for docTR, 7z for the final archive
 
 # 2. dev images: same flags as the Modal "final" preset
 python src/training/apertus-8B-mixed-lora-heads/fast_infer.py \
-  --checkpoint weights/apertus-8B-mixed-lora-heads-final --data-dir data --csv data/dev.csv \
+  --checkpoint ../../../weights/apertus-8B-mixed-lora-heads-final --data-dir data --csv data/dev.csv \
   --out data/runs/mixed/dev --batch 32 --merge-lora --sort --ocr-thread --tf32 --tta-perspective selective
 
 # 3. final images, after the passphrase is published
 7z x -p"$FINAL_PASSPHRASE" -odata/final data/final_encrypted.bin
 python src/training/apertus-8B-mixed-lora-heads/fast_infer.py \
-  --checkpoint weights/apertus-8B-mixed-lora-heads-final --data-dir data/final --csv data/final/final.csv \
+  --checkpoint ../../../weights/apertus-8B-mixed-lora-heads-final --data-dir data/final --csv data/final/final.csv \
   --out data/runs/mixed/final --batch 32 --merge-lora --sort --ocr-thread --tf32 --tta-perspective selective
 
 # 4. Kaggle file = dev rows + final rows, validated, never auto-submitted
-python src/scripts/final_submission.py --dev <dev.csv> --final <final.csv> --out <submission.csv>
+python src/scripts/final_submission.py --dev <dev.csv> --final <final.csv> --out <submission.csv> \
+  --sample data/sample_submission.csv
 
-# what we ran for the competition (Modal, private repositories; final images decrypted on the job disk)
+# what we ran for the competition, from the repository root (Modal, private repositories; final images decrypted
+# on the job disk)
 python3 src/training/apertus-8B-mixed-lora-heads/build_infer_job.py
 FINAL_PASSPHRASE=… modal run src/training/apertus-8B-mixed-lora-heads/modal_infer.py --runs final --local-hf-auth
 ```
 
 The local command uses the flags of the Modal `final` preset; we ran it through Modal, not in exactly this local form.
+The phase-3 copies of `fast_infer.py` and `mixed_model.py` are identical to the files the Modal job bundles; the
+Modal commands keep their original path because the phase-3 `modal_infer.py` was later changed (no GPU fallback, no
+default repositories), so it is not the file we ran. Measured results of every inference configuration:
+[phase-3 results](src/training/phase-3/RESULTS.md#inference-optimizations).
 Training commands for every phase, and the evidence still missing for each, are in the
 [reproducibility guide](src/training/REPRODUCIBILITY.md):
 [phase 1](src/training/phase-1/README.md), [phase 2](src/training/phase-2/README.md),
@@ -292,7 +300,8 @@ confident.
 | Final set | 5,292 images in about 8 minutes (extrapolated from the dev rate) |
 
 For comparison, the 70B zero-shot baseline ran at 2.8 images/s on the shared gateway, and our earlier single-encoder
-model at 6.91 images/s on an H200 ([benchmark](docs/benchmark_dev_h200.md)).
+model at 6.91 images/s on an H200 ([zero-shot](src/plain-benchmark/RESULTS.md),
+[benchmark](src/training/phase-1/RESULTS.md#h200-benchmark-of-the-three-8b-models-on-public-dev)).
 
 **Commit and weights:** commit *to be recorded* (≥ `37aea4b`). The weights are published in this public repository
 via Git LFS, folder [weights/apertus-8B-mixed-lora-heads-final/](weights/apertus-8B-mixed-lora-heads-final/), added
@@ -326,15 +335,10 @@ weights).
   [1](src/micro-training/phase-1/RESULTS.md) · [2](src/micro-training/phase-2/RESULTS.md) ·
   [3](src/micro-training/phase-3/RESULTS.md), training [1](src/training/phase-1/RESULTS.md) ·
   [2](src/training/phase-2/RESULTS.md) · [3](src/training/phase-3/RESULTS.md).
-- Detailed run reports: [decoder fine-tuning](src/training/apertus-8B-fullft-heads/RESULTS.md),
-  [LoRA + heads](src/training/apertus-8B-lora-heads/results_full_h200.md),
-  [P12 pooling](src/training/apertus-8B-lora-heads/results_p12_512_pooling.md),
-  [visual adapter](src/training/apertus-8B-vadapter-lora-heads/RESULTS.md),
-  [P13](src/training/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md),
-  [P14/P15](src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md),
-  [SigLIP LoRA](src/training/apertus-8B-vadapter-lora-heads/results_siglip_lora.md),
-  [mixed model](src/training/apertus-8B-mixed-lora-heads/RESULTS.md).
-- Benchmarks: [all models](src/training/benchmark/README.md), [H200 dev benchmark](docs/benchmark_dev_h200.md).
+- Results by topic: [decoder fine-tuning, P11, first visual adapter, H200 benchmark](src/training/phase-1/RESULTS.md);
+  [P12, OCR stage, final-abt, P13–P15, SigLIP LoRA](src/training/phase-2/RESULTS.md);
+  [DINOv3, mixed model, inference ladder, TTA, label errors, distillation, costs](src/training/phase-3/RESULTS.md);
+  [phase 4 (pending)](src/training/phase-4/RESULTS.md).
 - Dataset analyses: [validation power, context baseline, product consistency](src/db_exploration/RESULTS.md).
 - Swiss AI, *Apertus 1.5 Technical Report*, https://arxiv.org/abs/2610.15542.
 - M. Tschannen et al., *SigLIP 2*, arXiv:2502.14786; O. Siméoni et al., *DINOv3*, arXiv:2508.10104;

@@ -14,6 +14,10 @@ This guide distinguishes **running the current code**, **reproducing a documente
 - [Phase 1: initial training](phase-1/README.md)
 - [Phase 2: branch improvements](phase-2/README.md)
 - [Phase 3: DINOv3 and mixed](phase-3/README.md)
+- [Phase 4: final fit on all labelled images](phase-4/README.md) (pending)
+
+Recorded results, with the source of every number: [phase 1](phase-1/RESULTS.md), [phase 2](phase-2/RESULTS.md),
+[phase 3](phase-3/RESULTS.md), [phase 4](phase-4/RESULTS.md).
 
 ## What has been checked
 

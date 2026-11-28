@@ -3,6 +3,16 @@
 Aggregate numbers only. Human, relevant cells are the cells the leaderboard scores. prompt-test is bucket 1 of 10 of
 the product hash in `src/training/common/splits.py`: 1,193 images of 713 products, 10.0% of `train.csv`.
 
+## 0. Dataset facts used in the technical report
+
+22,429 images from 14,118 products: 11,876 labelled training images, 5,261 public-dev images, 5,292 final images;
+41 classes in six dimensions. Images were pre-classified by a model and then reviewed by people; about one fifth of
+label cells remain model prelabels, and text language is the most affected (59% of its relevant labels are human).
+Splits: coverage 2,532 images (prompt-dev + prompt-test + 169 rare-class images), base 2,363, prompt-test 1,193; the
+delivered model trained on the 10,683 images outside prompt-test. Source: `src/README.md` §1.1–1.2,
+`src/training/EXPERIMENTS.md` (split table), `paper/paper.tex` (data section, 59%),
+`weights/apertus-8B-mixed-lora-heads-final/training.json` (10,683).
+
 ## 1. Validation power (`validation_power.py`, 2,000 product-bootstrap resamples, seed 3407)
 
 **The rarest classes are rare in the whole dataset, not only in our split.**
