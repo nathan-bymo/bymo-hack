@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useSearchParams } from 'react-router-dom'
 import { ApiClientError, api, errorText } from '../api/client'
@@ -12,8 +12,10 @@ import { availability, headlineScore, sortForShow } from '../lib/models'
 import { defaultMode } from '../lib/predictions'
 import { DIMENSIONS } from '../strings'
 
-type RunStatus = { state: 'running' | 'done' | 'error'; error?: ApiErrorBody; seconds?: number }
+type RunStatus = { state: 'running' | 'done' | 'error'; error?: ApiErrorBody; seconds?: number; cached?: boolean }
 const UNSURE = 0.6
+/** Orologio per misurare il tempo di risposta (solo nei gestori degli eventi). */
+const clock = () => performance.now()
 /** Scelta iniziale: il modello finale, P11 (stesso Apertus senza le feature sinistra/destra) e il 70B senza training. */
 const DEFAULT_MODELS = ['apertus-8b-vadapter-lora-heads-final', 'apertus-8b-lora-heads-p11', 'apertus-70b-zeroshot-v2']
 
@@ -64,12 +66,12 @@ function AnswerCell({ dimension, d, single }: { dimension: string; d: DimensionR
 
 function columnNote(run: RunStatus | undefined, pred: PredictionResult | undefined): string {
   if (run?.state === 'running') return 'Working…'
-  if (run?.state === 'error') return 'No answer'
+  if (run?.state === 'error') return run.error?.code === 'RECORDED_MISSING' ? 'Recorded for the sample photos only' : 'No answer'
   if (pred?.mode === 'recorded') {
     const r = pred.recorded
     return `Recorded${r?.gpu_name ? ` on ${r.gpu_name}` : ''}${r?.images_per_second ? `, ${r.images_per_second} img/s` : ''}`
   }
-  if (run?.state === 'done' && run.seconds !== undefined) return `Answered in ${run.seconds.toFixed(1)} s`
+  if (run?.state === 'done' && !run.cached && run.seconds !== undefined) return `Answered in ${run.seconds.toFixed(1)} s`
   if (pred) return 'Answered earlier'
   return 'Waiting'
 }
@@ -204,7 +206,40 @@ export default function ClassifyPage() {
 
   const pick = useCallback((id: string) => setParams((p) => { p.set('image', id); return p }), [setParams])
 
-  const upload = useCallback(async (files: File[]) => {
+
+  // Classificazione automatica: parte quando si aggiunge o si sceglie una foto e quando si spunta un modello.
+  const inFlight = useRef(new Set<string>())
+  const classifyOne = async (m: ModelSummary, img: string) => {
+    const key = `${img}|${m.model_id}`
+    if (inFlight.current.has(key)) return
+    inFlight.current.add(key)
+    const started = clock()
+    setRun(img, m.model_id, { state: 'running' })
+    try {
+      const res = await api<PredictResponse>('/predict', { method: 'POST', json: { model_id: m.model_id, image_ids: [img], mode: defaultMode(m), use_context: true } })
+      let failure: ApiErrorBody | undefined
+      if (res.queued > 0) {
+        await new Promise<void>((resolve) => {
+          subscribeJob(res.job_id, res.total, { onError: (_, error) => { failure = error }, onDone: () => resolve() })
+        })
+      }
+      await qc.invalidateQueries({ queryKey: ['image', img] })
+      const seconds = (clock() - started) / 1000
+      setRun(img, m.model_id, failure ? { state: 'error', error: failure, seconds } : { state: 'done', seconds, cached: res.queued === 0 })
+    } catch (e) {
+      setRun(img, m.model_id, { state: 'error', error: e instanceof ApiClientError ? { code: e.code, message: e.message } : { code: 'ERROR', message: errorText(e) } })
+    } finally {
+      inFlight.current.delete(key)
+    }
+  }
+  const runOn = (img: string, list: ModelSummary[]) => Promise.all(list.map((m) => classifyOne(m, img)))
+  const running = Object.values(runs).some((r) => r.state === 'running')
+  const toggle = (m: ModelSummary, on: boolean) => {
+    setSelected(on ? [...chosen, m.model_id] : chosen.filter((x) => x !== m.model_id))
+    if (on && imageId) void classifyOne(m, imageId)
+  }
+  const choose = (id: string) => { pick(id); void runOn(id, chosenModels) }
+  const upload = async (files: File[]) => {
     if (!sessionId || !files.length) return
     setUploading(true)
     setUploadError(null)
@@ -215,38 +250,15 @@ export default function ClassifyPage() {
     try {
       const res = await api<UploadResponse>('/images', { method: 'POST', body: form })
       await qc.invalidateQueries({ queryKey: ['images'] })
-      if (res.images[0]) pick(res.images[0].image_id)
+      if (res.images[0]) choose(res.images[0].image_id)
       if (res.rejected.length) setUploadError(`Not added: ${res.rejected.map((r) => `${r.original_filename} (${r.error.message})`).join('; ')}`)
     } catch (e) {
       setUploadError(e instanceof ApiClientError ? errorText(e) : 'The upload failed. Check that the demo server is running.')
     } finally {
       setUploading(false)
     }
-  }, [sessionId, qc, pick])
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ onDrop: upload, noClick: true, noKeyboard: true, accept: { 'image/*': [] } })
-
-  const classifyOne = async (m: ModelSummary) => {
-    if (!imageId) return
-    const started = performance.now()
-    setRun(imageId, m.model_id, { state: 'running' })
-    try {
-      const res = await api<PredictResponse>('/predict', { method: 'POST', json: { model_id: m.model_id, image_ids: [imageId], mode: defaultMode(m), use_context: true } })
-      let failure: ApiErrorBody | undefined
-      if (res.queued > 0) {
-        await new Promise<void>((resolve) => {
-          subscribeJob(res.job_id, res.total, { onError: (_, error) => { failure = error }, onDone: () => resolve() })
-        })
-      }
-      await qc.invalidateQueries({ queryKey: ['image', imageId] })
-      const seconds = (performance.now() - started) / 1000
-      setRun(imageId, m.model_id, failure ? { state: 'error', error: failure, seconds } : { state: 'done', seconds })
-    } catch (e) {
-      setRun(imageId, m.model_id, { state: 'error', error: e instanceof ApiClientError ? { code: e.code, message: e.message } : { code: 'ERROR', message: errorText(e) } })
-    }
   }
-  const classify = () => Promise.all(chosenModels.map(classifyOne))
-  const running = Object.values(runs).some((r) => r.state === 'running')
-  const toggle = (id: string, on: boolean) => setSelected(on ? [...chosen, id] : chosen.filter((x) => x !== id))
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ onDrop: upload, noClick: true, noKeyboard: true, accept: { 'image/*': [] } })
   const shown = chosenModels.filter((m) => preds.has(m.model_id))
   const hasRecorded = shown.some((m) => preds.get(m.model_id)?.mode === 'recorded')
 
@@ -297,7 +309,7 @@ export default function ClassifyPage() {
             {(images.data?.length ?? 0) > 1 && (
               <div className="flex flex-wrap gap-1.5" data-testid="try-thumbs" aria-label="Earlier photos">
                 {images.data!.map((i) => (
-                  <button key={i.image_id} type="button" onClick={() => pick(i.image_id)} title={i.original_filename}
+                  <button key={i.image_id} type="button" onClick={() => choose(i.image_id)} title={i.original_filename}
                     aria-pressed={i.image_id === imageId}
                     className={`h-10 w-10 overflow-hidden border-2 bg-canvas p-0 ${i.image_id === imageId ? 'border-signal' : 'border-transparent'}`}>
                     <img src={i.thumbnail_url} alt="" className="h-full w-full object-cover" />
@@ -327,7 +339,7 @@ export default function ClassifyPage() {
                   <label key={m.model_id} title={m.description ?? undefined}
                     className={`flex gap-2 border px-2.5 py-2 ${on ? 'border-graphite bg-white shadow-[inset_0_0_0_1px_var(--color-graphite)]' : 'border-rule'} ${ok ? 'cursor-pointer hover:border-graphite' : 'cursor-not-allowed opacity-50'}`}>
                     <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-signal" disabled={!ok} checked={on}
-                      onChange={(e) => toggle(m.model_id, e.target.checked)} data-testid={`try-model-${m.model_id}`} />
+                      onChange={(e) => toggle(m, e.target.checked)} data-testid={`try-model-${m.model_id}`} />
                     <span className="min-w-0 leading-tight">
                       <span className="block text-[14px] font-bold leading-snug">{m.short_name}</span>
                       {head && <span className="mt-0.5 block text-[12px] text-slate">{head.macro_f1!.toFixed(3)} on {SET_PHRASE[head.set] ?? head.set}</span>}
@@ -336,20 +348,17 @@ export default function ClassifyPage() {
                   </label>
                 )
               })}
-              <div className="flex flex-col justify-center gap-1.5">
-                <button type="button" onClick={classify} disabled={!imageId || running || chosenModels.length === 0} data-testid="try-classify"
-                  className="h-full min-h-12 bg-signal px-5 text-[16px] font-bold text-white hover:bg-[#b82216] disabled:cursor-not-allowed disabled:opacity-40">
-                  {running ? 'Classifying…' : chosenModels.length > 1 ? `Classify with ${chosenModels.length} models` : 'Classify'}
-                </button>
+              <div className="flex items-center border border-dashed border-rule px-3 py-2 text-[13px] leading-snug text-slate" data-testid="try-status" aria-live="polite">
+                {running ? <span className="font-bold text-graphite">Classifying…</span> : 'Answers appear as soon as you add a photo or tick a model.'}
               </div>
             </div>
           </fieldset>
           {shown.length === 0 && (
             <p className="m-0 mt-3 text-[15px] text-slate" data-testid="try-empty">
-              {!imageId ? 'Add a photo to start.' : chosenModels.length === 0 ? 'Pick at least one model.' : 'Press Classify: the answers fill the table.'}
+              {!imageId ? 'Add a photo to start.' : chosenModels.length === 0 ? 'Pick at least one model.' : running ? 'Working on the answers…' : 'Pick the photo again to get the answers.'}
             </p>
           )}
-          {Object.entries(runs).filter(([, r]) => r.state === 'error').map(([id, r]) => (
+          {Object.entries(runs).filter(([, r]) => r.state === 'error' && r.error?.code !== 'RECORDED_MISSING').map(([id, r]) => (
             <p key={id} className="m-0 mt-2 text-[14px] text-signal" data-testid="try-error" role="alert">{all.find((m) => m.model_id === id)?.short_name}: {errorMessage(r.error)}</p>
           ))}
 

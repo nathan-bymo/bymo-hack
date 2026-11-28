@@ -23,7 +23,7 @@ pagine della demo.
 > I drop a product photo. On the right I pick the models: our final model, an earlier version of it, and Apertus
 > 70B as it comes, without training.
 
-[Lasciare spuntati *Final model*, *LoRA + classifiers (P11)* e *Apertus 70B, no training*. Premere *Classify with 3 models*.]
+[Sono già spuntati *Final model*, *LoRA + classifiers (P11)* e *Apertus 70B, no training*: le risposte arrivano da sole, senza pulsanti.]
 
 > Each column is a model, each row is one of the six questions. Look at the perspective: the monitor is seen from
 > its right side. The final model gets it right; the earlier version says left. Telling left from right was our

@@ -26,8 +26,9 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByText(/needs a gpu/i)).toHaveCount(0)
   await page.getByTestId('try-model-apertus-8b-fullft-heads').check()
   await page.getByTestId('try-thumbs').locator('button').first().click()
-  await page.getByTestId('try-classify').click()
-  await expect(page.getByTestId('try-results')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('try-results')).toBeVisible({ timeout: 30_000 })   // nessun pulsante: le risposte arrivano da sole
+  await expect(page.getByTestId('try-classify')).toHaveCount(0)
+  await expect(page.getByTestId('col-apertus-8b-fullft-heads')).toContainText('Recorded', { timeout: 30_000 })
   for (const d of DIMENSIONS) await expect(page.getByTestId(`try-dim-${d}`)).toBeVisible()
   await expect(page.getByTestId('try-dim-perspective').getByTestId('try-disagree')).toBeVisible()
   await expect(page.getByTestId('try-error')).toHaveCount(0)
@@ -47,7 +48,6 @@ test('percorso completo della demo', async ({ page }) => {
   // 4. un solo modello su un'altra foto
   await page.getByTestId('try-model-apertus-8b-fullft-heads').uncheck()
   await page.getByTestId('try-thumbs').locator('button').nth(1).click()
-  await page.getByTestId('try-classify').click()
   await expect(page.getByTestId('try-dim-subject')).toContainText('The whole product', { timeout: 30_000 })
   await expect(page.getByTestId('try-disagree')).toHaveCount(0)
   await shot(page, '03-classify-one-model')
