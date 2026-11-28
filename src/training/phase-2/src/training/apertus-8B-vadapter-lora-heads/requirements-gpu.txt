@@ -1,0 +1,12 @@
+# GPU (bf16: H200/H100/L40S). Apertus v1.5 is not yet in a Transformers release: the fork of the model card,
+# pinned to a commit (Apache-2.0). Same versions as the LoRA job that ran on H200.
+torch==2.8.0                 # BSD-3-Clause
+torchvision==0.23.0          # BSD-3-Clause
+transformers[torch,vision] @ git+https://github.com/swiss-ai/transformers.git@3797303dda74844e3d1f8977ff5518bb91f818b4
+peft==0.22.0                 # Apache-2.0
+accelerate==1.16.0           # Apache-2.0
+safetensors                  # Apache-2.0
+huggingface_hub              # Apache-2.0
+pandas>=2.1                  # BSD-3-Clause
+pillow                       # MIT-CMU
+pytest                       # MIT, for test_pipeline.py

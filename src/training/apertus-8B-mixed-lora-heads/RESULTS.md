@@ -1,3 +1,6 @@
+> **Correction (audit):** The split statement below conflicts with the saved checkpoint `training.json`, which records 1,193 validation images, and with the available mixed training code, which selects prompt-test for validation. Treat prompt-test as used for checkpoint selection, not as an independent held-out test. See [phase 3 results](../phase-3/RESULTS.md).
+> **Later evidence:** A saved `infer-dev_final-20261128-084357/infer/dev_final.json` records the combined fast + TF32 + selective TTA configuration on H200 dev images at 11.68 images/s; the later claim below that it had not been run is stale.
+
 # Mixed: risultati e lavoro del 28 novembre
 
 Modello: SigLIP 2 + DINOv3 + VQ di Apertus + OCR, con un solo decoder Apertus 8B (24 layer, LoRA) e sei teste. Architettura e lancio sono nel [README](README.md). Elenco di tutte le prove: [../EXPERIMENTS.md](../EXPERIMENTS.md).
@@ -6,7 +9,7 @@ Il file riporta solo numeri aggregati: nessun image_id, label o file della compe
 
 ## 1. Training del mixed (run `mixed-modal-20261128-033303`)
 
-Modal, 1 H200. Partenza da `final-abt/model/best` (SigLIP + VQ). Il ramo DINO entra con un residuo inizializzato a zero, quindi al passo 0 il modello riproduce esattamente `final-abt`. Dati: 10.683 immagini reali più 1.040 sintetiche per il testo. La selezione del checkpoint si fa sulla validazione interna (1.038 immagini), e prompt-test resta sempre fuori.
+Modal, 1 H200. Partenza da `final-abt/model/best` (SigLIP + VQ). Il ramo DINO entra con un residuo inizializzato a zero, quindi al passo 0 il modello riproduce esattamente `final-abt`. Dati: 10.683 immagini reali più 1.040 sintetiche per il testo. La selezione del checkpoint si fa su prompt-test (1.193 immagini, come registra `training.json`): resta fuori dal training, ma non è più una prova indipendente.
 
 | Stadio | Validazione interna, macro F1 | Note |
 |---|---|---|
@@ -198,7 +201,7 @@ Per una prova sul dev con la stessa configurazione: `--runs dev_final`.
 
 - **Archivio:** `final_encrypted.bin` è nel dataset privato, con lo SHA-256 pubblicato verificato (`4b37a260…6465`). Il job lo scarica, controlla di nuovo l'hash e lo decifra sul proprio disco.
 - **Passphrase:** passata come secret Modal temporaneo, mai in un file né come argomento.
-- **Output:** `final_fast.csv` e le probabilità finiscono nel repository privato. Il file Kaggle si compone con [final_submission.py](../../scripts/final_submission.py) (righe dev più righe final).
+- **Output:** `infer/final.csv` e le probabilità finiscono nel repository privato. Il file Kaggle si compone con [final_submission.py](../../scripts/final_submission.py) (righe dev più righe final).
 - **GPU:** il job usa una H200 e, se sono esaurite come la mattina del 28/11, ripiega su H100 o A100 da 80 GB.
 - **Prove completate:** percorso veloce sul dev (sezione 5) e percorso veloce + TF32 sul dev (sezione 5, 14,34 img/s).
 - **Prova completa sul dev** (`--runs dev_final`, run `infer-dev_final-20261128-084357`, H200):

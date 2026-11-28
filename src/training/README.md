@@ -1,6 +1,17 @@
 # Model training and Hugging Face Jobs
 
-The three directories contain the actual training, encoding, prediction and Hugging Face job-generation code. Run all commands from the repository root. The job scripts package code and are generated under `data/hf_jobs/`, which is ignored by Git. They are not notebooks.
+For setup, verified checks and outstanding provenance, start with the [reproducibility guide](REPRODUCIBILITY.md).
+
+## Browse by experimental phase
+
+- [Phase 1](phase-1/README.md): the three initial training directions.
+- [Phase 2](phase-2/README.md): subsequent LoRA and visual-adapter improvements.
+- [Phase 3](phase-3/README.md): DINOv3 and mixed experiments.
+
+Each phase folder contains its own copy of the code needed for that phase and runs as a standalone working root. These copies reflect the current implementation, not historical snapshots. Existing model directories are retained for compatibility; historical runs require their original revisions and artifacts.
+
+
+The model directories contain the actual training, encoding, prediction and Hugging Face job-generation code. Run all commands from the repository root. The job scripts package code and are generated under `data/hf_jobs/`, which is ignored by Git. They are not notebooks.
 
 | Model | Training code | Results | Generated job |
 |---|---|---|---|

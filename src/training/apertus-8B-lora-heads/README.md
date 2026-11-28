@@ -79,8 +79,7 @@ dimensioni. **Non è incluso** un comando che produca su dev e final le risposte
 ## Job su Hugging Face
 
 I comandi sono nella docstring di `build_hf_job.py`. Ordine: `MODE=check` (CPU), `MODE=smoke` (3 passi, upload,
-download in una cartella nuova, ricaricamento, stesse predizioni), `MODE=train`. Il job non esegue le predizioni su
-dev e final.
+download in una cartella nuova, ricaricamento, stesse predizioni), `MODE=train`. Il job non esegue le predizioni su dev e final.
 
 ## Verifiche fatte (27 novembre 2026)
 

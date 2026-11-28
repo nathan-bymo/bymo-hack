@@ -1,0 +1,6 @@
+# Estrazione delle feature su GPU. Apertus v1.5 non è ancora in una release di Transformers:
+# la scheda del modello indica il fork del team, qui fissato a un commit (Apache-2.0).
+transformers[torch,vision] @ git+https://github.com/swiss-ai/transformers.git@3797303dda74844e3d1f8977ff5518bb91f818b4
+accelerate            # Apache-2.0
+pandas>=2.1           # BSD-3-Clause
+pillow                # MIT-CMU
