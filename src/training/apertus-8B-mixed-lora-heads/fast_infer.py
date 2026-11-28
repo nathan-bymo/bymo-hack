@@ -224,7 +224,10 @@ def main():
                 flip[chosen] = mirrored_perspective(mirror_probs[PERSPECTIVE])
                 flipped_rows += len(chosen)
                 if args.tta_perspective == "selective":
-                    probs[PERSPECTIVE][chosen] = (probs[PERSPECTIVE][chosen] + flip[chosen]) / 2
+                    # forward() runs in inference_mode: its tensors cannot be updated in place outside it.
+                    merged = probs[PERSPECTIVE].clone()
+                    merged[chosen] = (merged[chosen] + flip[chosen]) / 2
+                    probs = [*probs[:PERSPECTIVE], merged, *probs[PERSPECTIVE + 1:]]
             flips.append(flip)
         ids.extend(row["image_id"] for row in batch)
         for part, values in zip(parts, probs, strict=True):

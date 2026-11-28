@@ -201,4 +201,10 @@ Per una prova sul dev con la stessa configurazione: `--runs dev_final`.
 - **Output:** `final_fast.csv` e le probabilità finiscono nel repository privato. Il file Kaggle si compone con [final_submission.py](../../scripts/final_submission.py) (righe dev più righe final).
 - **GPU:** il job usa una H200 e, se sono esaurite come la mattina del 28/11, ripiega su H100 o A100 da 80 GB.
 - **Prove completate:** percorso veloce sul dev (sezione 5) e percorso veloce + TF32 sul dev (sezione 5, 14,34 img/s).
-- **Prova non ancora fatta:** la combinazione completa del preset `final`, cioè veloce + TF32 + TTA selettiva, non è stata eseguita in un unico run. La TTA è stata misurata solo su prompt-test, senza TF32. Prima delle 12:30 conviene lanciare `--runs dev_final`.
+- **Prova completa sul dev** (`--runs dev_final`, run `infer-dev_final-20261128-084357`, H200):
+  - **Bug trovato e corretto:** il primo tentativo si fermava al primo batch. La TTA selettiva modificava in place le probabilità create in `inference_mode`. Ora [fast_infer.py](fast_infer.py) fa la media su una copia.
+  - **Velocità:** 11,68 img/s, dall'immagine al CSV, caricamento escluso (76 s). Picco di memoria 29 GB.
+  - **Specchiate:** 209 immagini su 5.261 (4,0%).
+  - **Percorso critico:** l'OCR, che lavora 433 s su 450.
+  - **Accordo col CSV inviato:** 99,4–100% per dimensione, perspective 97,5%. La differenza su perspective è attesa, perché la TTA cambia di proposito le immagini specchiate.
+  - **Immagini sostituite:** nessuna.
