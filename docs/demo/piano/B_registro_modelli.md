@@ -64,7 +64,7 @@ Regole comuni:
   ([allegato A, A.2.1](A_inventario.md#a21-none-relevant-e--)).
 - Un adapter non scarica mai pesi: risolve i percorsi con `huggingface_hub.snapshot_download(...,
   local_files_only=True)`. Se mancano, `state()` restituisce `("unavailable", "weights missing: <repo>/<subfolder>")`.
-  **Non chiamare** `encoders.model_dir()` (src/apertus-8B-lora-heads/encoders.py:25-28) né `ft_encode.model_dir()`:
+  **Non chiamare** `encoders.model_dir()` (src/training/apertus-8B-lora-heads/encoders.py:25-28) né `ft_encode.model_dir()`:
   senza `local_files_only` scaricherebbero 18,4 GB.
 - `use_context=True` è il comportamento di training di tutti i modelli; senza contesto si usa
   `prompt.context_block({})` (produce "not available"), condizione **non misurata** per i modelli allenati.
@@ -85,7 +85,7 @@ Dove gira: **nel processo dell'API** (solo HTTP verso Keera o un server OpenAI-c
 | descrizione | `body = {"model": name, "temperature": 0, "messages": prompt.describe_messages(url), "max_tokens": prompt.DESCRIBE_MAX_TOKENS}` → `choice = complete(body)["choices"][0]`; `description = choice["message"]["content"]` | eval_prompt.py:118-120, 135-137 |
 | 6 domande | per `d` in `prompt.DIMENSIONS`: `messages = prompt.question_messages(row, url, d, "codes", use_context, description)`; `body = {"model", "temperature": 0, "messages", **prompt.question_constraint(d, "codes")}` | eval_prompt.py:140-143; prompt.py:362-375 |
 | parsing | `label, probs = prompt.parse_question(choice, d, "codes")` | eval_prompt.py:151; prompt.py:389-396 |
-| nome modello | `apertus-v1-5-8b` / `apertus-v1-5-70b` | eval_prompt.py:98; src/AGENTS.md:62-64 |
+| nome modello | `apertus-v1-5-8b` / `apertus-v1-5-70b` | eval_prompt.py:98; former project instructions (removed) |
 
 - Le 7 richieste di un'immagine sono **in sequenza** (la seconda dipende dalla descrizione); più immagini in
   parallelo con un `ThreadPoolExecutor` (default 8, massimo 32 come in P4: prompt_eval_coverage.md:31-34).
@@ -104,11 +104,11 @@ Dove gira: **nel processo dell'API** (solo HTTP verso Keera o un server OpenAI-c
 ## B.3 `LoraGenerativeAdapter` (`apertus-8b-lora-p10`)
 
 Dove gira: **nel worker** della famiglia `lora_generative` (GPU). Codice di riferimento:
-`src/apertus-8B-benchmark/lora/apertus_lora.py` e `evaluate.py:94-193`.
+`src/micro-training/lora-generativo/apertus_lora.py` e `evaluate.py:94-193`.
 
 | passo | chiamata al repo | fonte |
 |---|---|---|
-| import | `sys.path.insert(0, "<repo>/src/apertus-8B-benchmark/lora")`; `import apertus_lora as L` (trova `common` risalendo le cartelle) | apertus_lora.py:18-24 |
+| import | `sys.path.insert(0, "<repo>/src/micro-training/lora-generativo")`; `import apertus_lora as L` (trova `common` risalendo le cartelle) | apertus_lora.py:18-24 |
 | base | `base_dir = snapshot_download("swiss-ai/Apertus-v1.5-8B", revision=<models.yaml>, local_files_only=True)` | — |
 | adapter | `snapshot_download("StoryofLegend/apertus-8b-galaxus-lora", revision="be79276586ea5610d3a96a081988da8d977e7af3", allow_patterns=["prototype-256/adapters/step-00738/*"], local_files_only=True)` + sottocartella | HF, A.4.3 |
 | tokenizer | `tokenizer = AutoTokenizer.from_pretrained(base_dir)`; `config = AutoConfig.from_pretrained(base_dir)`; `sequences = L.Sequences(tokenizer, config.image_token_offset)` | evaluate.py:114-116 |
@@ -138,7 +138,7 @@ Due varianti, una per famiglia di worker. Entrambe: un solo forward per immagine
 
 | passo | chiamata al repo | fonte |
 |---|---|---|
-| import | `sys.path.insert(0, "<repo>/src/apertus-8B-lora-heads")`; `import data as D, encoders as E, model as M, predict as P` | predict.py:29-33 |
+| import | `sys.path.insert(0, "<repo>/src/training/apertus-8B-lora-heads")`; `import data as D, encoders as E, model as M, predict as P` | predict.py:29-33 |
 | caricamento | `classifier, settings = M.load(base_dir, ckpt_dir, device, merge=True)` | model.py:142-156 |
 | encoder | `encoder = E.ImageEncoder(base_dir, device)` | encoders.py:31-56 |
 | prompt | `tokenizer = AutoTokenizer.from_pretrained(base_dir)`; `builder = E.PromptBuilder(tokenizer, AutoConfig.from_pretrained(base_dir).image_token_offset)` | predict.py:107-109 |
@@ -175,8 +175,8 @@ l'adapter mostra quel messaggio così com'è.
 
 ### B.5.1 Perché un processo worker per famiglia
 
-1. **Collisione di nomi**: `data`, `encoders`, `model` esistono sia in `src/apertus-8B-lora-heads/` sia in
-   `src/apertus-8B-vadapter-lora-heads/` (usato dal full FT). Nello stesso processo Python il secondo `import data`
+1. **Collisione di nomi**: `data`, `encoders`, `model` esistono sia in `src/training/apertus-8B-lora-heads/` sia in
+   `src/training/apertus-8B-vadapter-lora-heads/` (usato dal full FT). Nello stesso processo Python il secondo `import data`
    restituirebbe il primo modulo da `sys.modules`: preprocessing sbagliato **senza errori**.
 2. **Liberare la VRAM**: terminare il processo è l'unico modo sicuro per restituire tutta la memoria CUDA.
 3. **Remoto o locale con lo stesso codice**: il worker è un piccolo server HTTP; può girare come sottoprocesso
@@ -229,8 +229,8 @@ Per presentare un modello allenato senza GPU durante la presentazione, con risul
 | processo | `sys.path` aggiunto | moduli importati |
 |---|---|---|
 | API | `<repo>/src` | `common.prompt`, `common.images`, `common.splits`; `bymo_eval_prompt` da file |
-| worker `lora_generative` | `<repo>/src/apertus-8B-benchmark/lora` | `apertus_lora` |
-| worker `lora_heads` | `<repo>/src/apertus-8B-lora-heads` | `data`, `encoders`, `model`, `predict` |
+| worker `lora_generative` | `<repo>/src/micro-training/lora-generativo` | `apertus_lora` |
+| worker `lora_heads` | `<repo>/src/training/apertus-8B-lora-heads` | `data`, `encoders`, `model`, `predict` |
 | worker `fullft_heads` | `<fullft_src>/apertus-8B-fullft-heads` (+ automatico `apertus-8B-vadapter-lora-heads`) | `ft_model`, `data`, `encoders`, `ft_encode`, `ft_train` |
 
 - `<fullft_src>` = variabile `DEMO_FULLFT_SRC`. Finché il branch del full FT non è in main:
@@ -256,7 +256,7 @@ verified_at: "2026-11-27T20:08:00Z"
 defaults:
   base_model:
     repo: swiss-ai/Apertus-v1.5-8B
-    revision: 1519de0ae7f3d114879291810a58259966f64c99      # src/apertus-8B-lora-heads/encoders.py:19-20
+    revision: 1519de0ae7f3d114879291810a58259966f64c99      # src/training/apertus-8B-lora-heads/encoders.py:19-20
     size_gb: 18.4                                             # model.safetensors.index.json total_size 18396023436
   transformers_fork: "git+https://github.com/swiss-ai/transformers.git@3797303dda74844e3d1f8977ff5518bb91f818b4"
   reference_line:
@@ -266,10 +266,10 @@ defaults:
   throughput_target_images_per_second: 2                      # challenge_description.md:67
   cost:
     default: {gpu_label: "A100 80GB (HF a100-large)", usd_per_hour: 2.50,
-              source: "feat/apertus-8b-fullft-heads:src/apertus-8B-fullft-heads/README.md:71"}
+              source: "feat/apertus-8b-fullft-heads:src/training/apertus-8B-fullft-heads/README.md:71"}
     alternatives:
-      - {gpu_label: "H200 (HF)", usd_per_hour: 5.00, source: "src/apertus-8B-lora-heads/results_full_h200.md:157"}
-      - {gpu_label: "RTX PRO 6000 (HF)", usd_per_hour: 2.75, source: "feat/apertus-8b-fullft-heads:src/apertus-8B-fullft-heads/README.md:70"}
+      - {gpu_label: "H200 (HF)", usd_per_hour: 5.00, source: "src/training/apertus-8B-lora-heads/results_full_h200.md:157"}
+      - {gpu_label: "RTX PRO 6000 (HF)", usd_per_hour: 2.75, source: "feat/apertus-8b-fullft-heads:src/training/apertus-8B-fullft-heads/README.md:70"}
       - {gpu_label: "L40S (HF)", usd_per_hour: 1.80, source: "FAQ.md:22"}
 
 models:
@@ -280,25 +280,25 @@ models:
     adapter: ZeroShotGenerativeAdapter
     runtime: remote_openai
     endpoint: {base_url_env: LLM_BASE_URL, api_key_env: LLM_API_KEY, model_name: apertus-v1-5-8b,
-               default_base_url: "https://gateway.keera.ch/api/v1"}   # src/AGENTS.md:58-65
+               default_base_url: "https://gateway.keera.ch/api/v1"}   # former project instructions (removed)
     prompt: {version: v2, spec: "8b:describe:codes:512", layout: describe, answer: codes, side: 512,
-             use_context_default: true, system_message: false}        # src/AGENTS.md:16-24
+             use_context_default: true, system_message: false}        # former project instructions (removed)
     confidence: {kind: full_distribution, method: letter_logprob}
     training: {data: none, phase: null, seen_sets: []}
     vram_estimate_gb: null                                            # remoto
     measured:
       - {what: "img/s", value: 3.8, conditions: "gateway Keera condiviso, 32 in parallelo, coverage",
-         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:97"}
-      - {what: "latenza mediana s/immagine", value: 8.0, source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:97"}
+         source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:97"}
+      - {what: "latenza mediana s/immagine", value: 8.0, source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:97"}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.528, weighted_f1: 0.705,
-         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:45",
+         source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:45",
          note: "prompt scelto sulle prime 600 di prompt-dev, che sono dentro coverage"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.513, weighted_f1: 0.708,
-         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:57"}
+         source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:57"}
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.502, weighted_f1: 0.703,
-         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:69", note: "non usato per scegliere il prompt"}
-    per_class_source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:107-400"
+         source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:69", note: "non usato per scegliere il prompt"}
+    per_class_source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:107-400"
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
   - id: apertus-70b-zeroshot-v2
@@ -315,16 +315,16 @@ models:
     vram_estimate_gb: null
     measured:
       - {what: "img/s", value: 2.8, conditions: "gateway Keera condiviso, 32 in parallelo, coverage",
-         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:99"}
-      - {what: "latenza mediana s/immagine", value: 11.1, source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:99"}
+         source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:99"}
+      - {what: "latenza mediana s/immagine", value: 11.1, source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:99"}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.583, weighted_f1: 0.739,
-         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:47", note: "prompt scelto su prompt-dev ⊂ coverage"}
+         source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:47", note: "prompt scelto su prompt-dev ⊂ coverage"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.587, weighted_f1: 0.742,
-         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:59"}
+         source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:59"}
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.590, weighted_f1: 0.740,
-         source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:71"}
-    per_class_source: "src/apertus-8B-benchmark/prompt_eval_coverage.md:107-400"
+         source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:71"}
+    per_class_source: "src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:107-400"
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
   - id: apertus-8b-lora-p10
@@ -339,8 +339,8 @@ models:
       size_gb: 0.319
       requires_base: true
       base_revision_note: "[DA VERIFICARE] revisione base non fissata nel codice P10; si usa quella di defaults"
-    code: {root: "src/apertus-8B-benchmark/lora", reference: "evaluate.py:94-193"}
-    prompt: {version: "lora-json-short", system_prompt_source: "src/apertus-8B-benchmark/lora/apertus_lora.py:31-35",
+    code: {root: "src/micro-training/lora-generativo", reference: "evaluate.py:94-193"}
+    prompt: {version: "lora-json-short", system_prompt_source: "src/micro-training/lora-generativo/apertus_lora.py:31-35",
              side: 256, use_context_default: true, decoding: {max_new_tokens: 96, do_sample: false}}
     dtype: bfloat16
     confidence: {kind: chosen_only, method: sequence_prob, stretch_method: constrained_scoring}
@@ -348,20 +348,20 @@ models:
     vram_estimate_gb: 24          # [STIMA] 18,4 GB pesi + VQ 0,87 GB + cache KV; da misurare
     measured:
       - {what: "img/s (solo generate, VQ escluso)", value: 18.0, conditions: "H200, batch 32, coverage",
-         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json:6"}
+         source: "src/micro-training/lora-generativo/results/prototype-256/eval_coverage.json:6"}
     evals:   # tutti riferiti all'adapter "final", NON a step-00738
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.734, weighted_f1: 0.879,
-         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json", checkpoint: final,
+         source: "src/micro-training/lora-generativo/results/prototype-256/eval_coverage.json", checkpoint: final,
          note: "21 risposte non valide su 2.532"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.721, weighted_f1: 0.885,
-         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json", checkpoint: final}
+         source: "src/micro-training/lora-generativo/results/prototype-256/eval_coverage.json", checkpoint: final}
       - {set: prompt-test, validity: phase1_internal, provenance: reported_only, macro_f1: 0.711, weighted_f1: 0.881,
-         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json", checkpoint: final,
+         source: "src/micro-training/lora-generativo/results/prototype-256/eval_coverage.json", checkpoint: final,
          note: "valore esatto 0.7115; docs/context/EXPERIMENTS.md sul branch scrive 0.712"}
       - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.696, weighted_f1: 0.747,
-         source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_prototype_validation.json", checkpoint: final,
+         source: "src/micro-training/lora-generativo/results/prototype-256/eval_prototype_validation.json", checkpoint: final,
          note: "set bilanciato, non rappresentativo"}
-    per_class_source: "src/apertus-8B-benchmark/lora/results/prototype-256/eval_coverage.json"
+    per_class_source: "src/micro-training/lora-generativo/results/prototype-256/eval_coverage.json"
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
   - id: apertus-8b-lora-heads-p11
@@ -376,8 +376,8 @@ models:
       local_path: null                                               # alternativa: cartella final/ copiata a mano
       files: ["lora/adapter_model.safetensors", "lora/adapter_config.json", "heads.pt", "settings.json"]  # model.py:129-139
       requires_base: true
-    code: {root: "src/apertus-8B-lora-heads", reference: "predict.py:65-179"}
-    prompt: {version: "heads-task", task_source: "src/apertus-8B-lora-heads/encoders.py:21-22", side: 256,
+    code: {root: "src/training/apertus-8B-lora-heads", reference: "predict.py:65-179"}
+    prompt: {version: "heads-task", task_source: "src/training/apertus-8B-lora-heads/encoders.py:21-22", side: 256,
              use_context_default: true, system_message: false}
     dtype: bfloat16
     confidence: {kind: full_distribution, method: head_softmax, training_loss: cross_entropy}
@@ -385,16 +385,16 @@ models:
     vram_estimate_gb: 22.0        # MISURATO: picco allocato, batch 32, H200 (results_full_h200.md:156)
     measured:
       - {what: "img/s (immagine → CSV)", value: 13.2, conditions: "H200, batch 32, coverage, caricamento escluso",
-         source: "src/apertus-8B-lora-heads/results_full_h200.md:156"}
+         source: "src/training/apertus-8B-lora-heads/results_full_h200.md:156"}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.781, weighted_f1: 0.905,
-         source: "src/apertus-8B-lora-heads/results_full_h200.md:23"}
+         source: "src/training/apertus-8B-lora-heads/results_full_h200.md:23"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.786, weighted_f1: 0.913,
-         source: "src/apertus-8B-lora-heads/results_full_h200.md:24"}
+         source: "src/training/apertus-8B-lora-heads/results_full_h200.md:24"}
       - {set: prompt-test, validity: phase1_internal, provenance: reported_only, macro_f1: 0.791, weighted_f1: 0.915,
-         source: "src/apertus-8B-lora-heads/results_full_h200.md:25"}
-    per_class_source: "src/apertus-8B-lora-heads/results_full_h200.md:46-120"
-    confusion_source: {dimension: perspective, set: coverage, source: "src/apertus-8B-lora-heads/results_full_h200.md:122-136"}
+         source: "src/training/apertus-8B-lora-heads/results_full_h200.md:25"}
+    per_class_source: "src/training/apertus-8B-lora-heads/results_full_h200.md:46-120"
+    confusion_source: {dimension: perspective, set: coverage, source: "src/training/apertus-8B-lora-heads/results_full_h200.md:122-136"}
     caveats: ["comportamento senza contesto prodotto non misurato (results_full_h200.md:17)"]
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
@@ -412,8 +412,8 @@ models:
       requires_base: true                                   # embedding congelati dal modello base (ft_model.py:117-122)
       job: {id: 6b09cdb46c5d61fff189842a, flavor: a100-large, status_at_verification: RUNNING, env: {PHASE: "2", EPOCHS: "3"}}
     code: {root_env: DEMO_FULLFT_SRC, branch: feat/apertus-8b-fullft-heads, commit: 9145fca,
-           reference: "src/apertus-8B-fullft-heads/ft_predict.py:34-109"}
-    prompt: {version: "heads-task", task_source: "src/apertus-8B-vadapter-lora-heads/encoders.py:30-31 (branch)",
+           reference: "src/training/apertus-8B-fullft-heads/ft_predict.py:34-109"}
+    prompt: {version: "heads-task", task_source: "src/training/apertus-8B-vadapter-lora-heads/encoders.py:30-31 (branch)",
              side: 256, use_context_default: true, prefix_tokens: 0}
     dtype: bfloat16
     confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
@@ -433,7 +433,7 @@ models:
     training: {data: "train_1500: 1.199 fit + 301 scelta", phase: 1, seen_sets: [train_1500]}
     evals:
       - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.542, weighted_f1: 0.612,
-         source: "src/confronto_lora.md:35", note: "set bilanciato, non confrontabile con coverage"}
+         source: "src/micro-training/confronto_lora.md:35", note: "set bilanciato, non confrontabile con coverage"}
     kaggle_dev: {score: null}
 
   - id: apertus-8b-frozen-heads-p9
@@ -445,7 +445,7 @@ models:
     training: {data: "train_1500: 1.199 fit + 301 scelta", phase: 1, seen_sets: [train_1500]}
     evals:
       - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.557, weighted_f1: 0.629,
-         source: "src/confronto_lora.md:36", note: "media di 5 seed; set bilanciato"}
+         source: "src/micro-training/confronto_lora.md:36", note: "media di 5 seed; set bilanciato"}
     kaggle_dev: {score: null}
 ```
 

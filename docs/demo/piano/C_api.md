@@ -77,7 +77,7 @@ Fonte: `common.prompt.TAXONOMY` (prompt.py:26-42) + `src/demo/config/erp_labels.
      "not_applicable": ["background", "perspective", "individuals", "text_classification"],
      "source": "challenge_description.md:102"}
   ],
-  "confidence_bins": {"low_below": 0.60, "high_from": 0.90, "source": "src/apertus-8B-benchmark/teacher_student_zeroshot.md:57"}
+  "confidence_bins": {"low_below": 0.60, "high_from": 0.90, "source": "src/plain-benchmark/apertus-8B-benchmark/teacher_student_zeroshot.md:57"}
 }
 ```
 

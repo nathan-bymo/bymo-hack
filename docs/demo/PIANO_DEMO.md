@@ -34,13 +34,13 @@ Le verifiche hanno corretto o completato alcuni dati del prompt del team:
 3. **LoRA P10**: l'adapter `final` (quello con 0.734 su coverage) **è perso**; restano gli snapshot
    `step-00123…step-00738`.
 4. **C'è un modello in più, P11** (Apertus 8B + LoRA + 6 teste, 9.344 immagini): **0.781 su coverage**, il migliore
-   misurato (src/RISULTATI.md:67). I pesi sono nel repo privato di un collega.
+   misurato (src/training/EXPERIMENTS.md:67). I pesi sono nel repo privato di un collega.
 5. `CLAUDE.md` e `docs/context/*.md` esistono solo sul branch del full FT.
 6. **Questa macchina non ha una GPU utilizzabile** (MX130 2 GB, driver non caricato, 7 GB di RAM) e non ha `.env`:
    oggi qui non gira nessun modello.
 7. **[DECISIONE PROPOSTA]** Codice in `src/demo/` (non `demo/`): il template dice "`src/` = Your code"
    (README.md:52). Dati locali in `data/demo/` (non `demo_data/`): già esclusi da `.gitignore:30` e cancellati
-   insieme ai dati della competizione dopo l'hackathon (src/RISULTATI.md:101).
+   insieme ai dati della competizione dopo l'hackathon (src/training/EXPERIMENTS.md:101).
 
 ---
 
@@ -95,11 +95,11 @@ Apertus v1.5**, una persona lo rivede, lo corregge e lo salva.
 | Niente etichette a mano su dev/final, niente ricerche nello shop | nessuna funzione della demo apre o mostra immagini dev/final; guardia sugli hash in upload; nessuna ricerca web delle immagini | challenge_description.md:56-57 |
 | Final solo per inferenza | la demo non tocca `final_encrypted.bin` né `final_images/` | challenge_description.md:86-87; CLAUDE.md:29 (branch) |
 | Dati mai in git né nei pesi | niente immagini, CSV, ID, label, predizioni, database o screenshot nel repo; controllo `check_no_data.py` prima di ogni commit | challenge_description.md:232-236; .gitignore:29-41 |
-| Stesso prompt e formato di training | preprocessing e prompt solo dalle funzioni del repo; test di parità | src/AGENTS.md:28 |
-| Nessuna azione esterna senza richiesta | niente job a pagamento, submission Kaggle, push, download di pesi o installazioni senza ok esplicito | src/AGENTS.md:85; CLAUDE.md:34, 73 (branch) |
+| Stesso prompt e formato di training | preprocessing e prompt solo dalle funzioni del repo; test di parità | former project instructions (removed) |
+| Nessuna azione esterna senza richiesta | niente job a pagamento, submission Kaggle, push, download di pesi o installazioni senza ok esplicito | former project instructions (removed); CLAUDE.md:34, 73 (branch) |
 | Pipeline del sabato intoccabile | branch `feat/demo-app`; nessun file di `src/` modificato; nessun uso della GPU/HF del team tra 13:00 e 14:30; freeze della demo alle 11:30; video registrato prima delle 13:00 | challenge_description.md:67-69 |
 | Lingua | documenti e commit in italiano, `feat:` / `docs:` / `chore:` | CLAUDE.md:67-68 (branch) |
-| Segreti | `LLM_API_KEY` e token HF solo da ambiente o `.env` ignorato; mai stampati | src/AGENTS.md:67; .gitignore:1-4 |
+| Segreti | `LLM_API_KEY` e token HF solo da ambiente o `.env` ignorato; mai stampati | former project instructions (removed); .gitignore:1-4 |
 | Immagini mostrabili | nel pitch, nel video e nel report si possono mostrare **poche** immagini della competizione | challenge_description.md:235-236; FAQ.md:114-116 |
 
 ### 2.1 Definition of Done
@@ -124,7 +124,7 @@ Apertus v1.5**, una persona lo rivede, lo corregge e lo salva.
 
 Dettagli completi, con fonti riga per riga, in [allegato A](piano/A_inventario.md). Sintesi:
 
-**Tassonomia:** 41 classi in `src/common/prompt.py:26-42`, uguali a `metric.VALID_CLASSES` [VERIFICATO]; l'ordine
+**Tassonomia:** 41 classi in `src/training/common/prompt.py:26-42`, uguali a `metric.VALID_CLASSES` [VERIFICATO]; l'ordine
 fissa l'indice delle teste e la lettera del prompt v2. Tabella completa con indice, lettera ed etichetta ERP in
 [A.2](piano/A_inventario.md#a2-tassonomia-41-classi); regole `relevant`/`none`/`-` in
 [A.2.1](piano/A_inventario.md#a21-none-relevant-e--).
@@ -143,10 +143,10 @@ fissa l'indice delle teste e la lettera del prompt v2. Tabella completa con indi
 **Artefatti di valutazione** ([A.5](piano/A_inventario.md#a5-artefatti-di-valutazione)): nessuna predizione per
 immagine su questa macchina; metriche complete leggibili da macchina solo per P10 (JSON); il resto è markdown;
 unica matrice di confusione: perspective di P11 su coverage (results_full_h200.md:122-136); un solo punteggio Kaggle dev registrato, quello di P11 (0.796,
-results_full_h200.md:150-162; src/RISULTATI.md:90 non lo riporta ancora).
+results_full_h200.md:150-162; src/training/EXPERIMENTS.md:90 non lo riporta ancora).
 
 **Funzione di punteggio:** il repo usa sempre `metric.py` dei dati Kaggle, caricato con `importlib`
-(src/scripts/eval_prompt.py:59-63; src/apertus-8B-lora-heads/data.py:166-172). Nessuna reimplementazione.
+(src/scripts/eval_prompt.py:59-63; src/training/apertus-8B-lora-heads/data.py:166-172). Nessuna reimplementazione.
 
 **Gap:** 18 punti in [A.7](piano/A_inventario.md#a7-gap-trovati-e-gestione-proposta); i più importanti: screenshot
 assenti (G1), codice del full FT solo su branch (G3), adapter P10 perso (G5), pesi P11 non accessibili (G6), nessuna
@@ -210,7 +210,7 @@ worker per famiglia (:8011–8013) → codice src/ + cache HF}`; l'API scrive tu
 | parte | scelta | perché |
 |---|---|---|
 | backend | Python del `.venv` del repo (3.12.15; il codice del repo chiede ≥ 3.11), FastAPI + Uvicorn, Pydantic 2.14.4 (già installato), `sqlite3` della libreria standard (niente ORM), PyYAML, httpx | il `.venv` ha già il fork di transformers, pandas 3.1.1 e pillow 13.0.0 alle versioni del repo [VERIFICATO A.6]; meno dipendenze nuove |
-| worker GPU | stesse versioni dei job: torch 2.8.0, torchvision 0.23.0, fork transformers @3797303, peft 0.22.0, accelerate 1.16.0 | identiche a quelle che hanno prodotto i pesi (src/apertus-8B-lora-heads/build_hf_job.py:40-55) |
+| worker GPU | stesse versioni dei job: torch 2.8.0, torchvision 0.23.0, fork transformers @3797303, peft 0.22.0, accelerate 1.16.0 | identiche a quelle che hanno prodotto i pesi (src/training/apertus-8B-lora-heads/build_hf_job.py:40-55) |
 | frontend | React + TypeScript + Vite, Tailwind CSS, TanStack Query, React Router, Recharts (+ visx per la heatmap), react-dropzone; Playwright per gli E2E | nessun frontend esistente nel repo; Node 22.22.2 e npm 10.9.7 presenti [VERIFICATO]; versioni fissate dal lockfile in M0.4 |
 | tempo reale | Server-Sent Events (`StreamingResponse`), con ripiego a polling | un solo verso (server → client) basta; nessuna libreria in più |
 
@@ -323,7 +323,7 @@ P10 0,319 GB).
 
 | famiglia | metodo | distribuzione | top-k | note |
 |---|---|---|---|---|
-| teste (P11, full FT) | softmax dei logit di ogni testa, come predict.py:142 e ft_predict.py:87 | completa sulle classi della dimensione | le 3 probabilità più alte | P11 allenato con cross-entropy, full FT con focal γ=2 + alpha per classe: la focal e i pesi spostano le probabilità, quindi **le due confidenze non sono confrontabili**. Nessuna calibrazione: calibrare su coverage è vietato in fase 1 (src/AGENTS.md:47) |
+| teste (P11, full FT) | softmax dei logit di ogni testa, come predict.py:142 e ft_predict.py:87 | completa sulle classi della dimensione | le 3 probabilità più alte | P11 allenato con cross-entropy, full FT con focal γ=2 + alpha per classe: la focal e i pesi spostano le probabilità, quindi **le due confidenze non sono confrontabili**. Nessuna calibrazione: calibrare su coverage è vietato in fase 1 (former project instructions (removed)) |
 | zero-shot v2 (8B, 70B) | probabilità della lettera dalle top-20 logprob, rinormalizzate sulle lettere valide (`prompt._distribution`, prompt.py:378-386) | completa | le 3 più alte | condizionata alla descrizione generata dallo stesso modello; se le logprob mancano → `null` |
 | LoRA generativo (P10) — **metodo A (default)** | `generate(..., output_scores=True, return_dict_in_generate=True)`; confidenza = prodotto delle probabilità dei token del valore scelto, individuati con gli offset del testo generato | solo la classe scelta | `null` | `confidence_method = "sequence_prob"`; il test di parità verifica che le sequenze siano identiche con e senza `output_scores` |
 | LoRA generativo (P10) — metodo B (stretch) | scoring vincolato: per ogni dimensione, nell'ordine di `DIMENSIONS`, con il prefisso JSON costruito dai valori greedy precedenti (formato di `serialize_answer`, apertus_lora.py:272-280), log-verosimiglianza di ogni classe + virgolette di chiusura; softmax sulle classi | completa | le 3 più alte | 41 continuazioni per immagine (6 forward con prefisso condiviso); **la label resta quella greedy** (parità); se l'argmax del metodo B è diverso, icona di avviso |
@@ -334,7 +334,7 @@ Regole:
   testo grezzo visibile, nessuna riparazione né mappatura inventata; per lo zero-shot vale per dimensione. Nelle
   statistiche del batch conta come errore.
 - **Fasce di colore** del chip: < 0,60 bassa, 0,60–0,90 media, ≥ 0,90 alta, le stesse fasce usate nell'analisi
-  della confidenza del 70B (src/apertus-8B-benchmark/teacher_student_zeroshot.md:57). Configurabili. Sono solo un
+  della confidenza del 70B (src/plain-benchmark/apertus-8B-benchmark/teacher_student_zeroshot.md:57). Configurabili. Sono solo un
   aiuto visivo, non soglie validate.
 - **Spiegazione in UI**: tooltip del chip e `ConfidenceMethodNote` con il metodo ("Head softmax probability",
   "Answer-letter probability", "Probability of the generated value") e la frase "Confidence values from different
@@ -413,7 +413,7 @@ data/demo/
 **Ciclo di vita della sessione:** creazione → upload (una volta) → predizioni con il modello A → cambio a B sulle
 stesse righe di `images` (nessun nuovo upload; cache per modello) → revisioni → export → la sessione resta finché
 `make -C src/demo clean-data` non cancella `data/demo/` (da fare dopo l'hackathon con gli altri dati della
-competizione, src/RISULTATI.md:101).
+competizione, src/training/EXPERIMENTS.md:101).
 
 **Le correzioni umane sono solo dati della demo**: nessun endpoint, script o formato le trasforma in dati di
 training; `src/demo/README.md` lo scrive in chiaro.
@@ -449,7 +449,7 @@ training; `src/demo/README.md` lo scrive in chiaro.
 ### 9.2 Calcolo esatto
 
 - **Celle valutate**: label umana in una dimensione rilevante, `common.splits.scored_cells` (splits.py:33-37);
-  soluzione con le celle non valutate vuote, come `data.solution_frame` (src/apertus-8B-lora-heads/data.py:157-163).
+  soluzione con le celle non valutate vuote, come `data.solution_frame` (src/training/apertus-8B-lora-heads/data.py:157-163).
 - **Macro F1 per dimensione** e **media delle 6**, **weighted F1**, P/R/F1/supporto per classe: `metric.evaluate`
   (data/hackapertus-galaxus/metric.py:73-94), mai reimplementati. Classi = label ∪ classi valide predette; una
   cella predetta vuota è sbagliata ma non crea una classe (metric.py:141-169).
@@ -503,7 +503,7 @@ Assegnazione oggi:
 | P8 / P9 | — | — | held-out · reported only (set bilanciato) | n/a |
 
 Banner fisso nella dashboard (testo `banner.coverage` di D.2.1): coverage è un set interno di fase 1, arricchito con
-classi rare; serve a confrontare metodi, non stima la classifica Kaggle (src/common/splits.py:12-13). Il badge rosso
+classi rare; serve a confrontare metodi, non stima la classifica Kaggle (src/training/common/splits.py:12-13). Il badge rosso
 ha il tooltip "This model was trained on these images: not a valid evaluation."
 
 ### 9.4 Grafici
@@ -514,7 +514,7 @@ ha il tooltip "This model was trained on these images: not a valid evaluation."
    **"Organisers' reference (Qwen 3.5 9B FT, dev)"** (challenge_description.md:143) e la nota "Different set (Kaggle
    dev): not directly comparable with coverage".
 3. **Tabella per classe**: P/R/F1/supporto; classi con supporto < 30 evidenziate (30 è l'obiettivo per classe di
-   coverage, src/common/splits.py:21-22).
+   coverage, src/training/common/splits.py:21-22).
 4. **Matrice di confusione** per dimensione con normalizzazione per riga: oggi solo P11 / perspective / coverage;
    le altre dopo `evaluate.py`.
 5. **Confidenza corrette vs sbagliate** e **curva di calibrazione** (10 fasce): solo con predizioni per immagine
@@ -606,7 +606,7 @@ host, stessa revisione dei pesi. Script `src/demo/scripts/parity.py --model <id>
 
 | modello | riferimento | come | criterio |
 |---|---|---|---|
-| P11 | `src/apertus-8B-lora-heads/predict.py --part coverage --limit 20 --batch-size 20` | l'adapter predice le stesse 20 immagini in un solo lotto, nello stesso ordine | label **identiche** su 120 celle; probabilità con differenza massima ≤ 1e-3 |
+| P11 | `src/training/apertus-8B-lora-heads/predict.py --part coverage --limit 20 --batch-size 20` | l'adapter predice le stesse 20 immagini in un solo lotto, nello stesso ordine | label **identiche** su 120 celle; probabilità con differenza massima ≤ 1e-3 |
 | full FT | `ft_predict.py --part coverage --limit 20 --batch-size 20` (worktree) | idem | label identiche; probabilità ≤ 1e-3 |
 | P10 | logica di `evaluate.py` con `--limit 20 --batch 20` (richiede i codici di `encode.py --part coverage --no-mirrors`) | stesso ordinamento per lunghezza e stesso lotto | **testo generato identico** e quindi label identiche; identico anche con `output_scores=True` |
 | zero-shot 8B/70B | `eval_prompt.py 8b:describe:codes:512 --rows <csv di 20 righe in data/>` | (a) corpi di richiesta identici (test unitario); (b) le risposte salvate in `data/runs/…/answers.jsonl` passate al parser della demo danno label identiche | identità su (a) e (b); l'accordo di una nuova chiamata live è solo riportato, perché il gateway condiviso può non essere deterministico |

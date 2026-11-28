@@ -290,7 +290,7 @@ Valori nelle wireframe: `0.xx`, `x,x` e testi tra `<…>` sono **segnaposto**. I
 ```
 │ ██ Performance — modelli Apertus █████████████████████████████████████████████████████████████████████ │
 │ ⚠ "coverage" è un set interno di fase 1 arricchito con classi rare: utile per confrontare metodi,        │
-│   NON stima la classifica Kaggle (src/common/splits.py:12-13).   Set: [coverage ▾]  ☐ includi non validi │
+│   NON stima la classifica Kaggle (src/training/common/splits.py:12-13).   Set: [coverage ▾]  ☐ includi non validi │
 │ ┌ Model card ───────────┐ ┌ Model card ───────────┐ ┌ Model card ───────────┐ ┌ Model card ─────────────┐ │
 │ │ P11 LoRA + teste      │ │ 70B zero-shot v2      │ │ 8B zero-shot v2       │ │ Full FT (fase 2)        │ │
 │ │ macro F1 0.xxx        │ │ macro F1 0.xxx        │ │ macro F1 0.xxx        │ │ coverage: ⛔ seen during│ │

@@ -1,7 +1,4 @@
-"""Full fine-tune: 24 layer allenati + 6 teste (branch `feat/apertus-8b-fullft-heads`). Piano B.4.2. NON verificata.
-
-Il codice è letto da `DEMO_FULLFT_SRC` (worktree del branch) finché il team non lo unisce in main.
-"""
+"""Full fine-tune: 24 trained layers and six classification heads."""
 
 from __future__ import annotations
 
@@ -16,11 +13,11 @@ class FullFtHeadsFamily(HeadsFamilyBase):
     name = "fullft_heads"
 
     def _modules(self):
-        src = Path(os.environ.get("DEMO_FULLFT_SRC") or REPO_ROOT / "src").resolve()
+        src = Path(os.environ.get("DEMO_FULLFT_SRC") or REPO_ROOT / "src" / "training").resolve()
         folder = src / "apertus-8B-fullft-heads"
         if not (folder / "ft_model.py").exists():
             raise WorkerError("MODEL_UNAVAILABLE", "full fine-tune code not found: set DEMO_FULLFT_SRC to the "
-                              "`src` folder of a worktree of feat/apertus-8b-fullft-heads")
+                              "directory containing apertus-8B-fullft-heads and apertus-8B-vadapter-lora-heads")
         add_path(REPO_ROOT / "src")
         add_path(folder)
         import ft_model as FM  # noqa: F401 - aggiunge da solo la cartella apertus-8B-vadapter-lora-heads al path

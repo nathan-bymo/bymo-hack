@@ -1,7 +1,7 @@
 """Averages the class probabilities of several models, dimension by dimension, and writes the predicted classes.
 
 Each input is a .pt file with image_ids and probabilities, in one of the two formats of the team:
-  - src/apertus-8B-lora-heads/predict.py: {"image_ids", "dimensions", "probabilities": [tensor per dimension]},
+  - src/training/apertus-8B-lora-heads/predict.py: {"image_ids", "dimensions", "probabilities": [tensor per dimension]},
     classes in the order of common.prompt.TAXONOMY;
   - the other folders: {"image_ids", "classes": {dimension: [names]}, "probabilities": {dimension: tensor}}.
 Classes are matched by name, so the order inside a file does not matter. Files are loaded with weights_only=True.
@@ -22,7 +22,7 @@ import pandas as pd
 import torch
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "training"))
 from common import prompt  # noqa: E402
 
 DIMENSIONS, TAXONOMY = prompt.DIMENSIONS, prompt.TAXONOMY

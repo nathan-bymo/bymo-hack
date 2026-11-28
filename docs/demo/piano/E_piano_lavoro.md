@@ -74,7 +74,7 @@ M4.2 → M4.4 → M7.3. Il flusso B parte da M0.4 e si aggancia a M2.2 quando l'
   `httpx`, `pytest`, `pytest-asyncio`; pandas e pillow alle versioni di `src/requirements.txt:1-2`),
   `src/demo/backend/requirements-gpu.txt` (stesse versioni dei job: torch==2.8.0, torchvision==0.23.0, fork
   transformers @3797303dda74844e3d1f8977ff5518bb91f818b4, peft==0.22.0, accelerate==1.16.0, safetensors,
-  huggingface_hub; fonte src/apertus-8B-lora-heads/build_hf_job.py:40-55).
+  huggingface_hub; fonte src/training/apertus-8B-lora-heads/build_hf_job.py:40-55).
 - **Dipende da:** M0.1
 - **Passi:** 1) chiedere l'ok all'installazione; 2) installare **nel `.venv` del repo** (ha già fork transformers,
   pandas, pillow, pydantic) i soli pacchetti mancanti; 3) fissare le versioni installate in `requirements.txt` con

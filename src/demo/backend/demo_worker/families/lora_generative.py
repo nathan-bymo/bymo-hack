@@ -1,4 +1,4 @@
-"""P10: Apertus 8B + LoRA (JSON generato), `src/apertus-8B-benchmark/lora`. Piano B.3. NON verificata su GPU.
+"""P10: Apertus 8B + LoRA (JSON generato), `src/micro-training/lora-generativo`. Piano B.3. NON verificata su GPU.
 
 Confidenza (metodo A): prodotto delle probabilità dei token del valore scelto, dagli score della generazione
 (`output_scores=True`). Il test di parità deve mostrare che le sequenze generate sono identiche con e senza score.
@@ -13,7 +13,7 @@ from typing import Callable
 
 from .base import DIMENSIONS, REPO_ROOT, Family, WorkerError, add_path, gpu_info, written_images
 
-FOLDER = REPO_ROOT / "src" / "apertus-8B-benchmark" / "lora"
+FOLDER = REPO_ROOT / "src" / "micro-training" / "lora-generativo"
 
 
 def value_token_confidence(tokenizer, generated_ids: list[int], scores_prob: list[float], text: str) -> dict:

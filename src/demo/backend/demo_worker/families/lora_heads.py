@@ -1,4 +1,4 @@
-"""P11: Apertus 8B + LoRA fuso + 6 teste (`src/apertus-8B-lora-heads`). Piano B.4.1. NON verificata su GPU."""
+"""P11: Apertus 8B + LoRA fuso + 6 teste (`src/training/apertus-8B-lora-heads`). Piano B.4.1. NON verificata su GPU."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from contextlib import nullcontext
 from .base import REPO_ROOT, add_path, assert_module_origin
 from .heads_common import HeadsFamilyBase
 
-FOLDER = REPO_ROOT / "src" / "apertus-8B-lora-heads"
+FOLDER = REPO_ROOT / "src" / "training" / "apertus-8B-lora-heads"
 
 
 class LoraHeadsFamily(HeadsFamilyBase):

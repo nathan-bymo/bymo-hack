@@ -11,7 +11,7 @@ from .settings import REPO_ROOT
 
 
 def ensure_src_on_path(src_dir: Path | None = None) -> None:
-    path = str(src_dir or REPO_ROOT / "src")
+    path = str(src_dir or REPO_ROOT / "src" / "training")
     if path not in sys.path:
         sys.path.insert(0, path)
 

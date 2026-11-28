@@ -49,7 +49,7 @@ def heads(settings: Settings, registry: Registry, model_id: str, n: int) -> dict
     base_dir, checkpoint = resolve_weights(raw["weights"], registry.defaults["base_model"])
     train = pd.read_csv(settings.kaggle_dir / "train.csv", dtype=str, keep_default_na=False)
     rows = splits_module().split_rows(train, "coverage").head(n)
-    folder = (settings.fullft_src if model_id == "apertus-8b-fullft-heads" else settings.repo_root / "src")
+    folder = (settings.fullft_src if model_id == "apertus-8b-fullft-heads" else settings.repo_root / "src" / "training")
     script = folder / ("apertus-8B-fullft-heads/ft_predict.py" if model_id == "apertus-8b-fullft-heads"
                        else "apertus-8B-lora-heads/predict.py")
     with tempfile.TemporaryDirectory() as tmp:

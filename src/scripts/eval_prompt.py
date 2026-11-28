@@ -1,6 +1,6 @@
 """Compare prompt variants on labeled train images through the Apertus API, scored with metric.py.
 
-The splits are described in src/common/splits.py: "dev", "test", "base" (both) and "coverage" (base plus extra
+The splits are described in src/training/common/splits.py: "dev", "test", "base" (both) and "coverage" (base plus extra
 products so that every class has enough examples). With "coverage" the results are shown three times: on all rows,
 on "base" (the natural class distribution) and on "test" alone (never used to choose a prompt before 2026-11-27).
 Keep the whole coverage set out of any finetuning. --rows scores any csv with the columns of train.csv instead,
@@ -8,7 +8,7 @@ for example a prototype validation split.
 
 Variants are written model:layout:answer:side[:nocontext], for example 8b:describe:names:512. Layouts "split" and
 "describe" take the answers "names" or "codes"; "minimal" and "full" take "json" or "codes"; "shared" is the
-team prompt in src/docs/system_prompt.txt and takes "json". Differences to the
+shared JSON prompt in common.prompt and takes "json". Differences to the
 first variant come with a paired bootstrap interval over products.
 
 A variant that ends in .csv is a file of predictions made elsewhere, for example by a finetuned model or a visual
@@ -36,12 +36,11 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "training"))
 from common import images, prompt, splits  # noqa: E402
 from common.splits import digest  # noqa: E402
 
 DATA = ROOT / "data"
-SHARED_PROMPT = ROOT / "src" / "docs" / "system_prompt.txt"
 
 
 def load_env():
@@ -105,7 +104,7 @@ def run_variant(spec, rows, concurrency):
     elif style == "shared":
         if answer != "json":
             sys.exit("the shared team prompt asks for JSON: use shared:json")
-        wording, version = SHARED_PROMPT.read_text(), "team"
+        wording, version = prompt.SHARED_JSON_PROMPT, "team"
     else:
         wording, version = prompt.system_prompt(style, answer), prompt.PROMPT_VERSION
     folder = DATA / "runs" / f"{spec.replace(':', '_')}_{version}_{digest(wording)[:8]}"
@@ -126,7 +125,7 @@ def run_variant(spec, rows, concurrency):
         if not split_layout:
             if style == "shared":
                 messages = prompt.build_messages(row, url, "minimal", answer, use_context)
-                messages[0]["content"] = SHARED_PROMPT.read_text()
+                messages[0]["content"] = prompt.SHARED_JSON_PROMPT
             else:
                 messages = prompt.build_messages(row, url, style, answer, use_context)
             record["choice"], record["usage"] = ask(messages, prompt.output_constraint(answer))
