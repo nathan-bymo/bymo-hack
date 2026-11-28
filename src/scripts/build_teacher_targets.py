@@ -33,7 +33,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src" / "scripts"))
-sys.path.insert(0, str(ROOT / "src" / "training"))
+sys.path.insert(0, str(ROOT / "src" / "training" / "phase-3" / "src" / "training"))
 from common import splits  # noqa: E402
 from ensemble import DIMENSIONS, TAXONOMY, load_probabilities  # noqa: E402
 

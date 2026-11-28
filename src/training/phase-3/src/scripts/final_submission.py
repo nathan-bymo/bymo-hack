@@ -25,8 +25,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
     sample = D.read_csv(args.sample)
     columns = ["image_id", *D.DIMENSIONS]
-    submission, counts = S.build(sample, [D.read_csv(args.dev)[columns], D.read_csv(args.final)[columns]],
-                                 set(sample.image_id))
+    final = D.read_csv(args.final)[columns]
+    dev = D.read_csv(args.dev)[columns]
+    dev = dev[~dev.image_id.isin(set(final.image_id))]  # a full earlier submission works too: its final rows are replaced
+    submission, counts = S.build(sample, [dev, final], set(sample.image_id))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     submission.to_csv(args.out, index=False)
     print(counts)

@@ -13,7 +13,8 @@ from typing import Callable
 
 from .base import DIMENSIONS, REPO_ROOT, Family, WorkerError, add_path, gpu_info, written_images
 
-FOLDER = REPO_ROOT / "src" / "micro-training" / "lora-generativo"
+PHASE_SRC = REPO_ROOT / "src" / "micro-training" / "phase-2" / "src"
+FOLDER = PHASE_SRC / "micro-training" / "lora-generativo"
 
 
 def value_token_confidence(tokenizer, generated_ids: list[int], scores_prob: list[float], text: str) -> dict:
@@ -62,7 +63,7 @@ class LoraGenerativeFamily(Family):
             raise WorkerError("MODEL_UNAVAILABLE", "no CUDA GPU is visible to the worker")
         on_state("loading", "resolving local weights")
         base_dir, adapter_dir = resolve_weights(cfg["weights"], cfg["base"])
-        add_path(REPO_ROOT / "src")
+        add_path(PHASE_SRC)
         add_path(FOLDER)
         import apertus_lora as L
 

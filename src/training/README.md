@@ -7,7 +7,6 @@ For setup, verified checks and outstanding provenance, start with the [reproduci
 - [Phase 1](phase-1/README.md): the three initial training directions.
 - [Phase 2](phase-2/README.md): subsequent LoRA and visual-adapter improvements.
 - [Phase 3](phase-3/README.md): DINOv3 and mixed experiments.
-- [Phase 4](phase-4/README.md): final fit of the mixed model on all labelled images (prepared on 28 November).
 
 Each phase folder contains its own copy of the code needed for that phase and runs as a standalone working root. These copies reflect the current implementation, not historical snapshots. Existing model directories are retained for compatibility; historical runs require their original revisions and artifacts.
 
@@ -19,7 +18,7 @@ The model directories contain the actual training, encoding, prediction and Hugg
 | LoRA + heads | `apertus-8B-lora-heads/` | [phase 1](phase-1/RESULTS.md) (P11), [phase 2](phase-2/RESULTS.md) (P12) | `hf_job_lora_heads.py` |
 | Fine-tuned decoder + heads | `apertus-8B-fullft-heads/` | [phase 1](phase-1/RESULTS.md) | `hf_job_fullft.py` |
 | Visual adapter + LoRA + heads + OCR | `apertus-8B-vadapter-lora-heads/` | [phase 1](phase-1/RESULTS.md), [phase 2](phase-2/RESULTS.md) | `hf_job_vlh.py` |
-| DINOv3 and mixed (delivered) | `apertus-8B-dinov3-lora-heads/`, `apertus-8B-mixed-lora-heads/` | [phase 3](phase-3/RESULTS.md), [phase 4](phase-4/RESULTS.md) | `hf_job_dinov3.py`, `hf_job_mixed.py` |
+| DINOv3 and mixed (delivered) | `apertus-8B-dinov3-lora-heads/`, `apertus-8B-mixed-lora-heads/` | [phase 3](phase-3/RESULTS.md) | `hf_job_dinov3.py`, `hf_job_mixed.py` |
 
 Each job uploads checkpoints and logs to the private `UPLOAD_REPO`; training and data acquisition require appropriately configured HF and Kaggle access. Use private repositories for competition data and artifacts. Set credentials as local environment variables or Hugging Face Jobs secrets; do not put them in source files. The commands below create scripts or show launch patterns; they do not submit competition predictions.
 

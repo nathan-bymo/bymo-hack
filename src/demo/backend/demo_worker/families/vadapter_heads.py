@@ -12,14 +12,15 @@ import time
 from .base import DIMENSIONS, REPO_ROOT, WorkerError, add_path, assert_module_origin, head_prediction
 from .heads_common import HeadsFamilyBase
 
-FOLDER = REPO_ROOT / "src" / "training" / "apertus-8B-vadapter-lora-heads"
+PHASE_SRC = REPO_ROOT / "src" / "training" / "phase-2" / "src"
+FOLDER = PHASE_SRC / "training" / "apertus-8B-vadapter-lora-heads"
 
 
 class VadapterHeadsFamily(HeadsFamilyBase):
     name = "vadapter_heads"
 
     def _modules(self):
-        add_path(REPO_ROOT / "src")
+        add_path(PHASE_SRC)
         add_path(FOLDER)
         import data as D
         import encoders as E

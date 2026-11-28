@@ -15,7 +15,7 @@ python src/micro-training/lora-generativo/build_hf_job.py
 export PROTOTYPE_IDS="$(python src/micro-training/lora-generativo/build_hf_job.py --pack-prototype data/prototype_splits)"
 hf jobs uv run --flavor h200 --timeout 3h \
   --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN --secrets PROTOTYPE_IDS \
-  -e PART=prototype_train -e SIDE=256 -e TRAIN_HOURS=2 \
+  -e PART=prototype_train -e SIDE=256 -e TRAIN_HOURS=2 -e BATCH=8 -e ACCUMULATION=2 \
   -e UPLOAD_REPO=YOUR_PRIVATE_MODEL_REPO src/micro-training/lora-generativo/hf_job.py
 ```
 

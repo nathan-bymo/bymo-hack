@@ -17,7 +17,7 @@ Files: `lora/` (LoRA rank 32 on 24 layers), `trainable.pt` (projector, heads, sp
 
 Base: `swiss-ai/Apertus-v1.5-8B`, revision `1519de0ae7f3d114879291810a58259966f64c99`. SigLIP:
 `google/siglip2-base-patch16-224`. DINOv3: `facebook/dinov3-vitb16-pretrain-lvd1689m`, revision
-`5931719e67bbdb9737e363e781fb0c67687896bc`. Code: `src/training/apertus-8B-mixed-lora-heads/`. Private Hugging
+`5931719e67bbdb9737e363e781fb0c67687896bc`. Code: `src/training/phase-3/src/training/apertus-8B-mixed-lora-heads/`; final predictions: `src/inference/phase-3-model/`. Private Hugging
 Face copy: `nathan-monzani-bymo/galaxus-vlh-private`, `mixed-modal-20261128-033303/model/best`. Results and their
 sources: [phase-3 results](../../src/training/phase-3/RESULTS.md); standalone code copy and run commands:
 [phase 3](../../src/training/phase-3/README.md).

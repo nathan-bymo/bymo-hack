@@ -12,7 +12,7 @@
 - **Qualità.** Il CSV dev contiene immagini e contesto, con etichette riservate alla valutazione Kaggle. I punteggi della colonna Kaggle sono storici. La diagnostica sul dev usa le confidenze softmax e i disaccordi, senza applicare il filtro ufficiale sulle celle umane e rilevanti. La confidenza è grezza e può avere calibrazione diversa tra modelli.
 - **Esecuzione.** Il primo job si è fermato durante il caricamento dell’OCR. Il job con il controllo OpenCV corretto ha salvato tutti i tempi e si è poi fermato per un import del runner. La passata diagnostica successiva ha completato l’aggregazione. Le sue velocità figurano come replica a batch 32.
 
-[Runner](../src/scripts/benchmark_dev.py) · [Job dei tempi](https://huggingface.co/jobs/StoryofLegend/6b0a153e54072e8b716b2b36) · [Job diagnostico completato](https://huggingface.co/jobs/StoryofLegend/6b0a1cd454072e8b716b458a) · [Regole di scoring](../challenge_description.md#evaluation)
+Runner: `src/scripts/benchmark_dev.py` (removed in the clean-up, see git history) · [Job dei tempi](https://huggingface.co/jobs/StoryofLegend/6b0a153e54072e8b716b2b36) · [Job diagnostico completato](https://huggingface.co/jobs/StoryofLegend/6b0a1cd454072e8b716b458a) · [Regole di scoring](../challenge_description.md#evaluation)
 
 ## Confronto operativo
 

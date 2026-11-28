@@ -61,3 +61,6 @@ src/demo/frontend/.vite/
 # Pesi dei modelli consegnati o condivisi: solo in weights/, con Git LFS (vedi .gitattributes)
 !weights/**/*.safetensors
 !weights/**/*.pt
+
+# data folder or symlink inside a standalone phase root
+src/**/phase-*/data

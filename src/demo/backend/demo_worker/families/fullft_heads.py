@@ -13,12 +13,12 @@ class FullFtHeadsFamily(HeadsFamilyBase):
     name = "fullft_heads"
 
     def _modules(self):
-        src = Path(os.environ.get("DEMO_FULLFT_SRC") or REPO_ROOT / "src" / "training").resolve()
+        src = Path(os.environ.get("DEMO_FULLFT_SRC") or REPO_ROOT / "src" / "training" / "phase-1" / "src" / "training").resolve()
         folder = src / "apertus-8B-fullft-heads"
         if not (folder / "ft_model.py").exists():
             raise WorkerError("MODEL_UNAVAILABLE", "full fine-tune code not found: set DEMO_FULLFT_SRC to the "
                               "directory containing apertus-8B-fullft-heads and apertus-8B-vadapter-lora-heads")
-        add_path(REPO_ROOT / "src")
+        add_path(src.parent)
         add_path(folder)
         import ft_model as FM  # noqa: F401 - aggiunge da solo la cartella apertus-8B-vadapter-lora-heads al path
         import data as D

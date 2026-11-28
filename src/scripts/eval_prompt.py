@@ -36,7 +36,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src" / "training"))
+sys.path.insert(0, str(ROOT / "src" / "training" / "phase-3" / "src" / "training"))
 from common import images, prompt, splits  # noqa: E402
 from common.splits import digest  # noqa: E402
 

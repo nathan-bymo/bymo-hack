@@ -16,4 +16,4 @@ Is the 70B reliable when confident? On coverage, its perspective answers are rig
 
 Four-decimal coverage scores: 70B description 0.5829, 8B description 0.5282, 70B shared JSON 0.3036, 8B shared JSON 0.2293. Source: `src/training/benchmark/overall.md`, `src/training/benchmark/README.md` (speeds).
 
-Source: `src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md`, `src/plain-benchmark/apertus-8B-benchmark/prompt_eval.md`, `src/plain-benchmark/apertus-8B-benchmark/teacher_student_zeroshot.md` and `src/plain-benchmark/apertus-70B-benchmark/README.md`; these files are deleted in the current working tree and can be read with `git show 36d3aff:<path>`.
+Source: `src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md`, `src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval.md`, `src/plain-benchmark/reports/apertus-8B-benchmark/teacher_student_zeroshot.md` and `src/plain-benchmark/reports/apertus-70B-benchmark/README.md`.

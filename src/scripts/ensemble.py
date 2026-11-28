@@ -22,7 +22,7 @@ import pandas as pd
 import torch
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src" / "training"))
+sys.path.insert(0, str(ROOT / "src" / "training" / "phase-3" / "src" / "training"))
 from common import prompt  # noqa: E402
 
 DIMENSIONS, TAXONOMY = prompt.DIMENSIONS, prompt.TAXONOMY

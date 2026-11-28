@@ -14,6 +14,6 @@ Base: `swiss-ai/Apertus-v1.5-8B`, revision `1519de0ae7f3d114879291810a58259966f6
 [phase-2 results](../../src/training/phase-2/RESULTS.md#trainable-siglip-lora-on-final-abt-run-siglip-lora-1128-0815).
 
 ```sh
-python src/training/apertus-8B-vadapter-lora-heads/predict.py \
-  --checkpoint weights/apertus-8B-siglip-lora-heads --csv data/dev.csv --out data/runs/siglip_lora/dev.csv
+cd src/training/phase-2 && python src/training/apertus-8B-vadapter-lora-heads/predict.py \
+  --checkpoint ../../../weights/apertus-8B-siglip-lora-heads --csv data/dev.csv --out data/runs/siglip_lora/dev.csv
 ```

@@ -34,7 +34,7 @@ class Settings:
     kaggle_dir: Path = field(default_factory=lambda: REPO_ROOT / "data" / "hackapertus-galaxus")
     metric_path: Path = field(default_factory=lambda: REPO_ROOT / "data" / "hackapertus-galaxus" / "metric.py")
     models_yaml: Path = field(default_factory=lambda: REPO_ROOT / "src" / "demo" / "models.yaml")
-    fullft_src: Path = field(default_factory=lambda: REPO_ROOT / "src" / "training")
+    fullft_src: Path = field(default_factory=lambda: REPO_ROOT / "src" / "training" / "phase-1" / "src" / "training")
     frontend_dist: Path = field(default_factory=lambda: REPO_ROOT / "src" / "demo" / "frontend" / "dist")
     max_upload_mb: int = 20
     max_files_per_request: int = 50
@@ -61,7 +61,7 @@ class Settings:
             kaggle_dir=kaggle,
             metric_path=_path("DEMO_METRIC_PATH", kaggle / "metric.py"),
             models_yaml=_path("DEMO_MODELS_YAML", REPO_ROOT / "src" / "demo" / "models.yaml"),
-            fullft_src=_path("DEMO_FULLFT_SRC", REPO_ROOT / "src" / "training"),
+            fullft_src=_path("DEMO_FULLFT_SRC", REPO_ROOT / "src" / "training" / "phase-1" / "src" / "training"),
             frontend_dist=_path("DEMO_FRONTEND_DIST", REPO_ROOT / "src" / "demo" / "frontend" / "dist"),
             max_upload_mb=int(os.environ.get("DEMO_MAX_UPLOAD_MB", "20")),
             max_pixels=int(os.environ.get("DEMO_MAX_PIXELS", "50000000")),

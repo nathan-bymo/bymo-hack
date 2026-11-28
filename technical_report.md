@@ -173,8 +173,9 @@ meets the constraint, and what is still missing:**
 
 ## 6. Reproducibility
 
-- **Exact commit:** *final submission commit to be recorded after the 13:00 run.* It must be `37aea4b` or later:
-  `37aea4b` fixes an in-place update in the selective TTA that stopped the `final` preset at its first batch. The
+- **Exact commit:** `989dcf875b238aa47fa7f6c0e4821cf360dd68a3` holds the inference code of the final run (Modal run
+  `infer-final-20261128-122658`, 28 Nov, 13:26–13:35 CET, 13.6 images/s, no image replaced). It includes `37aea4b`,
+  which fixes an in-place update in the selective TTA that stopped the `final` preset at its first batch. The
   delivered weights were added in `efa299c`.
 - **Hardware:** inference on one NVIDIA H200 141 GB (also measured on an H100 80 GB); training of the mixed model on
   one H200 (Modal), about 2 hours including a 23-minute feature cache and about 18 minutes per joint epoch; peak
@@ -219,15 +220,14 @@ python src/scripts/final_submission.py --dev <dev.csv> --final <final.csv> --out
   --sample data/sample_submission.csv
 
 # what we ran for the competition, from the repository root (Modal, private repositories; final images decrypted
-# on the job disk)
-python3 src/training/apertus-8B-mixed-lora-heads/build_infer_job.py
-FINAL_PASSPHRASE=… modal run src/training/apertus-8B-mixed-lora-heads/modal_infer.py --runs final --local-hf-auth
+# on the job disk); src/inference/phase-3-model/final_hf.sh does the same on Hugging Face Jobs with your own account
+FINAL_PASSPHRASE=… bash src/inference/phase-3-model/final_modal.sh
 ```
 
 The local command uses the flags of the Modal `final` preset; we ran it through Modal, not in exactly this local form.
-The phase-3 copies of `fast_infer.py` and `mixed_model.py` are identical to the files the Modal job bundles; the
-Modal commands keep their original path because the phase-3 `modal_infer.py` was later changed (no GPU fallback, no
-default repositories), so it is not the file we ran. Measured results of every inference configuration:
+`final_modal.sh` runs the phase-3 copy of the inference code; its `fast_infer.py` and `mixed_model.py` are
+byte-identical to the files of the final run (`infer-final-20261128-122658`, commit `989dcf8`), and its
+`modal_infer.py` differs only in taking the GPU (`--gpu`) and the repositories as explicit arguments. Measured results of every inference configuration:
 [phase-3 results](src/training/phase-3/RESULTS.md#inference-optimizations).
 Training commands for every phase, and the evidence still missing for each, are in the
 [reproducibility guide](src/training/REPRODUCIBILITY.md):
@@ -237,7 +237,7 @@ Costs are estimates at $5/h per H200, not invoices.
 
 ## 7. Galaxus challenge: results and resources
 
-**Kaggle:** team **BYMO**. Selected submission: *to be confirmed after 13:00*; the planned one is the delivered mixed
+**Kaggle:** team **BYMO**. Selected submission: the file `final_mixed_phase3.csv` (dev rows of submission 59038887 plus the final rows of the run above), uploaded after the 13:30 passphrase; it is the delivered mixed
 model (public dev **0.84215**, submission 59038887: same weights, original export path; the final submission will have
 a new ID). Our best public-dev score is a
 two-decoder ensemble, **0.84700** (submission 59032216), not selected because it halves the speed. Private score:
@@ -303,7 +303,7 @@ For comparison, the 70B zero-shot baseline ran at 2.8 images/s on the shared gat
 model at 6.91 images/s on an H200 ([zero-shot](src/plain-benchmark/RESULTS.md),
 [benchmark](src/training/phase-1/RESULTS.md#h200-benchmark-of-the-three-8b-models-on-public-dev)).
 
-**Commit and weights:** commit *to be recorded* (≥ `37aea4b`). The weights are published in this public repository
+**Commit and weights:** code commit `989dcf8` (final run); this repository at the hand-in commit for the cleaned-up layout. The weights are published in this public repository
 via Git LFS, folder [weights/apertus-8B-mixed-lora-heads-final/](weights/apertus-8B-mixed-lora-heads-final/), added
 in commit `efa299c` and unchanged since. SHA-256 of the weight files:
 
@@ -337,8 +337,7 @@ weights).
   [2](src/training/phase-2/RESULTS.md) · [3](src/training/phase-3/RESULTS.md).
 - Results by topic: [decoder fine-tuning, P11, first visual adapter, H200 benchmark](src/training/phase-1/RESULTS.md);
   [P12, OCR stage, final-abt, P13–P15, SigLIP LoRA](src/training/phase-2/RESULTS.md);
-  [DINOv3, mixed model, inference ladder, TTA, label errors, distillation, costs](src/training/phase-3/RESULTS.md);
-  [phase 4 (pending)](src/training/phase-4/RESULTS.md).
+  [DINOv3, mixed model, inference ladder, TTA, label errors, distillation, costs](src/training/phase-3/RESULTS.md).
 - Dataset analyses: [validation power, context baseline, product consistency](src/db_exploration/RESULTS.md).
 - Swiss AI, *Apertus 1.5 Technical Report*, https://arxiv.org/abs/2610.15542.
 - M. Tschannen et al., *SigLIP 2*, arXiv:2502.14786; O. Siméoni et al., *DINOv3*, arXiv:2508.10104;

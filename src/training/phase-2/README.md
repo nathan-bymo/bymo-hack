@@ -23,6 +23,7 @@ For a visual-adapter continuation, replace placeholders with the authorized priv
 python src/training/apertus-8B-vadapter-lora-heads/build_hf_job.py
 hf jobs uv run --flavor h200 --timeout 3h --secrets HF_TOKEN --secrets KAGGLE_API_TOKEN \
   -e UPLOAD_REPO=YOUR_PRIVATE_MODEL_REPO -e RUN_NAME=replication-vlh \
+  -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
   -e PART=all_but_test -e OCR=1 -e INIT_FROM=YOUR_CHECKPOINT_PATH \
   -e 'TRAIN_ARGS=--epochs 3 --max-minutes 65 --batch-size 8 --accumulation 2 --lr-lora 1e-4 --lr-projector 5e-5 --lr-heads 5e-4 --spatial --attention-pool' data/hf_jobs/hf_job_vlh.py
 ```

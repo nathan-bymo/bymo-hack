@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(ROOT / "src" / "scripts"), str(ROOT / "src" / "training")]
+sys.path[:0] = [str(ROOT / "src" / "scripts"), str(ROOT / "src" / "training" / "phase-3" / "src" / "training")]
 from build_teacher_targets import macro_f1  # noqa: E402  same definition as data/metric.py
 from common import splits  # noqa: E402
 from ensemble import DIMENSIONS, TAXONOMY  # noqa: E402

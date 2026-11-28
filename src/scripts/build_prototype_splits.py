@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src" / "training"))
+sys.path.insert(0, str(ROOT / "src" / "training" / "phase-3" / "src" / "training"))
 from common.splits import scored_cells, split_rows, training_rows
 
 

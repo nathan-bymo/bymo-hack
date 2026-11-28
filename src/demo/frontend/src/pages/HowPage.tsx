@@ -3,7 +3,7 @@ import { AppShell } from '../components/app'
 import { PHASES, SET_NAME, type Experiment } from '../lib/experiments'
 import { DID_NOT_HELP, MATTERED, type Insight } from '../lib/insights'
 
-const SRC = 'src/training/apertus-8B-vadapter-lora-heads/RISULTATI.md'
+const SRC = 'src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/RISULTATI.md'
 
 function InsightList({ items, testId }: { items: Insight[]; testId: string }) {
   return (
