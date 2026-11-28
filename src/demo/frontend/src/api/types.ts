@@ -112,6 +112,7 @@ export interface SamplePhoto {
   file_url: string
   sha256: string
   recorded_models: string[]   // modelli con una risposta già registrata per questa foto: rispondono subito
+  reference_labels: Record<string, { label: string; human: boolean }> | null   // etichette di train.csv (foto di train), non di un modello
 }
 export interface KaggleReference { name: string; score: number; source: string }
 export interface ModelsResponse {

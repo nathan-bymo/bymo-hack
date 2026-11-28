@@ -19,6 +19,9 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('try-image')).toBeVisible()
   await expect(page.getByTestId('try-results')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByTestId('sample').first()).toHaveAttribute('data-ready', 'true')
+  await expect(page.getByTestId('col-reference')).toContainText('Training label')   // l'etichetta di train.csv, separata dal modello
+  await expect(page.getByTestId('reference-subject')).toContainText('The whole product')
+  await expect(page.getByTestId('reference-text_language')).toContainText('Not a human label')
   await page.getByTestId('try-remove').click()   // si toglie dalla pagina per ripartire da vuoto
   await expect(page.getByTestId('try-empty')).toContainText('Add a photo')
 

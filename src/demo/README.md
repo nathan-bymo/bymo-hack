@@ -77,6 +77,8 @@ La pagina **Classify** mostra una fila "Sample photos": un clic e la foto entra 
 scelto ha una risposta registrata per quella foto compare l'etichetta "Ready" e la risposta arriva subito. Le foto sono i
 file di `data/demo/samples/` (fuori da git; senza persone; oggi 7 foto di dev ammesse in `allow.txt`, una per vista). Con una foto
 propria la demo funziona come prima: il modello gira dal vivo (worker GPU o gateway) e ci vuole qualche secondo.
+Le foto di sample **di train** (sei, con `labels.json` accanto alle foto) mostrano subito una colonna **"Training label"**: sono le etichette
+di `train.csv`, non una risposta di un modello, e la colonna lo dice. Le foto di dev non hanno etichette.
 Per avere le risposte registrate di ogni modello serve una GPU:
 ```sh
 python src/demo/scripts/export_session.py --session <id della sessione con le foto di esempio>   # laptop

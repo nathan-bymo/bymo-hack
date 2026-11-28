@@ -6,6 +6,7 @@ Il caricamento nella pagina passa dal normale upload, quindi vale anche la guard
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -43,9 +44,20 @@ def _files(request: Request) -> list[Path]:
     return sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in MIME_BY_SUFFIX) if folder.exists() else []
 
 
+def _reference_labels(request: Request) -> dict:
+    """Etichette umane di riferimento (da train.csv) delle foto di train: `labels.json` accanto alle foto, per nome file."""
+    path = request.app.state.storage.samples_dir / "labels.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 @router.get("/samples")
 def list_samples(request: Request):
     db = request.app.state.db
+    labels = _reference_labels(request)
     out = []
     for path in _files(request):
         sha = _sha(path, request)
@@ -53,7 +65,8 @@ def list_samples(request: Request):
             continue
         out.append({"sample_id": path.stem, "title": _title(path.stem), "filename": path.name,
                     "file_url": f"/api/samples/{path.stem}/file", "sha256": sha,
-                    "recorded_models": models_recorded_for(db, sha)})
+                    "recorded_models": models_recorded_for(db, sha),
+                    "reference_labels": labels.get(path.stem)})   # etichette umane, non sono risposte di un modello
     return {"samples": out}
 
 

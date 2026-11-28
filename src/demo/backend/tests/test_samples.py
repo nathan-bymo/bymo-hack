@@ -26,6 +26,8 @@ def test_samples_list_file_and_recorded_models(client):
     data = jpeg((10, 120, 200))
     (storage.samples_dir / "02-left angle view.jpg").write_bytes(data)
     (storage.samples_dir / "notes.txt").write_text("non è una foto")
+    labels = {"subject": {"label": "full_product", "human": True}}
+    (storage.samples_dir / "labels.json").write_text(json.dumps({"02-left angle view": labels}))
     sha = images_io.ingest(data, "image/jpeg", 10_000_000, 50_000_000).sha256
 
     run = storage.recorded_dir / "apertus-8b-lora-heads-p11" / "run-test"
@@ -39,6 +41,7 @@ def test_samples_list_file_and_recorded_models(client):
     sample = samples[0]
     assert sample["title"] == "Left angle view" and sample["sha256"] == sha
     assert sample["recorded_models"] == ["apertus-8b-lora-heads-p11"]
+    assert sample["reference_labels"] == labels                  # etichette umane di riferimento, separate dalle risposte
     served = client.get(sample["file_url"])
     assert served.status_code == 200 and hashlib.sha256(served.content).hexdigest() == hashlib.sha256(data).hexdigest()
     assert client.get("/api/samples/non-esiste/file").status_code == 404

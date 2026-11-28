@@ -67,37 +67,58 @@ function answerNote(run: RunStatus | undefined, pred: PredictionResult | undefin
   if (run?.state === 'done' && !run.cached && run.seconds !== undefined) return `Answered in ${run.seconds.toFixed(1)} s`
   if (pred) return 'Answered earlier'
   if (run?.state === 'error') {
-    return run.error?.code === 'RECORDED_MISSING' ? 'Answers only for the sample photos' : 'No answer for this photo'
+    return run.error?.code === 'RECORDED_MISSING' ? 'No recorded answer for this photo' : 'No answer for this photo'
   }
   return 'Waiting'
 }
 
-/** Le sei domande in righe, con la risposta del modello scelto. */
-function AnswerTable({ model, pred, run }: { model: ModelSummary; pred: PredictionResult | undefined; run: RunStatus | undefined }) {
+type Reference = NonNullable<SamplePhoto['reference_labels']>
+
+/** Le sei domande in righe: l'etichetta di training (se la foto è di train) e la risposta del modello scelto, in colonne separate. */
+function AnswerTable({ model, pred, run, reference }: {
+  model: ModelSummary | null; pred: PredictionResult | undefined; run: RunStatus | undefined; reference: Reference | null
+}) {
   return (
     <div className="mt-5 overflow-x-auto">
       <table className="w-full table-fixed border-collapse text-left" data-testid={pred ? 'try-results' : 'try-pending'}>
         <thead>
           <tr className="border-b-2 border-graphite align-bottom">
-            <th className="w-[34%] py-2 pr-3 text-[13px] font-normal text-slate">Question</th>
-            <th className="py-2 pl-3 font-normal" data-testid={`col-${model.model_id}`}>
-              <span className="block text-[15px] font-bold leading-tight">{model.short_name}</span>
-              <span className="block text-[12px] text-slate">{answerNote(run, pred)}</span>
-            </th>
+            <th className="w-[30%] py-2 pr-3 text-[13px] font-normal text-slate">Question</th>
+            {reference && (
+              <th className="py-2 pl-3 font-normal" data-testid="col-reference">
+                <span className="block text-[15px] font-bold leading-tight">Training label</span>
+                <span className="block text-[12px] text-slate">From train.csv, not a model answer</span>
+              </th>
+            )}
+            {model && (
+              <th className="py-2 pl-3 font-normal" data-testid={`col-${model.model_id}`}>
+                <span className="block text-[15px] font-bold leading-tight">{model.short_name}</span>
+                <span className="block text-[12px] text-slate">{answerNote(run, pred)}</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
           {DIMENSIONS.map((dim) => {
             const answer = pred?.dimensions[dim]
+            const ref = reference?.[dim]
             return (
               <tr key={dim} data-testid={`try-dim-${dim}`} className="border-b border-rule align-top">
                 <td className="py-2.5 pr-3">
                   <span className="block text-[15px] font-bold leading-snug" title={QUESTIONS[dim].name}>{QUESTIONS[dim].question}</span>
                 </td>
-                <td className="py-2.5 pl-3">
-                  {answer ? <AnswerCell dimension={dim} d={answer} />
-                    : <span className="text-[15px] text-bar-alt">{run?.state === 'running' ? '…' : '—'}</span>}
-                </td>
+                {reference && (
+                  <td className="py-2.5 pl-3" data-testid={`reference-${dim}`}>
+                    <div className={`break-words text-[19px] font-bold leading-snug tracking-tight ${ref?.human ? '' : 'text-slate'}`}>{ref ? plainLabel(dim, ref.label) : '—'}</div>
+                    {ref && !ref.human && <div className="mt-1 text-[12px] text-slate">Not a human label</div>}
+                  </td>
+                )}
+                {model && (
+                  <td className="py-2.5 pl-3">
+                    {answer ? <AnswerCell dimension={dim} d={answer} />
+                      : <span className="text-[15px] text-bar-alt">{run?.state === 'running' ? '…' : '—'}</span>}
+                  </td>
+                )}
               </tr>
             )
           })}
@@ -280,19 +301,22 @@ export default function ClassifyPage() {
   }
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ onDrop: upload, noClick: true, noKeyboard: true, accept: { 'image/*': [] } })
   const pred = chosenModel ? preds.get(chosenModel.model_id) : undefined
+  const reference = (image.data && samples.data?.find((x) => x.sha256 === image.data!.sha256)?.reference_labels) || null
   const run = chosenModel ? runs[chosenModel.model_id] : undefined
   const hasRecorded = pred?.mode === 'recorded'
 
-  const answers = chosenModel ? (
+  const answers = (chosenModel || reference) ? (
     <section aria-live="polite">
-      <AnswerTable model={chosenModel} pred={pred} run={run} />
-      {pred && (
+      <AnswerTable model={chosenModel} pred={pred} run={run} reference={reference} />
+      {(pred || reference) && (
         <p className="m-0 mt-3 text-[13px] leading-relaxed text-slate" data-testid="try-legend">
-          For each question, the three most likely classes and how sure the model is about each.
-          {hasRecorded && ' This answer was computed earlier on a GPU by the same model.'}
-          {image.data && Object.keys(image.data.context).length === 0 && ' It uses the photo only, without product details.'}
+          {pred && 'For each question, the three most likely classes and how sure the model is about each.'}
+          {pred && hasRecorded && ' This answer was computed earlier on a GPU by the same model.'}
+          {pred && image.data && Object.keys(image.data.context).length === 0 && ' It uses the photo only, without product details.'}
+          {reference && ' The training label is the answer the dataset gives for this photo; it is shown for reference.'}
         </p>
       )}
+      {!chosenModel && <p className="m-0 mt-3 text-[15px] text-slate" data-testid="try-no-answers">No model answers photos in this demo yet.</p>}
     </section>
   ) : (
     <p className="m-0 mt-5 text-[15px] text-slate" data-testid="try-no-answers">No model answers photos in this demo yet.</p>
@@ -357,7 +381,9 @@ export default function ClassifyPage() {
                       title={`${s.title}${ready ? '' : ' (this model answers live)'}`} data-testid="sample" data-ready={ready}
                       className="group relative block aspect-square border border-rule bg-canvas p-0.5 hover:border-graphite disabled:opacity-60">
                       <img src={s.file_url} alt={s.title} className="h-full w-full object-contain" />
-                      {ready && <span className="absolute bottom-0 right-0 bg-graphite px-1 text-[10px] font-bold uppercase tracking-wide text-white">Ready</span>}
+                      {ready
+                        ? <span className="absolute bottom-0 right-0 bg-graphite px-1 text-[10px] font-bold uppercase tracking-wide text-white">Ready</span>
+                        : s.reference_labels && <span className="absolute bottom-0 right-0 bg-white px-1 text-[10px] font-bold uppercase tracking-wide text-slate">Label</span>}
                     </button>
                   )
                 })}
@@ -389,7 +415,7 @@ export default function ClassifyPage() {
               })}
             </div>
           </fieldset>
-          {!pred && chosenModel && (
+          {!pred && chosenModel && !reference && run?.state !== 'error' && (
             <p className="m-0 mt-3 text-[15px] text-slate" data-testid="try-empty">
               {!imageId ? 'Add a photo to start.' : running ? 'Working on the answers…' : 'Pick the photo again to get the answers.'}
             </p>
