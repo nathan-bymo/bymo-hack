@@ -35,7 +35,7 @@ export function StatusPill({ status }: { status: 'ai_suggested' | 'reviewed' | '
     corrected: 'bg-conf-mid-bg text-conf-mid', queued: 'bg-toolbtn text-muted',
   }[status]
   const label = status === 'queued' ? 'Queued' : S.status[status]
-  return <span data-testid="status-pill" className={`rounded px-2 py-0.5 text-xs font-semibold ${style}`}>{label}</span>
+  return <span data-testid="status-pill" className={`whitespace-nowrap px-2 py-0.5 text-xs font-semibold ${style}`}>{label}</span>
 }
 
 export function recordedLabel(r: RecordedInfo | null | undefined): string {

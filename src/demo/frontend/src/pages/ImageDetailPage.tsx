@@ -173,19 +173,19 @@ export default function ImageDetailPage() {
         <StatusPill status={status} />
       </TitleBar>
       <SubLinks links={[{ to: backToQueue, label: '← Queue' }]} />
-      <div className="flex items-center gap-3 border-b border-line bg-panel px-4 py-1 text-sm">
+      <div className="mb-4 flex items-center gap-4 text-[14px]">
         <button type="button" onClick={() => go(-1)} disabled={index <= 0} className="border-0 bg-transparent">‹ Previous (K)</button>
         <button type="button" onClick={() => go(1)} disabled={index < 0 || index >= order.length - 1} className="border-0 bg-transparent">Next (J) ›</button>
         <span className="text-muted">{index >= 0 ? `${index + 1}/${order.length}` : ''}</span>
       </div>
 
       {img && (
-        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
-          <div className="flex items-start justify-center bg-app p-4" style={{ border: '8px solid var(--c-panel-frame)' }}>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="flex items-start justify-center bg-canvas p-6" >
             <img src={img.file_url} alt={img.original_filename} data-testid="detail-image" onClick={() => setZoom((z) => !z)}
               className={`${zoom ? 'max-h-none cursor-zoom-out' : 'max-h-96 cursor-zoom-in'} max-w-full object-contain`} />
           </div>
-          <div className="border border-line bg-panel p-3">
+          <div className="border-t-2 border-graphite pt-3">
             <div className="section-title mb-2">Metadata</div>
             <LabelValueGrid rows={[
               { label: 'Manually uploaded', value: 'Yes (uploaded in the demo)', info: 'The image was uploaded to the demo session by a person.' },
@@ -202,7 +202,7 @@ export default function ImageDetailPage() {
       )}
 
       {img && taxonomy.data && (
-        <section className="mx-4 mb-6 rounded border p-3" data-testid="image-type-panel"
+        <section className="mt-8 border p-5" data-testid="image-type-panel"
           style={{ background: 'var(--c-imagetype-bg)', border: `1px solid ${pred && !pred.valid ? 'var(--c-invalid)' : 'var(--c-imagetype-border)'}`, borderTop: `3px solid ${pred && !pred.valid ? 'var(--c-invalid)' : 'var(--c-panel-frame)'}` }}>
           <div className="mb-2 flex flex-wrap items-center gap-3">
             <h2 className="m-0 flex items-center gap-1 font-bold" style={{ fontSize: 16 }}>Image type <RobotIcon /></h2>
@@ -260,7 +260,7 @@ export default function ImageDetailPage() {
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <button type="button" onClick={reset} data-testid="cancel" className="erp-cancel">✕ Cancel</button>
-                <ToolbarButton onClick={save} disabled={!complete} testId="save">Save</ToolbarButton>
+                <button type="button" onClick={save} disabled={!complete} data-testid="save" className="bg-signal px-5 py-2 text-[15px] font-bold text-white hover:bg-[#b82216] disabled:cursor-not-allowed disabled:opacity-40">Save</button>
               </div>
             </>
           )}

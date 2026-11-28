@@ -13,7 +13,7 @@ test('percorso completo della demo', async ({ page }) => {
 
   // 1. pagina prodotto e badge
   await page.goto('/product/DEMO-0001')
-  await expect(page.getByTestId('demo-badge')).toHaveText('Demo — Team Bymo · Hack Apertus')
+  await expect(page.getByTestId('demo-badge')).toHaveText('Team Bymo, Hack Apertus × Galaxus')
   await shot(page, '01-product')
 
   // 2. Enrich Product ▾ → Image classification (AI)
@@ -79,33 +79,27 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('status-pill').filter({ hasText: 'Corrected' })).toHaveCount(1)
 
   // 7b. anteprima storefront: regola illustrativa, la correzione umana pesa più della predizione
-  await page.getByRole('link', { name: 'Storefront preview' }).click()
+  await page.getByRole('link', { name: 'Shop preview' }).click()
   await expect(page.getByTestId('rule-label')).toContainText('Illustrative rule (not the Galaxus rule)')
   await expect(page.getByTestId('gallery-item')).toHaveCount(3)
   await expect(page.locator('[data-testid="gallery-item"][data-position="1"]')).toBeVisible()
   await expect(page.getByTestId('why-main')).toContainText('Rule "whole product"')
   await shot(page, '07b-storefront')
   await page.getByRole('link', { name: '← Queue' }).click()
-  await page.getByRole('link', { name: 'Performance' }).first().click()
+  await page.getByRole('link', { name: 'Scores per class' }).first().click()
 
-  // 8. dashboard: banner coverage, linea 0.917, badge rosso del full FT, Kaggle dev solo dove c'è
-  await page.getByRole('link', { name: 'Performance' }).first().click()
-  await expect(page.getByTestId('coverage-banner')).toContainText('not to estimate the Kaggle leaderboard')
-  await expect(page.getByTestId('model-card')).toHaveCount(4)   // solo i modelli con un punteggio su coverage
+  // 8. punteggi per classe: solo modelli con un punteggio sul set, nessuna scritta "invalid"
+  await page.getByRole('link', { name: 'Scores per class' }).first().click()
+  await expect(page.getByTestId('coverage-banner')).toContainText('Kaggle leaderboard')
+  await expect(page.getByTestId('model-card')).toHaveCount(4)
   const p11 = page.locator('[data-testid="model-card"][data-model="apertus-8b-lora-heads-p11"]')
   await expect(p11.getByTestId('card-macro')).toHaveText('0.781')
-  await expect(p11.getByTestId('badge-phase1_internal')).toBeVisible()
-  await expect(p11.getByTestId('badge-reported_only')).toBeVisible()
-  await expect(p11.getByTestId('card-kaggle')).toContainText('0.796')
-  await expect(page.getByText("Organisers' reference (Qwen 3.5 9B FT, dev)").first()).toBeVisible()
-  await expect(page.getByTestId('reference-note')).toContainText('Different set (Kaggle dev)')
+  await expect(page.getByTestId('dimension-chart')).toBeVisible()
+  await expect(page.getByTestId('per-class')).toBeVisible()
   await expect(page.getByTestId('confusion')).toBeVisible()
-  await expect(page.getByTestId('calibration-na')).toContainText('n/a')
-  const cost = page.getByTestId('cost-cell').filter({ hasText: '10.5 $ per 100,000' })
-  await expect(cost).toContainText('0.105 $')
-  await expect(cost).toContainText('10.5 $ per 100,000')
-  await expect(page.getByTestId('cost-invalid').first()).toContainText('estimate not valid')
-  await expect(page.getByTestId('source-footnote').first()).toContainText('Source:')
+  await expect(page.getByText(/invalid/i)).toHaveCount(0)
+  await page.getByTestId('set-select').selectOption('prompt-test')
+  await expect(page.locator('[data-testid="model-card"][data-model="apertus-8b-vadapter-lora-heads-final"]').getByTestId('card-macro')).toHaveText('0.821')
   await shot(page, '08-performance')
 
   // 9. app di presentazione, pagina Models: classifica Kaggle, velocità e costo, test interno; nessuna scritta "invalid"

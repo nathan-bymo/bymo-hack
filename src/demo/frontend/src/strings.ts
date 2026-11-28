@@ -1,6 +1,6 @@
 /** Un solo punto di verità per i testi dell'interfaccia (inglese: D.2.1). */
 export const S = {
-  badgeDemo: 'Demo — Team Bymo · Hack Apertus',
+  badgeDemo: 'Team Bymo, Hack Apertus × Galaxus',
   badge: {
     held_out: 'held-out',
     phase1_internal: 'phase-1 internal set (coverage)',

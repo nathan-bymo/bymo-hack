@@ -16,10 +16,10 @@ export function ModelSelect({ models, value, onChange, id = 'model-select' }: {
     <label className="inline-flex items-center gap-1 text-sm">
       <span className="text-muted">Model:</span>
       <select id={id} data-testid="model-select" value={value ?? ''} onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-line bg-panel px-2 py-1 text-sm">
+        className="border border-graphite bg-white px-3 py-1.5 text-[15px]">
         {models.map((m) => (
           <option key={m.model_id} value={m.model_id}>
-            {m.modes.length ? (m.modes.includes('live') ? '● ' : '◆ ') : '○ '}{m.display_name}
+            {m.short_name}
             {m.modes.includes('live') ? ` — ${m.status === 'unavailable' ? 'ready' : m.status.replace('_', ' ')}` : m.modes.includes('recorded') ? ' — recorded' : ' — unavailable'}
           </option>
         ))}

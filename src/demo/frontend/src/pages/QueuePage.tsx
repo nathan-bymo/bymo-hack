@@ -139,11 +139,11 @@ export default function QueuePage() {
           title={!runnable ? 'Model not available in this mode' : undefined}>
           ▶ Run classification
         </ToolbarButton>
-        <Link to={`/image-classification/compare${queueParam}&models=${compareIds}`} className="rounded border border-line bg-toolbtn px-3 py-1 text-sm no-underline">Compare models</Link>
-        <a href={`/api/export.csv?session_id=${sessionId}${modelId ? `&model_id=${modelId}` : ''}`} className="rounded border border-line bg-toolbtn px-3 py-1 text-sm no-underline">Export CSV</a>
+        <Link to={`/image-classification/compare${queueParam}&models=${compareIds}`} className="border border-graphite bg-white px-3.5 py-1.5 text-[14px] font-bold text-graphite no-underline hover:bg-canvas">Compare models</Link>
+        <a href={`/api/export.csv?session_id=${sessionId}${modelId ? `&model_id=${modelId}` : ''}`} className="border border-graphite bg-white px-3.5 py-1.5 text-[14px] font-bold text-graphite no-underline hover:bg-canvas">Export CSV</a>
       </ActionToolbar>
 
-      <div className="space-y-3 p-4">
+      <div className="space-y-4">
         {model && !runnable && <ModelUnavailableState model={model} />}
         {model && model.family === 'zeroshot_generative' && runnable && (
           <p className="m-0 text-xs text-muted">Zero-shot via the shared gateway: about 8–11 s per image (measured on the P4 evaluation). Trained models are much faster.</p>

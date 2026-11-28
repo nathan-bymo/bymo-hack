@@ -1,208 +1,119 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { api, errorText } from '../api/client'
-import { useModels, useSettings } from '../api/hooks'
-import type { MetricBlock, ModelSummary, Settings, Throughput } from '../api/types'
-import {
-  ConfusionMatrix, CoverageWarningBanner, DimensionBarChart, MODEL_COLORS, PerClassTable, ResultBadges, Section, SourceFootnote,
-} from '../components/dashboard'
-import { ErpShell, SubLinks, TitleBar } from '../components/shell'
-import { ErrorState, MetricBadge } from '../components/ui'
-import { weightsText } from '../lib/models'
-import { S } from '../strings'
+import { api } from '../api/client'
+import { useModels } from '../api/hooks'
+import type { MetricBlock, ModelSummary } from '../api/types'
+import { ConfusionMatrix, DimensionBarChart, MODEL_COLORS, PerClassTable } from '../components/dashboard'
+import { ErpShell, TitleBar } from '../components/shell'
+import { ErrorState } from '../components/ui'
+import { sortForShow } from '../lib/models'
+import { DIMENSION_NAMES } from '../strings'
 
-const SETS = ['coverage', 'base', 'prompt-test', 'prompt-dev-600', 'validation_450']
+/** Set interni con una descrizione semplice. I numeri si confrontano solo dentro lo stesso set. */
+const SETS: { key: string; label: string; about: string }[] = [
+  { key: 'coverage', label: 'Rare-class test, 2,532 images', about: 'Our internal test with extra examples of the rare classes. It is harder than the leaderboard, on purpose.' },
+  { key: 'prompt-test', label: 'Held-out test, 1,193 images', about: 'Labelled images never used to train or tune these models, with the natural mix of classes.' },
+  { key: 'base', label: 'Natural test, 2,363 images', about: 'The same images as the rare-class test, without the extra rare examples.' },
+  { key: 'validation_450', label: 'Small balanced test, 450 images', about: 'The same number of images for every class. Used for the early experiments.' },
+]
 
-function ModelCard({ model, block, thr, target }: { model: ModelSummary; block?: MetricBlock; thr?: Throughput; target: number }) {
-  const valid = block?.results.find((r) => r.validity !== 'seen_in_training')
-  const speed = thr?.reported.find((r) => r.model_id === model.model_id)
-  const measured = thr?.measured_in_demo.find((m) => m.model_id === model.model_id)
-  const kaggle = model.kaggle_dev?.score
+function ModelCard({ model, block }: { model: ModelSummary; block?: MetricBlock }) {
+  const r = block?.results.find((x) => x.validity !== 'seen_in_training')
+  if (!r) return null
   return (
-    <article data-testid="model-card" data-model={model.model_id} className="rounded border border-line bg-panel p-3 text-sm" style={{ borderRadius: 'var(--radius-card)' }}>
-      <h3 className="m-0 mb-1 text-sm font-semibold">{model.display_name}</h3>
-      {valid ? (
-        <>
-          <div className="text-xl font-bold" data-testid="card-macro">{valid.macro_f1?.toFixed(3)}</div>
-          <div className="text-xs text-muted">macro F1 · weighted {valid.weighted_f1?.toFixed(3)}{valid.checkpoint ? ` · checkpoint ${valid.checkpoint}` : ''}</div>
-          <div className="my-1"><ResultBadges result={valid} /></div>
-        </>
-      ) : (
-        <div className="my-1 text-muted">n/a on this set</div>
-      )}
-      <dl className="m-0 mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
-        <dt className="text-muted">Training</dt><dd className="m-0">{model.training?.data ?? 'n/a'}</dd>
-        <dt className="text-muted">Weights</dt><dd className="m-0">{weightsText(model)}</dd>
-        <dt className="text-muted">Speed</dt>
-        <dd className="m-0">
-          {measured ? `${measured.images_per_second.toFixed(2)} img/s measured (${measured.mode === 'recorded' ? 'recorded run' : measured.gpu_name})`
-            : speed ? `${speed.value} img/s reported (${speed.gpu_label ?? speed.conditions ?? 'see source'})` : 'n/a'}
-          {(measured?.images_per_second ?? speed?.value ?? 0) >= target ? ' ✓' : ''}
-        </dd>
-        <dt className="text-muted">Kaggle dev</dt>
-        <dd className="m-0">{kaggle != null ? <span data-testid="card-kaggle">{kaggle.toFixed(3)} <MetricBadge kind="kaggle_user" /> <span className="text-muted" title={model.kaggle_dev.note}>({model.kaggle_dev.submitted_at?.slice(0, 10)})</span></span> : 'n/a'}</dd>
-      </dl>
-      {valid && <SourceFootnote source={valid.source} set={block?.set} />}
+    <article data-testid="model-card" data-model={model.model_id} className="border-t-2 border-graphite pt-3" title={`Source: ${r.source}`}>
+      <h3 className="m-0 text-[16px] font-bold leading-snug">{model.short_name}</h3>
+      <div className="mt-1 text-[32px] font-bold leading-none tracking-tight" data-testid="card-macro">{r.macro_f1?.toFixed(3)}</div>
+      <div className="mt-1 text-[13px] text-slate">macro F1{r.weighted_f1 != null ? `, weighted ${r.weighted_f1.toFixed(3)}` : ''}</div>
+      <div className="mt-2 text-[13px] text-slate">{model.training_label}</div>
     </article>
   )
 }
 
-function CostPanel({ thr }: { thr?: Throughput }) {
-  const settings = useSettings()
-  const qc = useQueryClient()
-  const save = useMutation({
-    mutationFn: (body: Partial<Settings>) => api<Settings>('/settings', { method: 'PUT', json: body }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  })
-  if (!thr || !settings.data) return null
-  const target = thr.target_images_per_second
-  const chart = [
-    ...thr.reported.map((r) => ({ name: `${r.model_id.replace('apertus-', '')} (${r.what.includes('solo generate') ? 'generate only, reported' : 'reported'})`, ips: r.value })),
-    ...thr.measured_in_demo.map((m) => ({ name: `${m.model_id} (measured, ${m.mode})`, ips: m.images_per_second })),
-  ]
-  const gpuOptions = Object.entries(thr.gpu_prices)
+function Block({ title, about, children, testId }: { title: string; about?: string; children: React.ReactNode; testId?: string }) {
   return (
-    <div data-testid="cost-panel">
-      <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
-        <label>GPU price list:{' '}
-          <select value={gpuOptions.some(([g]) => g === settings.data.gpu_label) ? settings.data.gpu_label : ''}
-            onChange={(e) => save.mutate({ gpu_label: e.target.value, usd_per_hour: thr.gpu_prices[e.target.value] })} className="rounded border border-line bg-panel px-2 py-1">
-            <option value="" disabled>custom</option>
-            {gpuOptions.map(([g, p]) => <option key={g} value={g}>{g} — {p.toFixed(2)} $/h</option>)}
-          </select>
-        </label>
-        <label>$/h: <input type="number" step="0.05" min="0" value={settings.data.usd_per_hour} data-testid="usd-per-hour"
-          onChange={(e) => save.mutate({ usd_per_hour: Number(e.target.value) })} className="w-20 rounded border border-line px-2 py-1" /></label>
-        {save.isError && <span className="text-invalid">{errorText(save.error)}</span>}
-      </div>
-      <div style={{ width: '100%', height: 220 }}>
-        <ResponsiveContainer>
-          <BarChart data={chart} layout="vertical" margin={{ left: 160, right: 24 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis type="number" /><YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 11 }} />
-            <Tooltip /><ReferenceLine x={target} stroke="#b91c1c" strokeDasharray="5 4" label={{ value: `target ≥ ${target} img/s`, fill: '#b91c1c', fontSize: 11, position: 'top' }} />
-            <Bar dataKey="ips" fill="#1d4ed8" isAnimationActive={false} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <table className="mt-2 w-full max-w-3xl border-collapse text-left text-sm" data-testid="cost-table">
-        <thead><tr className="border-b border-line text-xs text-muted"><th>Model</th><th>img/s</th><th>Measured on</th><th>Cost per 1,000 images</th></tr></thead>
-        <tbody>
-          {thr.reported.map((r, i) => {
-            const valid = r.cost_per_1k_images_usd
-            const price = settings.data.usd_per_hour
-            const same = r.gpu_label === settings.data.gpu_label
-            const other = valid !== null && !same ? price / (r.value * 3600) * 1000 : null
-            return (
-              <tr key={i} className="border-b border-line">
-                <td>{r.model_id.replace('apertus-', '')}</td>
-                <td>{r.value} <span className="text-xs text-muted">({r.what})</span></td>
-                <td>{r.gpu_label ?? r.conditions}</td>
-                <td data-testid="cost-cell">{valid === null ? <span className="text-muted">n/a (not end-to-end)</span> :
-                  <>{valid.toFixed(3)} $ <span className="text-xs text-muted">= {(valid * 100).toFixed(1)} $ per 100,000 (price of {r.gpu_label}: {r.usd_per_hour} $/h)</span>
-                    {other !== null && <span className="ml-1 text-xs text-invalid" data-testid="cost-invalid"> · at {settings.data.gpu_label} price: {other.toFixed(3)} $ — estimate not valid, the speed was measured on {r.gpu_label}</span>}</>}</td>
-              </tr>
-            )
-          })}
-          {thr.measured_in_demo.map((m) => (
-            <tr key={m.job_id} className="border-b border-line">
-              <td>{m.model_id}</td><td>{m.images_per_second.toFixed(2)}</td><td>{m.mode === 'recorded' ? `recorded run (${m.gpu_name})` : m.gpu_name}</td>
-              <td>{m.cost_per_1k_images_usd === null ? <span className="text-muted">n/a — {m.cost_note}</span> : `${(settings.data.usd_per_hour / (m.images_per_second * 3600) * 1000).toFixed(3)} $`}</td>
-            </tr>
-          ))}
-          <tr className="border-b border-line"><td>Zero-shot 8B / 70B (gateway)</td><td>3.8 / 2.8 <span className="text-xs text-muted">(reported, shared gateway)</span></td><td>gateway</td><td className="text-muted">n/a (API cost not public)</td></tr>
-        </tbody>
-      </table>
-      <p className="m-0 mt-1 text-xs text-muted">Cost = price per hour ÷ (images per second × 3,600) × 1,000, using only measured or reported speeds with a known GPU. Score weight of cost per 100,000 images: 20% (challenge_description.md:220).</p>
-    </div>
+    <section className="mt-12" data-testid={testId}>
+      <h2>{title}</h2>
+      {about && <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">{about}</p>}
+      <div className="mt-5">{children}</div>
+    </section>
   )
 }
 
 export default function PerformancePage() {
   const [params, setParams] = useSearchParams()
-  const set = SETS.includes(params.get('set') ?? '') ? params.get('set')! : 'coverage'
+  const set = SETS.find((s) => s.key === params.get('set')) ?? SETS[0]
   const models = useModels()
-  const list = useMemo(() => (models.data?.models ?? []).filter((m) => m.headline_eval || m.training?.seen_sets?.length), [models.data])
+  const list = useMemo(() => sortForShow(models.data?.models ?? []).filter((m) => m.scores.length > 0), [models.data])
   const ids = list.map((m) => m.model_id).join(',')
   const metrics = useQuery({
-    queryKey: ['metrics', set, ids], enabled: !!ids,
-    queryFn: () => api<{ models: Record<string, MetricBlock> }>(`/metrics/compare?models=${ids}&set=${set}&include_invalid=false`),
+    queryKey: ['metrics', set.key, ids], enabled: !!ids,
+    queryFn: () => api<{ models: Record<string, MetricBlock> }>(`/metrics/compare?models=${ids}&set=${set.key}&include_invalid=false`),
   })
-  const thr = useQuery({ queryKey: ['throughput'], queryFn: () => api<Throughput>('/throughput') })
   const blocks = metrics.data?.models ?? {}
-  const target = models.data?.throughput_target_images_per_second ?? 2
+  const withScore = list.filter((m) => blocks[m.model_id]?.results.some((r) => r.validity !== 'seen_in_training'))
 
-  const series = list.flatMap((m, i) => {
-    const r = blocks[m.model_id]?.results.find((x) => x.validity !== 'seen_in_training')
+  const series = withScore.flatMap((m, i) => {
+    const r = blocks[m.model_id]?.results[0]
     if (!r || !Object.keys(r.per_dimension).length) return []
-    return [{ id: m.model_id, name: `${m.display_name.split('·').slice(0, 2).join('·').trim()}`,
-      color: MODEL_COLORS[i % MODEL_COLORS.length], values: Object.fromEntries(Object.entries(r.per_dimension).map(([d, v]) => [d, v.macro_f1])) }]
+    return [{ id: m.model_id, name: m.short_name, color: MODEL_COLORS[i % MODEL_COLORS.length],
+      values: Object.fromEntries(Object.entries(r.per_dimension).map(([d, v]) => [d, v.macro_f1])) }]
   })
-  const withClasses = list.filter((m) => blocks[m.model_id]?.results.some((r) => r.per_class))
-  const withConfusion = list.filter((m) => blocks[m.model_id]?.results.some((r) => r.confusion))
+  const withClasses = withScore.filter((m) => blocks[m.model_id]?.results.some((r) => r.per_class))
   const [pcModel, setPcModel] = useState<string | null>(null)
-  const pcId = pcModel ?? withClasses[0]?.model_id
+  const pcId = withClasses.some((m) => m.model_id === pcModel) ? pcModel! : withClasses[0]?.model_id
   const pcResult = pcId ? blocks[pcId]?.results.find((r) => r.per_class) : undefined
-  const cmId = withConfusion[0]?.model_id
-  const cmResult = cmId ? blocks[cmId]?.results.find((r) => r.confusion) : undefined
+  const cmModel = withScore.find((m) => blocks[m.model_id]?.results.some((r) => r.confusion))
+  const cmResult = cmModel ? blocks[cmModel.model_id]?.results.find((r) => r.confusion) : undefined
 
   return (
     <ErpShell>
-      <TitleBar title="Performance — Apertus models" />
-      <SubLinks links={[{ to: '/image-classification', label: 'Queue' }, { to: '/image-classification/try', label: 'Try a model' }, { to: '/image-classification/models', label: 'Models' }, { to: '/image-classification/performance?set=coverage', label: 'Performance' }]} />
-      <div className="space-y-3 p-4">
-        <CoverageWarningBanner />
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <label>Set:{' '}
-            <select data-testid="set-select" value={set} onChange={(e) => setParams({ set: e.target.value })} className="rounded border border-line bg-panel px-2 py-1">
-              {SETS.map((s) => <option key={s}>{s}</option>)}
+      <TitleBar title="Scores per class" />
+      <p className="m-0 max-w-[70ch] text-[15px] text-slate" data-testid="coverage-banner">
+        A closer look for experts: how each model does on every question and every class, on our internal test sets.
+        For the official comparison, see the Kaggle leaderboard on the Models page.
+      </p>
+      <div className="mt-6 flex flex-wrap items-center gap-3 text-[15px]">
+        <label htmlFor="set-select" className="font-bold">Test set</label>
+        <select id="set-select" data-testid="set-select" value={set.key} onChange={(e) => setParams({ set: e.target.value })}
+          className="border border-graphite bg-white px-3 py-1.5 text-[15px]">
+          {SETS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+        <span className="text-[14px] text-slate">{set.about}</span>
+      </div>
+      {metrics.isError && <ErrorState error={metrics.error} />}
+
+      <div className="mt-8 grid gap-x-8 gap-y-6 sm:grid-cols-2 xl:grid-cols-4" data-testid="model-cards">
+        {withScore.map((m) => <ModelCard key={m.model_id} model={m} block={blocks[m.model_id]} />)}
+      </div>
+      {withScore.length === 0 && <p className="mt-6 text-slate">No scores on this test set.</p>}
+
+      {series.length > 0 && (
+        <Block title="Score for each question" about="Macro F1 for each of the six questions, on this test set only." testId="section-dimensions">
+          <DimensionBarChart series={series} reference={null} />
+        </Block>
+      )}
+
+      {withClasses.length > 0 && pcResult?.per_class && (
+        <Block title="Score for each class" about="Precision: how often the model is right when it gives this answer. Recall: how many images of this class it finds." testId="section-per-class">
+          <label className="mb-4 flex items-center gap-3 text-[15px]">
+            <span className="font-bold">Model</span>
+            <select value={pcId} onChange={(e) => setPcModel(e.target.value)} className="border border-graphite bg-white px-3 py-1.5 text-[15px]">
+              {withClasses.map((m) => <option key={m.model_id} value={m.model_id}>{m.short_name}</option>)}
             </select>
           </label>
-          <span className="text-xs text-muted">Numbers shown are reported by the team's own files, not recomputed here (badge on every number).</span>
-        </div>
-        {metrics.isError && <ErrorState error={metrics.error} />}
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="model-cards">
-          {list.filter((m) => blocks[m.model_id]?.results.some((r) => r.validity !== 'seen_in_training')).map((m) => <ModelCard key={m.model_id} model={m} block={blocks[m.model_id]} thr={thr.data} target={target} />)}
-        </div>
+          <PerClassTable perClass={pcResult.per_class} />
+        </Block>
+      )}
 
-        <Section title="Macro F1 per dimension" testId="section-dimensions">
-          {series.length ? <DimensionBarChart series={series} reference={models.data ? { value: models.data.reference_line.value, label: S.referenceLine } : null} /> : <p className="text-sm text-muted">No numbers on this set.</p>}
-          <p className="m-0 text-xs text-muted" data-testid="reference-note">{S.referenceNote} Reference line: {S.referenceLine} = 0.917 (challenge_description.md:143).</p>
-          {series.length > 0 && <SourceFootnote source={list.map((m) => blocks[m.model_id]?.results[0]?.source).filter(Boolean).join('; ')} set={set} />}
-        </Section>
-
-        <Section title="F1 per class" testId="section-per-class">
-          {withClasses.length && pcResult?.per_class ? (
-            <>
-              <label className="mb-2 block text-sm">Model:{' '}
-                <select value={pcId} onChange={(e) => setPcModel(e.target.value)} className="rounded border border-line bg-panel px-2 py-1">
-                  {withClasses.map((m) => <option key={m.model_id} value={m.model_id}>{m.display_name}</option>)}
-                </select> <ResultBadges result={pcResult} />
-              </label>
-              <PerClassTable perClass={pcResult.per_class} />
-              <SourceFootnote source={pcResult.per_class_source ?? pcResult.source} set={set} trainedOn={pcResult.trained_on} />
-            </>
-          ) : <p className="text-sm text-muted">No per-class numbers for this set.</p>}
-        </Section>
-
-        <Section title="Confusion matrix" testId="section-confusion">
-          {cmResult?.confusion?.perspective ? (
-            <>
-              <p className="m-0 mb-1 text-sm">{list.find((m) => m.model_id === cmId)?.display_name} · perspective · {cmResult.confusion.perspective.set} <ResultBadges result={cmResult} /></p>
-              <ConfusionMatrix data={cmResult.confusion.perspective} />
-              <SourceFootnote source={cmResult.confusion.perspective.source} set={cmResult.confusion.perspective.set} trainedOn={cmResult.trained_on} />
-            </>
-          ) : <p className="text-sm text-muted">Not available on this set: per-image predictions are needed (<code>src/demo/scripts/evaluate.py</code>: GPU, only with explicit approval).</p>}
-        </Section>
-
-        <Section title="Confidence: correct vs wrong, and calibration" testId="section-calibration">
-          <p className="text-sm text-muted" data-testid="calibration-na">n/a: no per-image predictions on a labelled set are available yet (<code>evaluate.py</code>, GPU or gateway key, only with explicit approval). Confidence of uploaded images is never aggregated here.</p>
-        </Section>
-
-        <Section title="Speed and cost" testId="section-cost"><CostPanel thr={thr.data} /></Section>
-      </div>
+      {cmResult?.confusion?.perspective && (
+        <Block title="Where the perspective answers go wrong" testId="section-confusion"
+          about={`${cmModel!.short_name}. Each row is the true view, each column the model’s answer: the darker the cell, the more images. Left and right are the hardest part.`}>
+          <ConfusionMatrix data={cmResult.confusion.perspective} />
+        </Block>
+      )}
+      <p className="mt-12 text-[13px] text-slate">Every number comes from the team’s result files in the repository; hover a model to see the file. {DIMENSION_NAMES.text_classification} = added text on the image.</p>
     </ErpShell>
   )
 }

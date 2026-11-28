@@ -81,13 +81,13 @@ export default function ComparePage() {
       <SubLinks links={[{ to: `/image-classification${back}`, label: 'Queue' }, { to: `/image-classification/compare${back}`, label: 'Compare models' }, { to: `/image-classification/try${back}`, label: 'Try a model' }, { to: `/image-classification/models${back}`, label: 'Models' }, { to: '/image-classification/performance?set=coverage', label: 'Performance' }]} />
       <ActionToolbar>
         <div className="flex flex-wrap items-center gap-3" data-testid="model-toggles">
-          {modelList.map((m) => {
+          {modelList.filter((m) => m.featured).map((m) => {
             const usable = m.modes.length > 0
             return (
               <label key={m.model_id} className={`text-sm ${usable ? '' : 'text-muted'}`} title={usable ? undefined : modelUnavailableText(m)}>
                 <input type="checkbox" disabled={!usable} checked={selected.includes(m.model_id) && usable}
-                  onChange={(e) => setSelected(e.target.checked ? [...selected, m.model_id] : selected.filter((x) => x !== m.model_id))} /> {m.display_name.split('·').slice(0, 2).join('·').trim()}
-                {!usable && <span className="text-xs"> (unavailable)</span>}
+                  onChange={(e) => setSelected(e.target.checked ? [...selected, m.model_id] : selected.filter((x) => x !== m.model_id))} /> {m.short_name}
+                {!usable && <span className="text-xs"> (not connected)</span>}
               </label>
             )
           })}
@@ -95,9 +95,9 @@ export default function ComparePage() {
         <ToolbarButton testId="compute-missing" onClick={computeMissing} disabled={!!busy || activeModels.length === 0}>{busy ? `Computing ${busy}…` : '▶ Compute missing'}</ToolbarButton>
       </ActionToolbar>
 
-      <div className="space-y-3 p-4">
+      <div className="space-y-4">
         <div data-testid="latency-strip" className="text-xs text-muted">
-          Latency measured here: {activeModels.map((m) => `${m.display_name.split('·').slice(0, 2).join('·').trim()}: ${latency(m.model_id)}`).join(' · ') || 'no model selected'}
+          Latency measured here: {activeModels.map((m) => `${m.short_name}: ${latency(m.model_id)}`).join(' · ') || 'no model selected'}
         </div>
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <label><input type="radio" checked={!onlyDisagreements} onChange={() => setOnlyDisagreements(false)} /> all</label>
@@ -124,7 +124,7 @@ export default function ComparePage() {
                 </tr>
                 <tr className="border-b border-line text-muted" style={{ fontSize: 'var(--fs-label)' }}>
                   {dims.flatMap((d) => withResults.map((m, i) => (
-                    <th key={`${d}-${m.model_id}`} className={`px-2 py-1 font-normal ${i === 0 ? 'border-l border-line' : ''}`} title={m.display_name}>{m.display_name.split('·')[0].replace('Apertus ', '').trim()} {m.display_name.includes('zero-shot') ? 'zs' : m.display_name.includes('full fine-tune') ? 'FT' : m.display_name.includes('P11') ? 'P11' : m.display_name.includes('P10') ? 'P10' : ''}</th>
+                    <th key={`${d}-${m.model_id}`} className={`px-2 py-1 font-normal ${i === 0 ? 'border-l border-line' : ''}`} title={m.display_name}>{m.short_name}</th>
                   )))}
                 </tr>
               </thead>
