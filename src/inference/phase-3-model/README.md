@@ -4,7 +4,8 @@ The delivered model is the phase-3 mixed checkpoint (SigLIP 2 + DINOv3 + VQ, one
 [`weights/apertus-8B-mixed-lora-heads-final/`](../../../weights/apertus-8B-mixed-lora-heads-final/), public dev
 0.84215). Both scripts predict the 5,292 final images and build the Kaggle file with
 [`final_submission.py`](../../scripts/final_submission.py): the dev rows of the best dev file plus the final rows,
-every cell checked against `sample_submission.csv`. Nothing is submitted automatically.
+every cell checked against `sample_submission.csv`. Nothing is submitted automatically. Both scripts require
+`DEV_CSV` (your local dev predictions csv, git-ignored and not in the repository) and the authorised `data/` folder.
 
 | Script | Where | Path | Time |
 |---|---|---|---|

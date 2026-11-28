@@ -7,6 +7,7 @@
 #   export KAGGLE_API_TOKEN=...    # a Kaggle account in the competition (final_encrypted.bin is downloaded from Kaggle)
 #   export FINAL_PASSPHRASE='...'  # never write it into a file
 #   export UPLOAD_REPO=you/galaxus-final-private    # a PRIVATE model repository of yours
+#   export DEV_CSV=path/to/dev_predictions.csv      # required: dev rows of your best dev file (local, git-ignored)
 #   bash src/inference/phase-3-model/final_hf.sh
 #
 # Needs the authorised data/train.csv locally (the job generator hashes it) and `git lfs pull` for the weights.
@@ -19,7 +20,7 @@ PHASE="$ROOT/src/training/phase-3"            # standalone working root of the d
 MIXED=src/training/apertus-8B-mixed-lora-heads  # relative to $PHASE
 CHECKPOINT=phase3-mixed/model/best
 RUN_NAME=${RUN_NAME:-final-hf-$(date -u +%Y%m%d-%H%M%S)}
-DEV_CSV=${DEV_CSV:-data/runs/mixed-kaggle/submission_dev.csv}
+: "${DEV_CSV:?export DEV_CSV=<your dev predictions csv (image_id + six dimensions, the dev rows of your best dev submission); it is git-ignored, not in the repo>}"
 
 hf repo create "$UPLOAD_REPO" --private --exist-ok
 hf upload "$UPLOAD_REPO" weights/apertus-8B-mixed-lora-heads-final "$CHECKPOINT" --private \

@@ -1,5 +1,5 @@
 """Soft teacher targets on the unlabeled dev images, for the distillation pilot (see
-src/training/apertus-8B-mixed-lora-heads/RESULTS.md, section 4).
+src/training/phase-3/RESULTS.md).
 
 The teacher is an equal-weight average of existing model probabilities, chosen per dimension among the subsets of
 the given models. A subset replaces the default (every model listed in --default) only if it beats the default on

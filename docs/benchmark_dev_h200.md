@@ -41,7 +41,7 @@ La durata del processo include il caricamento e la scrittura dei risultati. Il j
 | P11 | prompt-test · 1.193 | 0,791 | 0,915 | 0,860 | 0,894 | 0,620 | 0,990 | 0,805 | 0,577 |
 | final-abt | prompt-test · 1.193 | 0,821 | 0,917 | 0,846 | 0,881 | 0,755 | 0,959 | 0,766 | 0,720 |
 
-P12 ha utilizzato tutte le 11.876 immagini etichettate e il suo risultato valido disponibile è il Kaggle dev storico. Final-abt ha visto parte di `coverage` in training e la sua valutazione locale valida è `prompt-test`. Il confronto su `prompt-test` usa le stesse immagini per P11 e final-abt. Cambiano quantità di dati, numero di epoche, loss e architettura, quindi il guadagno complessivo di 0,030 macro F1 non isola un singolo contributo. [P12](../src/apertus-8B-fullft-heads/results_phase2.md) · [P11](../src/apertus-8B-lora-heads/results_full_h200.md) · [Final-abt](../src/apertus-8B-vadapter-lora-heads/RISULTATI.md)
+P12 ha utilizzato tutte le 11.876 immagini etichettate e il suo risultato valido disponibile è il Kaggle dev storico. Final-abt ha visto parte di `coverage` in training e la sua valutazione locale valida è `prompt-test`. Il confronto su `prompt-test` usa le stesse immagini per P11 e final-abt. Cambiano quantità di dati, numero di epoche, loss e architettura, quindi il guadagno complessivo di 0,030 macro F1 non isola un singolo contributo. P12 · P11 · Final-abt
 
 ## Come leggere la diagnostica per classe
 
@@ -58,7 +58,7 @@ P12 ha utilizzato tutte le 11.876 immagini etichettate e il suo risultato valido
 
 La difficoltà principale sul dev è `perspective`: 44,4% di predizioni sotto 0,60. `right_side` è a bassa confidenza nel 99,2% dei 120 casi e gli altri modelli concordano su un’alternativa nel 32,5%. `Dutch` compare 110 volte con il 90,0% sotto soglia. Per capire se il problema dipende dal checkpoint o dalla ricetta, serve una replica con holdout per prodotto fissato prima del training e checkpoint intermedi valutabili.
 
-[Report P12](../src/apertus-8B-fullft-heads/results_phase2.md) · [Riepilogo training](../src/apertus-8B-fullft-heads/results/phase2/train_summary.json) · [Inferenza](../src/apertus-8B-fullft-heads/ft_predict.py)
+Report P12 · Riepilogo training · [Inferenza](../src/training/phase-1/src/training/apertus-8B-fullft-heads/ft_predict.py)
 
 ### Diagnostica dev per dimensione
 
@@ -144,7 +144,7 @@ La difficoltà principale sul dev è `perspective`: 44,4% di predizioni sotto 0,
 
 Sul dev, `right_side` e `left_side` sono sotto soglia rispettivamente nel 92,4% e nel 73,6% delle predizioni. `Dutch` compare zero volte. Su `coverage`, i punti più deboli documentati sono `Dutch` (F1 0,00, 20 esempi), `other` in `text_language` (0,17, 30), `Italian` (0,28, 30) e `back_angle_left` (0,28, 37). Su `product_grouping`, il recall è 0,50 su 30 esempi.
 
-[Report P11](../src/apertus-8B-lora-heads/results_full_h200.md) · [Checkpoint](../weights/lora_heads_256_p11/README.md) · [Inferenza](../src/apertus-8B-lora-heads/predict.py)
+Report P11 · [Checkpoint](../weights/lora_heads_256_p11/README.md) · [Inferenza](../src/training/phase-1/src/training/apertus-8B-lora-heads/predict.py)
 
 ### Diagnostica dev per dimensione
 
@@ -231,7 +231,7 @@ Sul dev, `right_side` e `left_side` sono sotto soglia rispettivamente nel 92,4% 
 
 Il 25,9% delle predizioni di `perspective` è sotto 0,60. Per `front_angle_right` sono il 55,4% su 659 casi. In 166 casi entrambi gli altri modelli scelgono `front_angle_left`. Sul `prompt-test`, `certification_seal` e `Dutch` hanno F1 0,40, rispettivamente su 6 e 4 esempi. Il supporto ridotto rende questi valori sensibili a pochi casi.
 
-[Report final-abt](../src/apertus-8B-vadapter-lora-heads/RISULTATI.md) · [Impostazioni checkpoint](../src/outputs/apertus-8B-vadapter-lora-heads-final/settings.json) · [Inferenza](../src/apertus-8B-vadapter-lora-heads/predict.py)
+Report final-abt · [Impostazioni checkpoint](../weights/apertus-8B-vadapter-lora-heads-final/settings.json) · [Inferenza](../src/training/phase-2/src/training/apertus-8B-vadapter-lora-heads/predict.py)
 
 ### Diagnostica dev per dimensione
 

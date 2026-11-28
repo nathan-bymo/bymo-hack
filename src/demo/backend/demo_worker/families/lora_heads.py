@@ -1,4 +1,4 @@
-"""P11: Apertus 8B + LoRA fuso + 6 teste (`src/training/apertus-8B-lora-heads`). Piano B.4.1. NON verificata su GPU."""
+"""P11: Apertus 8B + LoRA fuso + 6 teste (`src/training/phase-1/src/training/apertus-8B-lora-heads`). Piano B.4.1. NON verificata su GPU."""
 
 from __future__ import annotations
 

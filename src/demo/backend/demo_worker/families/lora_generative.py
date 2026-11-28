@@ -1,4 +1,4 @@
-"""P10: Apertus 8B + LoRA (JSON generato), `src/micro-training/lora-generativo`. Piano B.3. NON verificata su GPU.
+"""P10: Apertus 8B + LoRA (JSON generato), `src/micro-training/phase-2/src/micro-training/lora-generativo`. Piano B.3. NON verificata su GPU.
 
 Confidenza (metodo A): prodotto delle probabilità dei token del valore scelto, dagli score della generazione
 (`output_scores=True`). Il test di parità deve mostrare che le sequenze generate sono identiche con e senza score.

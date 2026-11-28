@@ -1,5 +1,5 @@
 # Worker GPU della demo: stesse versioni dei job che hanno prodotto i pesi
-# (src/training/apertus-8B-lora-heads/build_hf_job.py:40-55). NON installare sul laptop senza GPU.
+# (src/training/phase-1/src/training/apertus-8B-lora-heads/build_hf_job.py:40-55). NON installare sul laptop senza GPU.
 torch==2.8.0
 torchvision==0.23.0
 transformers[vision] @ git+https://github.com/swiss-ai/transformers.git@3797303dda74844e3d1f8977ff5518bb91f818b4
@@ -9,5 +9,5 @@ safetensors
 huggingface_hub
 pandas==3.1.1
 pillow==13.0.0
-# solo per il modello finale (vision adapter + OCR): src/apertus-8B-vadapter-lora-heads/build_hf_job.py:76
+# solo per il modello finale (vision adapter + OCR): src/training/phase-2/src/training/apertus-8B-vadapter-lora-heads/build_hf_job.py:76
 python-doctr==1.1.0

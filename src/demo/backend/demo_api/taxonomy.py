@@ -13,7 +13,7 @@ ERP_LABELS_PATH = Path(__file__).resolve().parents[2] / "config" / "erp_labels.y
 
 # Fasce di confidenza del chip: le stesse dell'analisi del 70B (teacher_student_zeroshot.md:57). Solo aiuto visivo.
 CONFIDENCE_BINS = {"low_below": 0.60, "high_from": 0.90,
-                   "source": "src/plain-benchmark/reports/apertus-8B-benchmark/teacher_student_zeroshot.md:57"}
+                   "source": "src/demo/config/sources/teacher_student_zeroshot.md:57"}
 
 
 def dimensions() -> tuple[str, ...]:

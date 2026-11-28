@@ -21,10 +21,10 @@ defaults:
   throughput_target_images_per_second: 2                      # challenge_description.md:67
   cost:
     default: {gpu_label: "A100 80GB (HF a100-large)", usd_per_hour: 2.50,
-              source: "src/training/phase-1/reports/apertus-8B-fullft-heads/README.md:71"}
+              source: "src/demo/config/sources/apertus-8B-fullft-heads__README.md:71"}
     alternatives:
-      - {gpu_label: "H200 (HF)", usd_per_hour: 5.00, source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:174"}
-      - {gpu_label: "RTX PRO 6000 (HF)", usd_per_hour: 2.75, source: "src/training/phase-1/reports/apertus-8B-fullft-heads/README.md:70"}
+      - {gpu_label: "H200 (HF)", usd_per_hour: 5.00, source: "src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:174"}
+      - {gpu_label: "RTX PRO 6000 (HF)", usd_per_hour: 2.75, source: "src/demo/config/sources/apertus-8B-fullft-heads__README.md:70"}
       - {gpu_label: "L40S (HF)", usd_per_hour: 1.80, source: "FAQ.md:22"}
 
 models:
@@ -55,19 +55,19 @@ models:
     vram_estimate_gb: null
     memory: {gb: null, kind: not_reported,
              what: "fits one 48 GB L40S (bf16) or two 16 GB T4 (fp16)",
-             source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/RISULTATI.md:15"}
+             source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__RISULTATI.md:15"}
     measured:
       - {what: "img/s (end to end, lettura immagini inclusa)", value: 6.2, conditions: "H200, prompt-test, SigLIP + VQ + OCR + Apertus",
-         source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/RISULTATI.md:104", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__RISULTATI.md:104", gpu_label: "H200 (HF)", cost_eligible: true}
       - {what: "img/s (end to end)", value: 4.9, conditions: "1× L40S, bf16, predizione del dev",
-         source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/RISULTATI.md:15", gpu_label: "L40S (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__RISULTATI.md:15", gpu_label: "L40S (HF)", cost_eligible: true}
     evals:
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.821, weighted_f1: 0.917,
-         source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/RISULTATI.md:62",
+         source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__RISULTATI.md:62",
          note: "mai visto da nessun checkpoint (RISULTATI.md:54-55)"}
     contamination_note: "Il passo finale è allenato su tutto il train tranne prompt-test: coverage e base non sono più set validi per questo modello."
     caveats: ["OCR docTR e SigLIP 2 vanno scaricati sul host GPU insieme ad Apertus"]
-    kaggle_dev: {score: 0.83177, submitted_at: "2026-11-27", source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/RISULTATI.md:10",
+    kaggle_dev: {score: 0.83177, submitted_at: "2026-11-27", source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__RISULTATI.md:10",
                  source_label: "team submission on Kaggle, 27/11",
                  note: "dev pubblico; righe final ancora ai valori di default di sample_submission.csv (RISULTATI.md:15-17)"}
 
@@ -82,7 +82,7 @@ models:
     status_override: {status: unavailable, reason: "ensemble di due modelli: solo punteggio Kaggle (due decoder, metà velocità)"}
     training_label: "two trained models, probabilities averaged"
     evals: []
-    kaggle_dev: {score: 0.847, submitted_at: "2026-11-28T03:19:00Z", source: "src/training/phase-3/reports/benchmark/README.md:26",
+    kaggle_dev: {score: 0.847, submitted_at: "2026-11-28T03:19:00Z", source: "src/demo/config/sources/benchmark__README.md:26",
                  source_label: "team submission on Kaggle, 28/11 03:19"}
 
   - id: apertus-8b-zeroshot-v2
@@ -104,17 +104,17 @@ models:
     vram_estimate_gb: null                                            # remoto
     measured:
       - {what: "img/s", value: 3.8, conditions: "gateway Keera condiviso, 32 in parallelo, coverage",
-         source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:97"}
-      - {what: "latenza mediana s/immagine", value: 8.0, source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:97"}
+         source: "src/demo/config/sources/prompt_eval_coverage.md:97"}
+      - {what: "latenza mediana s/immagine", value: 8.0, source: "src/demo/config/sources/prompt_eval_coverage.md:97"}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.528, weighted_f1: 0.705,
-         source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:45",
+         source: "src/demo/config/sources/prompt_eval_coverage.md:45",
          note: "prompt scelto sulle prime 600 di prompt-dev, che sono dentro coverage"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.513, weighted_f1: 0.708,
-         source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:57"}
+         source: "src/demo/config/sources/prompt_eval_coverage.md:57"}
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.502, weighted_f1: 0.703,
-         source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:69", note: "non usato per scegliere il prompt"}
-    per_class_source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:107-400"
+         source: "src/demo/config/sources/prompt_eval_coverage.md:69", note: "non usato per scegliere il prompt"}
+    per_class_source: "src/demo/config/sources/prompt_eval_coverage.md:107-400"
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
   - id: apertus-70b-zeroshot-v2
@@ -136,16 +136,16 @@ models:
     vram_estimate_gb: null
     measured:
       - {what: "img/s", value: 2.8, conditions: "gateway Keera condiviso, 32 in parallelo, coverage",
-         source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:99"}
-      - {what: "latenza mediana s/immagine", value: 11.1, source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:99"}
+         source: "src/demo/config/sources/prompt_eval_coverage.md:99"}
+      - {what: "latenza mediana s/immagine", value: 11.1, source: "src/demo/config/sources/prompt_eval_coverage.md:99"}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.583, weighted_f1: 0.739,
-         source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:47", note: "prompt scelto su prompt-dev ⊂ coverage"}
+         source: "src/demo/config/sources/prompt_eval_coverage.md:47", note: "prompt scelto su prompt-dev ⊂ coverage"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.587, weighted_f1: 0.742,
-         source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:59"}
+         source: "src/demo/config/sources/prompt_eval_coverage.md:59"}
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.590, weighted_f1: 0.740,
-         source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:71"}
-    per_class_source: "src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md:107-400"
+         source: "src/demo/config/sources/prompt_eval_coverage.md:71"}
+    per_class_source: "src/demo/config/sources/prompt_eval_coverage.md:107-400"
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
   - id: apertus-8b-lora-p10
@@ -174,20 +174,20 @@ models:
     measured:
       - {what: "img/s (solo generate, VQ escluso)", value: 18.0, conditions: "H200, batch 32, coverage",
          gpu_label: "H200 (HF)", cost_eligible: false,   # non end-to-end: il costo non si calcola
-         source: "src/micro-training/phase-2/reports/lora-generativo/results/prototype-256/eval_coverage.json:6"}
+         source: "src/demo/config/sources/lora-generativo__results__prototype-256__eval_coverage.json:6"}
     evals:   # tutti riferiti all'adapter "final", NON a step-00738
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.734, weighted_f1: 0.879,
-         source: "src/micro-training/phase-2/reports/lora-generativo/results/prototype-256/eval_coverage.json", checkpoint: final,
+         source: "src/demo/config/sources/lora-generativo__results__prototype-256__eval_coverage.json", checkpoint: final,
          note: "21 risposte non valide su 2.532"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.721, weighted_f1: 0.885,
-         source: "src/micro-training/phase-2/reports/lora-generativo/results/prototype-256/eval_coverage.json", checkpoint: final}
+         source: "src/demo/config/sources/lora-generativo__results__prototype-256__eval_coverage.json", checkpoint: final}
       - {set: prompt-test, validity: phase1_internal, provenance: reported_only, macro_f1: 0.711, weighted_f1: 0.881,
-         source: "src/micro-training/phase-2/reports/lora-generativo/results/prototype-256/eval_coverage.json", checkpoint: final,
+         source: "src/demo/config/sources/lora-generativo__results__prototype-256__eval_coverage.json", checkpoint: final,
          note: "valore esatto 0.7115; docs/context/EXPERIMENTS.md sul branch scrive 0.712"}
       - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.696, weighted_f1: 0.747,
-         source: "src/micro-training/phase-2/reports/lora-generativo/results/prototype-256/eval_prototype_validation.json", checkpoint: final,
+         source: "src/demo/config/sources/lora-generativo__results__prototype-256__eval_prototype_validation.json", checkpoint: final,
          note: "set bilanciato, non rappresentativo"}
-    per_class_source: "src/micro-training/phase-2/reports/lora-generativo/results/prototype-256/eval_coverage.json"
+    per_class_source: "src/demo/config/sources/lora-generativo__results__prototype-256__eval_coverage.json"
     kaggle_dev: {score: null, submitted_at: null, note: ""}
 
   - id: apertus-8b-lora-heads-p11
@@ -214,23 +214,23 @@ models:
     training: {data: "training_rows (9.344)", phase: 1, seen_sets: [training_rows, validation_450]}   # validation_450 è dentro training_rows (piano §9.3)
     vram_estimate_gb: 22.0        # MISURATO: picco allocato, batch 32, H200 (results_full_h200.md:173)
     memory: {gb: 22.0, kind: measured, what: "peak GPU memory allocated, batch 32, H200",
-             source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:173"}
+             source: "src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:173"}
     measured:
       - {what: "img/s (immagine → CSV)", value: 13.2, conditions: "H200, batch 32, coverage, caricamento escluso",
-         source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:173", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:173", gpu_label: "H200 (HF)", cost_eligible: true}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.781, weighted_f1: 0.905,
-         source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:23"}
+         source: "src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:23"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.786, weighted_f1: 0.913,
-         source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:24"}
+         source: "src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:24"}
       - {set: prompt-test, validity: phase1_internal, provenance: reported_only, macro_f1: 0.791, weighted_f1: 0.915,
-         source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:25"}
-    per_class_source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:46-120"
-    confusion_source: {dimension: perspective, set: coverage, source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:122-136"}
+         source: "src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:25"}
+    per_class_source: "src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:46-120"
+    confusion_source: {dimension: perspective, set: coverage, source: "src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:122-136"}
     caveats: ["comportamento senza contesto prodotto non misurato (results_full_h200.md:17)"]
-    kaggle_dev: {score: 0.796, submitted_at: "2026-11-27T21:30:00+01:00", source: "src/training/phase-1/reports/EXPERIMENTS.md:78",
+    kaggle_dev: {score: 0.796, submitted_at: "2026-11-27T21:30:00+01:00", source: "src/demo/config/sources/EXPERIMENTS.md:78",
                  source_label: "team submission on Kaggle, 27/11 (59018375)",
-                 note: "dev pubblico, submission 59018375 con righe final costanti; anche src/training/phase-1/reports/apertus-8B-lora-heads/results_full_h200.md:150-162"}
+                 note: "dev pubblico, submission 59018375 con righe final costanti; anche src/demo/config/sources/apertus-8B-lora-heads__results_full_h200.md:150-162"}
 
   - id: apertus-8b-vadapter-lora-heads-p13
     display_name: "Apertus 8B · final model + 1 epoch with synthetic images (P13)"
@@ -242,7 +242,7 @@ models:
     runtime: worker_gpu
     weights:
       location_label: "team's private Hugging Face repo"
-      copy_note: "synth-ft-1128-0243/model/best (src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md:15)"
+      copy_note: "synth-ft-1128-0243/model/best (src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p13_synthetic.md:15)"
       requires_base: true
     code: {root: "src/training/phase-2/src/training/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
     prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
@@ -253,15 +253,15 @@ models:
                seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
     vram_estimate_gb: null
     memory: {gb: null, kind: not_reported, what: "same as the final model: fits one 48 GB L40S",
-             source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md:12"}
+             source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p13_synthetic.md:12"}
     measured:
       - {what: "img/s (immagine → CSV, OCR compreso)", value: 6.67, conditions: "H200, prompt-test, caricamento escluso",
-         source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md:115", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p13_synthetic.md:115", gpu_label: "H200 (HF)", cost_eligible: true}
     evals:
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.8471, weighted_f1: 0.9219,
-         source: "src/training/phase-3/reports/benchmark/overall.md:16"}
+         source: "src/demo/config/sources/benchmark__overall.md:16"}
     contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
-    kaggle_dev: {score: 0.829, submitted_at: "2026-11-28", source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md:23",
+    kaggle_dev: {score: 0.829, submitted_at: "2026-11-28", source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p13_synthetic.md:23",
                  source_label: "team submission on Kaggle, 28/11"}
 
   - id: apertus-8b-mixed-lora-heads
@@ -287,17 +287,17 @@ models:
                seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
     vram_estimate_gb: null
     memory: {gb: 23.0, kind: measured, what: "peak GPU memory, fast path + TF32, H100 80GB",
-             source: "src/training/phase-3/reports/apertus-8B-mixed-lora-heads/RESULTS.md:142"}
+             source: "src/demo/config/sources/apertus-8B-mixed-lora-heads__RESULTS.md:142"}
     measured:
       - {what: "img/s (end to end)", value: 5.9, conditions: "1× H200, prompt-test",
          source: "weights/apertus-8B-mixed-lora-heads-final/README.md:9", gpu_label: "H200 (HF)", cost_eligible: true}
       - {what: "img/s (percorso veloce + TF32)", value: 14.34, conditions: "1× H100 80GB, dev, configurazione di consegna",
-         source: "src/training/phase-3/reports/apertus-8B-mixed-lora-heads/RESULTS.md:142", gpu_label: "H100 80GB", cost_eligible: false, preferred: true}
+         source: "src/demo/config/sources/apertus-8B-mixed-lora-heads__RESULTS.md:142", gpu_label: "H100 80GB", cost_eligible: false, preferred: true}
     evals:
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.843, weighted_f1: 0.924,
          source: "weights/apertus-8B-mixed-lora-heads-final/prompt_test_metrics.json"}
     contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
-    kaggle_dev: {score: 0.84215, submitted_at: "2026-11-28T06:39:00Z", source: "src/training/phase-3/reports/apertus-8B-mixed-lora-heads/RESULTS.md:25",
+    kaggle_dev: {score: 0.84215, submitted_at: "2026-11-28T06:39:00Z", source: "src/demo/config/sources/apertus-8B-mixed-lora-heads__RESULTS.md:25",
                  source_label: "team submission on Kaggle, 28/11 (59038887)"}
 
   - id: apertus-8b-siglip-lora
@@ -310,7 +310,7 @@ models:
     runtime: worker_gpu
     weights:
       location_label: "team's private Hugging Face repo"
-      copy_note: "MANNIK14/galaxus-vlh-private/siglip-lora-1128-0815/model/best (src/training/phase-3/reports/benchmark/README.md:66)"
+      copy_note: "MANNIK14/galaxus-vlh-private/siglip-lora-1128-0815/model/best (src/demo/config/sources/benchmark__README.md:66)"
       requires_base: true
     code: {root: "src/training/phase-2/src/training/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
     prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
@@ -321,16 +321,16 @@ models:
                seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
     vram_estimate_gb: 79.8
     memory: {gb: 79.8, kind: measured, what: "peak GPU memory in prediction, H200",
-             source: "src/training/phase-3/reports/benchmark/README.md:48"}
+             source: "src/demo/config/sources/benchmark__README.md:48"}
     measured:
       - {what: "img/s (predizione)", value: 6.75, conditions: "H200, prompt-test",
-         source: "src/training/phase-3/reports/benchmark/README.md:48", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/benchmark__README.md:48", gpu_label: "H200 (HF)", cost_eligible: true}
     evals:
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.8356, weighted_f1: 0.9234,
-         source: "src/training/phase-3/reports/benchmark/overall.md:18",
+         source: "src/demo/config/sources/benchmark__overall.md:18",
          note: "checkpoint scelto su prompt-test: non è più una prova indipendente (results_siglip_lora.md:13-14)"}
     contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
-    kaggle_dev: {score: 0.83526, submitted_at: "2026-11-28T08:20:00Z", source: "src/training/phase-3/reports/benchmark/README.md:28",
+    kaggle_dev: {score: 0.83526, submitted_at: "2026-11-28T08:20:00Z", source: "src/demo/config/sources/benchmark__README.md:28",
                  source_label: "team submission on Kaggle, 28/11 (59043423)"}
 
   - id: apertus-8b-vadapter-lora-heads-p14
@@ -343,7 +343,7 @@ models:
     runtime: worker_gpu
     weights:
       location_label: "team's private Hugging Face repo"
-      copy_note: "eyes512-run1-1128-0431/model/best (src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p14_p15.md:24)"
+      copy_note: "eyes512-run1-1128-0431/model/best (src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p14_p15.md:24)"
       requires_base: true
     code: {root: "src/training/phase-2/src/training/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
     prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
@@ -354,13 +354,13 @@ models:
                seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
     vram_estimate_gb: null
     memory: {gb: null, kind: not_reported, what: "80.7 GB peak in its H200 job",
-             source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p14_p15.md:118"}
+             source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p14_p15.md:118"}
     measured:
       - {what: "img/s (immagine → CSV, OCR compreso)", value: 6.23, conditions: "H200, prompt-test, caricamento escluso",
-         source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p14_p15.md:118", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p14_p15.md:118", gpu_label: "H200 (HF)", cost_eligible: true}
     evals:
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.8332, weighted_f1: 0.9217,
-         source: "src/training/phase-3/reports/benchmark/overall.md:17"}
+         source: "src/demo/config/sources/benchmark__overall.md:17"}
     contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
     kaggle_dev: {score: null, note: "non misurato (results_p14_p15.md:23)"}
 
@@ -374,7 +374,7 @@ models:
     runtime: worker_gpu
     weights:
       location_label: "team's private Hugging Face repo"
-      copy_note: "base224-all-1128-0539/model/last (src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p14_p15.md:128)"
+      copy_note: "base224-all-1128-0539/model/last (src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p14_p15.md:128)"
       requires_base: true
     code: {root: "src/training/phase-2/src/training/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
     prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
@@ -385,13 +385,13 @@ models:
                seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
     vram_estimate_gb: null
     memory: {gb: null, kind: not_reported, what: "same as the final model: fits one 48 GB L40S",
-             source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p14_p15.md:120-129"}
+             source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p14_p15.md:120-129"}
     measured:
       - {what: "img/s (predizione del dev)", value: 7.49, conditions: "H200, dev",
-         source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p14_p15.md:135", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p14_p15.md:135", gpu_label: "H200 (HF)", cost_eligible: true}
     evals: []
     contamination_note: "Ha visto tutto il train: nessun set interno è valido, solo il dev Kaggle."
-    kaggle_dev: {score: 0.83144, submitted_at: "2026-11-28", source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/results_p14_p15.md:133",
+    kaggle_dev: {score: 0.83144, submitted_at: "2026-11-28", source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__results_p14_p15.md:133",
                  source_label: "team submission on Kaggle, 28/11"}
 
   - id: apertus-8b-lora-heads-p12
@@ -404,7 +404,7 @@ models:
     runtime: worker_gpu
     weights:
       location_label: "team's private Hugging Face repo"
-      copy_note: "archive/p12_lora_heads_pool_512_coverage0806 (src/training/phase-1/reports/apertus-8B-lora-heads/results_p12_512_pooling.md:15)"
+      copy_note: "archive/p12_lora_heads_pool_512_coverage0806 (src/demo/config/sources/apertus-8B-lora-heads__results_p12_512_pooling.md:15)"
       requires_base: true
     code: {root: "src/training/phase-1/src/training/apertus-8B-lora-heads", reference: "predict.py"}
     prompt: {version: "heads-task", side: 512, use_context_default: true, system_message: false}
@@ -414,18 +414,18 @@ models:
     training: {data: "training_rows (9.344)", phase: 1, seen_sets: [training_rows, validation_450]}
     vram_estimate_gb: 32.5
     memory: {gb: 32.5, kind: measured, what: "peak GPU memory in prediction, batch 32, H200",
-             source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_p12_512_pooling.md:125"}
+             source: "src/demo/config/sources/apertus-8B-lora-heads__results_p12_512_pooling.md:125"}
     measured:
       - {what: "img/s (predizione)", value: 3.9, conditions: "H200, batch 32, coverage",
-         source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_p12_512_pooling.md:122", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-lora-heads__results_p12_512_pooling.md:122", gpu_label: "H200 (HF)", cost_eligible: true}
     evals:
       - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.8056, weighted_f1: 0.9162,
-         source: "src/training/phase-3/reports/benchmark/overall.md:11"}
+         source: "src/demo/config/sources/benchmark__overall.md:11"}
       - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.8000, weighted_f1: 0.9221,
-         source: "src/training/phase-3/reports/benchmark/overall.md:12"}
+         source: "src/demo/config/sources/benchmark__overall.md:12"}
       - {set: prompt-test, validity: phase1_internal, provenance: reported_only, macro_f1: 0.7913, weighted_f1: 0.9211,
-         source: "src/training/phase-3/reports/benchmark/overall.md:13"}
-    kaggle_dev: {score: 0.806, submitted_at: "2026-11-28", source: "src/training/phase-1/reports/apertus-8B-lora-heads/results_p12_512_pooling.md:23",
+         source: "src/demo/config/sources/benchmark__overall.md:13"}
+    kaggle_dev: {score: 0.806, submitted_at: "2026-11-28", source: "src/demo/config/sources/apertus-8B-lora-heads__results_p12_512_pooling.md:23",
                  source_label: "team submission on Kaggle, 28/11"}
 
   - id: apertus-8b-fullft-heads
@@ -438,7 +438,7 @@ models:
     runtime: worker_gpu
     weights:
       repo: StoryofLegend/apertus-8b-galaxus-fullft         # privato (repo HF di Kri)
-      revision: aac1375d3efb93460a564faaef00a60430d84443     # src/training/phase-1/reports/apertus-8B-fullft-heads/results_phase2.md:16
+      revision: aac1375d3efb93460a564faaef00a60430d84443     # src/demo/config/sources/apertus-8B-fullft-heads__results_phase2.md:16
       subfolder: phase2/model/last                          # 3 epoche: quello della submission fullft_phase2_3ep.csv
       location_label: "private HF repo, 10.5 GB"
       files: ["decoder.safetensors", "heads.pt", "settings.json"]
@@ -452,15 +452,15 @@ models:
     training: {data: "tutto train.csv (11.876)", phase: 2, seen_sets: [train_all, coverage, base, prompt-test, prompt-dev-600, validation_450, train_1500]}
     vram_estimate_gb: 18.7
     memory: {gb: 18.7, kind: measured, what: "GPU memory in inference, A100 80 GB",
-             source: "src/training/phase-1/reports/apertus-8B-fullft-heads/results_phase2.md:43"}
+             source: "src/demo/config/sources/apertus-8B-fullft-heads__results_phase2.md:43"}
     measured:
       - {what: "img/s (end to end, VQ incluso)", value: 9.55, conditions: "A100 80 GB, predizione del dev",
-         source: "src/training/phase-1/reports/apertus-8B-fullft-heads/results_phase2.md:43", gpu_label: "A100 80GB (HF a100-large)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-fullft-heads__results_phase2.md:43", gpu_label: "A100 80GB (HF a100-large)", cost_eligible: true}
     evals: []                     # nessun set locale valido: tutto il train è stato visto
     contamination_note: "Allenato su tutte le 11.876 immagini: ogni metrica su sottoinsiemi del train è 'seen during training — invalid'."
-    kaggle_dev: {score: 0.80473, submitted_at: "2026-11-27", source: "src/training/phase-2/reports/apertus-8B-vadapter-lora-heads/RISULTATI.md:11",
+    kaggle_dev: {score: 0.80473, submitted_at: "2026-11-27", source: "src/demo/config/sources/apertus-8B-vadapter-lora-heads__RISULTATI.md:11",
                  source_label: "team submission on Kaggle, 27/11 (59021011, fullft_phase2_3ep.csv)",
-                 note: "unico numero valido per questo modello; anche src/training/phase-1/reports/apertus-8B-fullft-heads/results_phase2.md:17-27"}
+                 note: "unico numero valido per questo modello; anche src/demo/config/sources/apertus-8B-fullft-heads__results_phase2.md:17-27"}
 
   - id: apertus-8b-frozen-heads-p8
     display_name: "Apertus 8B congelato + teste (P8, cross-entropy, 1 seed)"
@@ -475,7 +475,7 @@ models:
     training: {data: "train_1500: 1.199 fit + 301 scelta", phase: 1, seen_sets: [train_1500]}
     evals:
       - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.542, weighted_f1: 0.612,
-         source: "src/micro-training/phase-2/reports/confronto_lora.md:35", note: "set bilanciato, non confrontabile con coverage"}
+         source: "src/demo/config/sources/confronto_lora.md:35", note: "set bilanciato, non confrontabile con coverage"}
     kaggle_dev: {score: null}
 
   - id: apertus-8b-frozen-heads-p9
@@ -491,5 +491,5 @@ models:
     training: {data: "train_1500: 1.199 fit + 301 scelta", phase: 1, seen_sets: [train_1500]}
     evals:
       - {set: validation_450, validity: held_out, provenance: reported_only, macro_f1: 0.557, weighted_f1: 0.629,
-         source: "src/micro-training/phase-2/reports/confronto_lora.md:36", note: "media di 5 seed; set bilanciato"}
+         source: "src/demo/config/sources/confronto_lora.md:36", note: "media di 5 seed; set bilanciato"}
     kaggle_dev: {score: null}

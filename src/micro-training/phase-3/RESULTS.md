@@ -2,4 +2,4 @@
 
 On the same intentionally balanced 450-image validation set, the projector-only model obtained macro F1 0.467 after epoch 1 and 0.516 after epoch 2. The second stage changed batch size and restarted the optimizer; the gain cannot be attributed to epoch count alone. The epoch-2 dimension scores were 0.431 subject, 0.740 background, 0.244 perspective, 0.948 individuals, 0.365 text classification and 0.368 text language. Nine of 450 outputs contained at least one invalid JSON dimension after epoch 2. No matched native-VQ-only control established the encoder's isolated contribution.
 
-Source: `src/micro-training/apertus-vadapter-benchmark/hf-results.md` (checkpoint hashes and job IDs).
+Source: `hf-results.md` (original report, git history) (checkpoint hashes and job IDs).

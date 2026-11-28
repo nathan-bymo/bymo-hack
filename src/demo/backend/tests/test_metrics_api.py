@@ -28,7 +28,7 @@ def test_p11_coverage_badges_and_numbers(client):
     assert r["source"].endswith("results_full_h200.md:23") and "9.344" in r["trained_on"]
     assert r["confusion"]["perspective"]["labels"][0] == "front_head_on"
     assert body["kaggle_dev"]["score"] == 0.796 and body["kaggle_dev"]["badge"] == "Kaggle dev (public)"
-    assert body["kaggle_dev"]["source"] == "src/training/phase-1/reports/EXPERIMENTS.md:78"
+    assert body["kaggle_dev"]["source"] == "src/demo/config/sources/EXPERIMENTS.md:78"
 
 
 def test_zeroshot_prompt_test_is_held_out(client):

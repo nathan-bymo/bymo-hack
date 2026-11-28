@@ -1,7 +1,7 @@
 # Dataset exploration: results (28 November 2026)
 
 Aggregate numbers only. Human, relevant cells are the cells the leaderboard scores. prompt-test is bucket 1 of 10 of
-the product hash in `src/training/common/splits.py`: 1,193 images of 713 products, 10.0% of `train.csv`.
+the product hash in `src/training/phase-3/src/training/common/splits.py`: 1,193 images of 713 products, 10.0% of `train.csv`.
 
 ## 0. Dataset facts used in the technical report
 

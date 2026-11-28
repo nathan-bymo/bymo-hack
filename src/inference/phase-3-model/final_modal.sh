@@ -3,6 +3,7 @@
 # fast path + TF32 + selective perspective TTA (preset "final", about 8 minutes of inference), then the Kaggle file.
 #
 #   export FINAL_PASSPHRASE='...'          # never write it into a file
+#   export DEV_CSV=path/to/dev_predictions.csv   # required: dev rows of your best dev file (local, git-ignored)
 #   bash src/inference/phase-3-model/final_modal.sh
 #
 # Needs: Modal CLI logged in, a Hugging Face token (~/.cache/huggingface/token or HF_TOKEN) with read access to the
@@ -18,7 +19,7 @@ MIXED=src/training/apertus-8B-mixed-lora-heads  # relative to $PHASE
 OUTPUT_REPO=${OUTPUT_REPO:-nathan-monzani-bymo/galaxus-vlh-private}    # private: checkpoint in, predictions out
 DATA_REPO=${DATA_REPO:-nathan-monzani-bymo/galaxus-data-private}        # private: competition data + final archive
 CHECKPOINT=${CHECKPOINT:-mixed-modal-20261128-033303/model/best}        # = weights/apertus-8B-mixed-lora-heads-final
-DEV_CSV=${DEV_CSV:-data/runs/mixed-kaggle/submission_dev.csv}           # dev rows of the best dev file
+: "${DEV_CSV:?export DEV_CSV=<your dev predictions csv (image_id + six dimensions, the dev rows of your best dev submission); it is git-ignored, not in the repo>}"
 MODAL=${MODAL:-modal}
 NAME=${NAME:-final-$(date -u +%Y%m%d-%H%M%S)}
 

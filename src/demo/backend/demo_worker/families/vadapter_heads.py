@@ -1,4 +1,4 @@
-"""Modello finale: SigLIP 2 + OCR docTR + Apertus 8B (24 layer, LoRA fuso) + 6 teste (`src/training/apertus-8B-vadapter-lora-heads`).
+"""Modello finale: SigLIP 2 + OCR docTR + Apertus 8B (24 layer, LoRA fuso) + 6 teste (`src/training/phase-2/src/training/apertus-8B-vadapter-lora-heads`).
 
 Ripete passo per passo il ciclo di `predict.py` (encode → OCR → prompt → forward → softmax per testa), senza TTA e
 senza bias di calibrazione: come la submission del dev. NON VERIFICATA su GPU in questa sessione (nessuna GPU

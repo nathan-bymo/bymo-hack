@@ -14,6 +14,6 @@ On coverage, the 70B description prompt scored 0.546 subject, 0.631 background, 
 
 Is the 70B reliable when confident? On coverage, its perspective answers are right 28.4% of the time below confidence 0.60, 39.3% between 0.60 and 0.90 and **63.4%** at ≥ 0.90; for comparison subject reaches 76.6% and individuals 98.5% at ≥ 0.90. Distilling the 70B was therefore not pursued.
 
-Four-decimal coverage scores: 70B description 0.5829, 8B description 0.5282, 70B shared JSON 0.3036, 8B shared JSON 0.2293. Source: `src/training/benchmark/overall.md`, `src/training/benchmark/README.md` (speeds).
+Four-decimal coverage scores: 70B description 0.5829, 8B description 0.5282, 70B shared JSON 0.3036, 8B shared JSON 0.2293. Source: `overall.md` (original report, git history), `README.md` (original report, git history) (speeds).
 
-Source: `src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval_coverage.md`, `src/plain-benchmark/reports/apertus-8B-benchmark/prompt_eval.md`, `src/plain-benchmark/reports/apertus-8B-benchmark/teacher_student_zeroshot.md` and `src/plain-benchmark/reports/apertus-70B-benchmark/README.md`.
+Source: the original 8B and 70B zero-shot run reports (prompt evaluation on coverage, prompt variants, teacher/student zero-shot); they were removed in the clean-up and remain in the git history.

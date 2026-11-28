@@ -25,7 +25,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "training" / "phase-3" / "src" / "training"))
 from common import images, splits  # noqa: E402
 
 FONTS = [f"/System/Library/Fonts/Supplemental/{name}" for name in (

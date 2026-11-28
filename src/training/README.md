@@ -8,12 +8,12 @@ For setup, verified checks and outstanding provenance, start with the [reproduci
 - [Phase 2](phase-2/README.md): subsequent LoRA and visual-adapter improvements.
 - [Phase 3](phase-3/README.md): DINOv3 and mixed experiments.
 
-Each phase folder contains its own copy of the code needed for that phase and runs as a standalone working root. These copies reflect the current implementation, not historical snapshots. Existing model directories are retained for compatibility; historical runs require their original revisions and artifacts.
+Each phase folder contains its own copy of the code needed for that phase and runs as a standalone working root. These copies reflect the current implementation, not historical snapshots. Historical runs require their original revisions and artifacts.
 
 
-The model directories contain the actual training, encoding, prediction and Hugging Face job-generation code. Run all commands from the repository root. The job scripts package code and are generated under `data/hf_jobs/`, which is ignored by Git. They are not notebooks.
+The model directories under each phase's `src/training/` contain the actual training, encoding, prediction and Hugging Face job-generation code. Run all commands from inside the relevant phase folder (for example `cd src/training/phase-1`); `data/` is relative to that folder. The job scripts package code and are generated under `data/hf_jobs/`, which is ignored by Git. They are not notebooks.
 
-| Model | Training code | Results | Generated job |
+| Model | Training code (in `phase-N/src/training/`) | Results | Generated job |
 |---|---|---|---|
 | LoRA + heads | `apertus-8B-lora-heads/` | [phase 1](phase-1/RESULTS.md) (P11), [phase 2](phase-2/RESULTS.md) (P12) | `hf_job_lora_heads.py` |
 | Fine-tuned decoder + heads | `apertus-8B-fullft-heads/` | [phase 1](phase-1/RESULTS.md) | `hf_job_fullft.py` |
@@ -25,6 +25,7 @@ Each job uploads checkpoints and logs to the private `UPLOAD_REPO`; training and
 ## Generate the jobs locally
 
 ```sh
+cd src/training/phase-1   # from the repository root
 python src/training/apertus-8B-lora-heads/build_hf_job.py
 python src/training/apertus-8B-fullft-heads/build_hf_job.py
 python src/training/apertus-8B-vadapter-lora-heads/build_hf_job.py

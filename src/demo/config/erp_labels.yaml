@@ -1,4 +1,4 @@
-# Etichette "stile ERP" delle classi. Fonte di verità = stringhe interne di src/training/common/prompt.py (TAXONOMY).
+# Etichette "stile ERP" delle classi. Fonte di verità = stringhe interne di src/training/phase-3/src/training/common/prompt.py (TAXONOMY).
 # Solo poche etichette sono note: le 4 viste nello screenshot C (descrizione dell'utente del 27/11, non verificate
 # sull'originale) e `-` per Overlay e Language. Resta ignoto il valore `none` di Individuals (proposta `-`, Q13).
 # Per tutte le altre vale la regola automatica `auto` (snake_case -> Title Case), dichiarata come tale in UI.

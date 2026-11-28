@@ -9,7 +9,7 @@ intervals) and never write image or product ids. Results: [RESULTS.md](RESULTS.m
 | [context_baseline.py](context_baseline.py) | How much do the product context fields predict without looking at the image? |
 | [product_consistency.py](product_consistency.py) | Do the images of one product share their labels, and how much could a product-level vote add? |
 
-[shared.py](shared.py) reuses the repository's own split (`src/training/common/splits.py`) and the leaderboard macro F1
+[shared.py](shared.py) reuses the repository's own split (`src/training/phase-3/src/training/common/splits.py`) and the leaderboard macro F1
 (`src/scripts/build_teacher_targets.py`, same definition as `data/metric.py`).
 
 ## Run

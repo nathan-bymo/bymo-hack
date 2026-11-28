@@ -1,6 +1,6 @@
 """Compare prompt variants on labeled train images through the Apertus API, scored with metric.py.
 
-The splits are described in src/training/common/splits.py: "dev", "test", "base" (both) and "coverage" (base plus extra
+The splits are described in src/training/phase-3/src/training/common/splits.py: "dev", "test", "base" (both) and "coverage" (base plus extra
 products so that every class has enough examples). With "coverage" the results are shown three times: on all rows,
 on "base" (the natural class distribution) and on "test" alone (never used to choose a prompt before 2026-11-27).
 Keep the whole coverage set out of any finetuning. --rows scores any csv with the columns of train.csv instead,
