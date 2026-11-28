@@ -16,12 +16,20 @@ pagine della demo.
 - Controllare che `LLM_API_KEY` sia nel `.env` (70B e 8B dal vivo).
 - Fare una prova completa prima: la prima chiamata al gateway può essere lenta.
 
+## Scena 1: il problema (0:00–0:15), pagina Demo
+
+> Galaxus shows millions of product images, and for every image it needs six answers: what it shows, the
+> background, the perspective, whether a person is in it, which text is printed on it, and in which language.
+> We built this with Apertus.
+
+[Passare il mouse sul titolo, poi sulla zona della foto.]
+
 ## Scena 2: la demo (0:15–0:55), pagina Demo
 
 [Trascinare `07 monitor side view.jpg` dalla cartella sulla scrivania nel riquadro grigio.]
 
-> I drop a product photo. On the right I pick the models: our final model, an earlier version of it, and Apertus
-> 70B as it comes, without training.
+> I drop a product photo. Three models answer: our final model, an earlier version, and Apertus 70B without
+> training.
 
 [Sono già spuntati *Final model*, *LoRA + classifiers (P11)* e *Apertus 70B, no training*: le risposte arrivano da sole, senza pulsanti.]
 
@@ -31,20 +39,18 @@ pagine della demo.
 
 [Indicare la riga della prospettiva, rossa con "Models disagree".]
 
-> A red percentage means the model is less than 60% sure, so a person should take a look. Product details are
-> optional: in production they are often missing.
+> A red percentage means the model is less than 60% sure, so a person should take a look.
 
 ## Scena 3: i risultati (0:55–1:25), pagina Results
 
 [Cliccare *Results*. Fermarsi sul grafico della classifica.]
 
-> On the official Kaggle dev set our best submission scores 0.847: above both Gemini references, in the middle
-> assessment group, behind only the organisers' own fine-tuned Qwen.
+> On the official Kaggle dev set our best submission, two of our models averaged, scores 0.847: above both
+> Gemini references, behind only the organisers' own fine-tuned Qwen.
 
 [Scorrere a *Question by question*, indicare la riga della prospettiva.]
 
-> Question by question, on 1,193 photos it never saw: perspective goes from 0.198 for Apertus 8B without training
-> to 0.755.
+> On 1,193 photos it never saw, our final model takes perspective from 0.198, Apertus 8B without training, to 0.755.
 
 [Scorrere a *Speed and cost*.]
 
