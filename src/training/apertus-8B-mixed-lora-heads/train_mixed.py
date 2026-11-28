@@ -47,6 +47,42 @@ def predict_batches(model, builder, batches):
     return ids, [torch.cat(part) for part in parts]
 
 
+def guarded_batches(records, encoder, data_dir, batch_size, replaced):
+    """live_batches that never stops on an unreadable image: it is read as a blank picture, so every row still gets
+    a prediction. The ids of those images are appended to `replaced`."""
+    from predict import blank_image, with_placeholders
+
+    blank = {"image_id": "__blank__", "image_path": str(blank_image())}
+    ocr = {}
+    with ThreadPoolExecutor(8) as workers:
+        for part in chunks(records, batch_size):
+            def read(items):
+                return encoder.encode(items, [""] * len(items), data_dir, ocr, workers)
+
+            features, bad = with_placeholders(read, part, blank)
+            for index in bad:
+                ocr[part[index]["image_id"]] = ""
+                replaced.append(part[index]["image_id"])
+            yield part, features, ocr
+
+
+def predict_csv(model, builder, encoder, args):
+    """Any csv with the columns of dev.csv (the final images) -> <out>/final.csv and its report; no labels needed."""
+    rows = D.read_csv(args.predict_csv)
+    replaced, started = [], time.monotonic()
+    ids, probs = predict_batches(model, builder, guarded_batches(rows.to_dict("records"), encoder, args.data_dir,
+                                                               args.encode_batch, replaced))
+    seconds = time.monotonic() - started
+    if ids != list(rows.image_id):
+        raise RuntimeError("The predictions do not match the rows of the csv.")
+    D.prediction_frame(ids, probs).to_csv(args.out / "final.csv", index=False)
+    torch.save({"image_ids": ids, "dimensions": D.DIMENSIONS, "probabilities": probs}, args.out / "final.probs.pt")
+    report = {"images": len(rows), "seconds": round(seconds, 1), "images_per_second": round(len(rows) / seconds, 2),
+              "images_replaced_by_blank": len(replaced)}
+    (args.out / "final.report.json").write_text(json.dumps(report, indent=2))
+    log(f"final: {len(rows)} images at {report['images_per_second']} img/s, {len(replaced)} replaced by a blank one")
+
+
 def validation(model, builder, val, cache, ocr, metric, batch_size, stage, epoch):
     ids, probs = predict_batches(model, builder, cached_batches(val.to_dict("records"), cache, ocr, batch_size))
     results = metric.evaluate(D.solution_frame(val), D.prediction_frame(ids, probs), "image_id")
@@ -253,20 +289,30 @@ def main():
                         help="with --checkpoint: continue a mixed checkpoint training a new LoRA on SigLIP too")
     parser.add_argument("--vision-epochs", type=float, default=2)
     parser.add_argument("--lr-vision", type=float, default=5e-5)
+    parser.add_argument("--predict-csv", type=Path,
+                        help="with --checkpoint: only predict this csv (image paths start from --data-dir)")
     args = parser.parse_args()
     if min(args.wall_seconds, args.joint_epochs, args.train_batch, args.encode_batch) <= 0 or args.unfreeze_epochs < 0:
         parser.error("Invalid time, batch size or epoch count.")
     if args.initial and not args.dino_revision:
         parser.error("Training requires an exact DINO revision.")
+    vision = args.vision_lora_rank > 0
+    if vision and not args.checkpoint:
+        parser.error("--vision-lora-rank continues a mixed checkpoint: use --checkpoint.")
     deadline = time.monotonic() + args.wall_seconds
     args.out.mkdir(parents=True, exist_ok=True)
     torch.manual_seed(3407)
     directory = E.model_dir()
+    if args.predict_csv:
+        if not args.checkpoint or vision:
+            parser.error("--predict-csv needs --checkpoint and trains nothing.")
+        model, settings, builder = load_mixed(directory, args.checkpoint, args.dino_revision)
+        encoder = MixedEncoder(directory, settings["dino_revision"])
+        if settings.get("vision_lora_rank"):
+            encoder.use_vision_lora(args.checkpoint)
+        return predict_csv(model, builder, encoder, args)
     rows = D.read_csv(args.data_dir / "train.csv")
     metric = D.load_metric(args.data_dir)
-    vision = args.vision_lora_rank > 0
-    if vision and not args.checkpoint:
-        parser.error("--vision-lora-rank continues a mixed checkpoint: use --checkpoint.")
     model, settings, builder = load_mixed(directory, args.initial or args.checkpoint, args.dino_revision,
                                           vision_lora_rank=args.vision_lora_rank)
     encoder = MixedEncoder(directory, settings["dino_revision"])

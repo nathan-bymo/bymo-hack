@@ -159,3 +159,24 @@ def test_siglip_lora_starts_unchanged_learns_and_survives_a_reload(tmp_path):
     torch.testing.assert_close(merged, after, atol=2e-3, rtol=2e-3)
     with pytest.raises(FileNotFoundError):
         encoder.add_vision_lora(tmp_path / "nothing")
+
+
+def test_one_broken_image_never_stops_the_mixed_prediction(tmp_path):
+    from train_mixed import guarded_batches
+
+    class Encoder:
+        def encode(self, records, variants, data_dir, ocr, workers):
+            if any((data_dir / r["image_path"]).name == "broken.png" for r in records):
+                raise OSError("cannot read")
+            for record in records:
+                ocr.setdefault(record["image_id"], "text")
+            return [{"path": str(data_dir / r["image_path"])} for r in records]
+
+    names = ["a.png", "broken.png", "c.png"]
+    records = [{"image_id": n, "image_path": n} for n in names]
+    replaced = []
+    batches = list(guarded_batches(records, Encoder(), tmp_path, 2, replaced))
+    assert [r["image_id"] for part, _, _ in batches for r in part] == names
+    assert replaced == ["broken.png"] and batches[0][2]["broken.png"] == ""
+    read = [entry["path"] for _, features, _ in batches for entry in features]
+    assert len(read) == 3 and read[1].endswith("blank.png") and read[2].endswith("c.png")

@@ -15,6 +15,34 @@ SIGLIP = "src/training/apertus-8B-vadapter-lora-heads"
 DINO = "src/training/apertus-8B-dinov3-lora-heads"
 
 ENTRY = '''
+def run_mixed_final():
+    """FINAL=1: decrypts the final images (or a test archive, FINAL_ARCHIVE) and predicts them with the mixed
+    checkpoint PREDICT_FROM of UPLOAD_REPO. Only predictions leave the job."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from huggingface_hub import HfApi
+
+    if not (UPLOAD_REPO and PREDICT_FROM) or not HfApi().repo_info(UPLOAD_REPO).private:
+        raise ValueError("FINAL=1 needs PREDICT_FROM, a checkpoint of the private repository UPLOAD_REPO.")
+    sys.path.insert(0, str(WORK / "@@MIXED@@"))
+    from mixed_model import E, FUSION_NAME
+
+    ensure_opencv()
+    with ThreadPoolExecutor(3) as pool:  # the downloads together: every minute counts after 13:00
+        folder = pool.submit(final_data)
+        checkpoint = pool.submit(fetch_checkpoint, PREDICT_FROM)
+        pool.submit(E.model_dir).result()
+        folder, checkpoint = folder.result(), checkpoint.result()
+    if not (checkpoint / FUSION_NAME).is_file():
+        raise FileNotFoundError(f"{PREDICT_FROM} is not a mixed checkpoint")
+    outputs = RUN / "predictions"
+    run(["@@MIXED@@/train_mixed.py", "--checkpoint", checkpoint, "--data-dir", folder, "--out", outputs,
+         "--predict-csv", folder / "final.csv"], "predict_final.log")
+    upload(outputs, "predictions", ["final*"])
+    upload(RUN, "logs", ["*.log"])
+    log("ALL DONE")
+
+
 def run_mixed():
     import json
     from concurrent.futures import ThreadPoolExecutor
@@ -25,6 +53,8 @@ def run_mixed():
     sys.path.insert(0, str(WORK / "@@MIXED@@"))
     from mixed_model import DINO_ID, E, FUSION_NAME, PATCH_NAME
 
+    if os.environ.get("FINAL"):
+        return run_mixed_final()
     vision_rank = os.environ.get("VISION_LORA", "")  # continue a mixed checkpoint, training a LoRA on SigLIP too
     if not (UPLOAD_REPO and INIT_FROM and (DATA_REPO or os.environ.get("KAGGLE_API_TOKEN"))):
         raise ValueError("A private output repo, the starting checkpoint path and the data (DATA_REPO or Kaggle) are required.")

@@ -44,3 +44,36 @@ modal run --detach src/training/apertus-8B-mixed-lora-heads/modal_app.py \
 Use `--secret` to use a named Modal secret instead of local HF authentication. The GPU preflight
 compares mixed and original logits exactly and verifies a finite nonzero gradient through the DINO
 residual before computing the full training cache.
+
+## Continue with a LoRA on SigLIP
+
+Starts from a mixed checkpoint and also trains a LoRA (rank 16) on SigLIP; DINOv3 stays frozen. The first
+validation is the starting checkpoint and must reproduce its prompt-test score.
+
+```sh
+python3 src/training/apertus-8B-mixed-lora-heads/build_hf_job.py
+MIXED_MINUTES=120 modal run --detach src/training/apertus-8B-mixed-lora-heads/modal_app.py \
+  --output-repo <private model repo> --data-repo <private data repo> \
+  --source-path mixed-modal-20261128-033303/model/best \
+  --dino-revision 5931719e67bbdb9737e363e781fb0c67687896bc \
+  --vision-lora 16 --vision-epochs 2 --wall-minutes 85 --local-hf-auth
+```
+
+## Final images
+
+`--final` decrypts the final images on the job's disk (the passphrase is asked at launch and never written to a
+file) and predicts them with the mixed checkpoint at `--source-path` of the output repo. An unreadable image is
+read as a blank one, so every row gets a prediction; only `predictions/final*` is uploaded. Nothing is submitted.
+
+```sh
+python3 src/training/apertus-8B-mixed-lora-heads/build_hf_job.py
+MIXED_MINUTES=60 modal run --detach src/training/apertus-8B-mixed-lora-heads/modal_app.py \
+  --output-repo <private model repo> --data-repo <private data repo> \
+  --source-path <checkpoint folder>/model/best \
+  --dino-revision 5931719e67bbdb9737e363e781fb0c67687896bc --final --local-hf-auth
+```
+
+Rehearsal before 13:00: make a test archive with `src/scripts/make_test_archive.py`, upload it to the private
+output repo, add `--final-archive <path in the repo>` and use the password the script prints.
+
+Then join dev and final predictions of the same model with `src/scripts/final_submission.py`.
