@@ -56,6 +56,7 @@ def run_mixed():
     if os.environ.get("FINAL"):
         return run_mixed_final()
     vision_rank = os.environ.get("VISION_LORA", "")  # continue a mixed checkpoint, training a LoRA on SigLIP too
+    fit_all = bool(os.environ.get("FIT_ALL"))  # phase 4: continue a mixed checkpoint on all labelled images
     if not (UPLOAD_REPO and INIT_FROM and (DATA_REPO or os.environ.get("KAGGLE_API_TOKEN"))):
         raise ValueError("A private output repo, the starting checkpoint path and the data (DATA_REPO or Kaggle) are required.")
     api = HfApi()
@@ -76,7 +77,7 @@ def run_mixed():
                                     allow_patterns=[f"{INIT_FROM}/*", f"{INIT_FROM}/lora/*"],
                                     local_dir=WORK / "source")) / INIT_FROM
     needed = ["settings.json", "trainable.pt", "lora/adapter_model.safetensors"]
-    if vision_rank:
+    if vision_rank or fit_all:
         needed.append(FUSION_NAME)
     for required in needed:
         if not (initial / required).is_file():
@@ -103,7 +104,10 @@ def run_mixed():
     extra = []
     synthetic = os.environ.get("MIXED_SYNTHETIC_FILE")
     if synthetic:
-        archive = hf_hub_download(DATA_REPO, synthetic, repo_type="dataset")
+        # SYNTHETIC_REPO may belong to another account than the job: it is read with SOURCE_HF_TOKEN
+        synthetic_repo = os.environ.get("SYNTHETIC_REPO") or DATA_REPO
+        archive = hf_hub_download(synthetic_repo, synthetic, repo_type="dataset",
+                                  token=source_token if os.environ.get("SYNTHETIC_REPO") else None)
         with tarfile.open(archive) as stream:
             stream.extractall(DATA, filter="data")
         extra.extend(["--synthetic", DATA / "synthetic/synthetic.csv"])
@@ -130,7 +134,9 @@ def run_mixed():
     if teacher_args:
         mode = ["--warm-start", initial, *teacher_args]
     else:
-        mode = ["--checkpoint" if vision_rank else "--initial", initial, "--predict-dev"]
+        mode = ["--checkpoint" if vision_rank or fit_all else "--initial", initial, "--predict-dev"]
+    if fit_all:
+        extra += ["--fit-all", "--joint-epochs", os.environ.get("JOINT_EPOCHS") or "1"]
     run(["@@MIXED@@/train_mixed.py", *mode, "--data-dir", DATA, "--out", RUN / "mixed",
          "--dino-revision", revision, "--source-id", f"{source_repo}/{INIT_FROM}", "--source-revision", source.sha,
          "--wall-seconds", str(wall), "--upload-repo", UPLOAD_REPO,

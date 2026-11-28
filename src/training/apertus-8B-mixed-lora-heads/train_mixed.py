@@ -141,7 +141,7 @@ def train_stage(stage, epochs, model, settings, builder, fit, labels, items, cac
                 *, teacher=None, sample_count=None):
     groups, masters = configure(model, settings, stage, args.lr_vision if stage == "vision" else 5e-5)
     pilot = stage in ("control", "distill")
-    rates = [group["lr"] * (.5 if pilot else 1.) for group in groups]
+    rates = [group["lr"] * (.5 if pilot or getattr(args, "fit_all", False) else 1.) for group in groups]
     optimizer = torch.optim.AdamW(groups, weight_decay=.01, foreach=False)
     rows = fit.to_dict("records")
     val_state = validate.best
@@ -255,7 +255,7 @@ class Selection:
         row["training_loss"] = train_loss
         row["unfrozen_blocks"] = 2 if stage == "top2" else 0
         self.history.append(row)
-        if self.best is None or row["macro_f1"] > self.best["macro_f1"]:
+        if self.best is None or row["macro_f1"] > self.best["macro_f1"] or self.args.fit_all:
             self.best = row
             self.predictions = probs
             subset = self.val.head(4).to_dict("records")
@@ -263,7 +263,8 @@ class Selection:
             save_mixed(model, {**settings, "unfrozen_blocks": row["unfrozen_blocks"]},
                        self.args.out / "best", masters)
             upload(self.args.upload_repo, self.args.out / "best", f"{self.args.prefix}/model/best")
-            log(f"New best: {stage}, macro F1 {row['macro_f1']:.5f}")
+            log(f"{'Kept (fit-all keeps the last)' if self.args.fit_all else 'New best'}: {stage}, "
+                f"macro F1 {row['macro_f1']:.5f}")
         return row
 
 
@@ -397,6 +398,9 @@ def main():
     parser.add_argument("--lr-vision", type=float, default=5e-5)
     parser.add_argument("--predict-csv", type=Path,
                         help="with --checkpoint: only predict this csv (image paths start from --data-dir)")
+    parser.add_argument("--fit-all", action="store_true",
+                        help="phase 4: continue a mixed checkpoint on ALL labelled images (prompt-test included) for "
+                             "--joint-epochs at half the joint learning rates, keeping the last checkpoint")
     parser.add_argument("--teacher", type=Path)
     parser.add_argument("--teacher-sha256")
     args = parser.parse_args()
@@ -411,6 +415,8 @@ def main():
         if not settings.get("mixed") or settings.get("unfrozen_blocks"):
             parser.error("The pilot expects a mixed checkpoint without unfrozen base blocks.")
     vision = args.vision_lora_rank > 0
+    if args.fit_all and (not args.checkpoint or vision or args.predict_csv):
+        parser.error("--fit-all continues a mixed checkpoint (--checkpoint) and trains no SigLIP LoRA.")
     if vision and not args.checkpoint:
         parser.error("--vision-lora-rank continues a mixed checkpoint: use --checkpoint.")
     deadline = time.monotonic() + args.wall_seconds
@@ -438,7 +444,7 @@ def main():
                                           vision_lora_rank=args.vision_lora_rank)
     encoder = MixedEncoder(directory, settings["dino_revision"])
     val = D.select(rows, "test")
-    trains = bool(args.initial) or vision
+    trains = bool(args.initial) or vision or args.fit_all
     final_checkpoint = args.out / "best" if trains else args.checkpoint
 
     if trains:
@@ -446,10 +452,14 @@ def main():
             if settings.get("unfrozen_blocks") or any(p.count_nonzero().item() for p in model.fusion[-1].parameters()):
                 raise ValueError("--initial expects the original SigLIP + VQ checkpoint.")
         elif not settings.get("mixed") or settings.get("unfrozen_blocks"):
-            raise ValueError("The vision stage continues a mixed checkpoint without unfrozen Apertus blocks.")
+            raise ValueError("The vision and fit-all stages continue a mixed checkpoint without unfrozen Apertus blocks.")
         settings.update(init_checkpoint=args.source_id or str(args.initial or args.checkpoint),
                         init_revision=args.source_revision)
         fit, val, labels, items = training_rows(rows)
+        if args.fit_all:  # phase 4: the 1,193 prompt-test images join the training data; val stays as a check
+            fit = D.select(rows, "all")
+            labels = D.label_matrix(fit)
+            items = D.training_items(fit, labels, rare_text_only=True)
         args.real_count = len(fit)
         if args.synthetic:
             fit, labels, items = add_synthetic(fit, val, labels, items, D.read_csv(args.synthetic), args.data_dir)
@@ -477,7 +487,7 @@ def main():
             del mixed, direct, inputs, smoke
             log("GPU smoke passed: source logits unchanged, gradients reach DINO fusion")
 
-        else:
+        elif vision:
             from transformers import AutoImageProcessor
 
             processor = AutoImageProcessor.from_pretrained(settings["siglip"])
@@ -507,8 +517,9 @@ def main():
             log(f"GPU smoke passed: same SigLIP features at the start (max gap {gap:.5f}), "
                 "gradients reach its LoRA")
 
-        combined = fit.to_dict("records") + val.to_dict("records")
-        cache = prepare_features(encoder, combined, items + [(len(fit) + i, "") for i in range(len(val))],
+        extra_val = [] if args.fit_all else val.to_dict("records")
+        combined = fit.to_dict("records") + extra_val
+        cache = prepare_features(encoder, combined, items + [(len(fit) + i, "") for i in range(len(extra_val))],
                                  args.data_dir, ocr, args.encode_batch)
         if vision:  # SigLIP learns: the cache keeps the pixels, the model computes the features
             from transformers import AutoImageProcessor
@@ -526,7 +537,7 @@ def main():
         choose = Selection(args, val, cache, ocr, metric, builder)
         choose("baseline", 0., model, settings)
         reasons = {}
-        stages = ((("vision", args.vision_epochs),) if vision else
+        stages = ((("vision", args.vision_epochs),) if vision else (("joint", args.joint_epochs),) if args.fit_all else
                   (("fusion", .5), ("joint", args.joint_epochs), ("top2", args.unfreeze_epochs)))
         for stage, epochs in stages:
             if time.monotonic() >= deadline or not epochs:
@@ -545,7 +556,7 @@ def main():
                 break
         summary = {"best": choose.best, "history": choose.history, "phase_outcomes": reasons,
                    "real_fit": args.real_count, "synthetic_fit": len(fit) - args.real_count,
-                   "validation": len(val), "peak_cuda_gib": torch.cuda.max_memory_allocated() / 1024**3}
+                   "validation": len(val), "fit_all": args.fit_all, "peak_cuda_gib": torch.cuda.max_memory_allocated() / 1024**3}
         (args.out / "training.json").write_text(json.dumps(summary, indent=2))
         upload(args.upload_repo, args.out, f"{args.prefix}/model", ["training.json"])
         del model

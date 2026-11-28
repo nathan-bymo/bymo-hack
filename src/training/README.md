@@ -7,6 +7,7 @@ For setup, verified checks and outstanding provenance, start with the [reproduci
 - [Phase 1](phase-1/README.md): the three initial training directions.
 - [Phase 2](phase-2/README.md): subsequent LoRA and visual-adapter improvements.
 - [Phase 3](phase-3/README.md): DINOv3 and mixed experiments.
+- [Phase 4](phase-4/README.md): final fit of the mixed model on all labelled images (prepared on 28 November).
 
 Each phase folder contains its own copy of the code needed for that phase and runs as a standalone working root. These copies reflect the current implementation, not historical snapshots. Existing model directories are retained for compatibility; historical runs require their original revisions and artifacts.
 
