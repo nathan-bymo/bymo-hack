@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const files = (...names: string[]) => names.map((n) => join(process.env.E2E_ROOT!, 'files', n))
@@ -96,4 +97,52 @@ test('percorso completo della demo', async ({ page }) => {
   }
   await page.goto('/image-classification')
   await expect(page.getByRole('heading', { name: 'Six answers for every product photo' })).toBeVisible()
+})
+
+/** Lingue: inglese di partenza, italiano / francese / tedesco a scelta; nessuna frase inglese deve restare visibile. */
+test('lingue dell\'interfaccia', async ({ page }) => {
+  const dict = (lang: string): Record<string, string> =>
+    JSON.parse(readFileSync(join(import.meta.dirname, '..', 'src', 'i18n', `${lang}.json`), 'utf8'))
+  const visibleTexts = () => page.evaluate(() => {
+    const out = new Set<string>()
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+    while (walker.nextNode()) { const t = walker.currentNode.textContent?.trim(); if (t) out.add(t) }
+    document.querySelectorAll('[title],[aria-label],[placeholder],[alt]').forEach((el) => {
+      if (el.closest('[data-testid=language-switch]')) return   // i nomi delle lingue si scrivono nella lingua stessa
+      ['title', 'aria-label', 'placeholder', 'alt'].forEach((a) => { const v = el.getAttribute(a); if (v) out.add(v.trim()) })
+    })
+    return [...out]
+  })
+  const expected: Record<string, { nav: string; h1: string; title: string }> = {
+    it: { nav: 'Classifica', h1: 'Sei risposte per ogni foto di prodotto', title: 'Classificazione delle immagini' },
+    fr: { nav: 'Classifier', h1: 'Six réponses pour chaque photo de produit', title: "Classification d'images" },
+    de: { nav: 'Klassifizieren', h1: 'Sechs Antworten für jedes Produktfoto', title: 'Bildklassifizierung' },
+  }
+
+  await page.goto('/')   // inglese di partenza
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Six answers for every product photo')
+  await expect(page.getByTestId('lang-en')).toHaveAttribute('aria-pressed', 'true')
+
+  for (const lang of ['it', 'fr', 'de']) {
+    await page.goto('/')
+    await page.getByTestId(`lang-${lang}`).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', lang)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(expected[lang].h1)
+    await expect(page.getByRole('link', { name: expected[lang].nav, exact: true })).toBeVisible()
+    await expect(page).toHaveTitle(new RegExp(expected[lang].title))
+    await page.reload()   // la scelta resta dopo il refresh
+    await expect(page.locator('html')).toHaveAttribute('lang', lang)
+    for (const path of ['/', '/catalog', '/shop', '/shop?q=nulla-del-genere']) {
+      await page.goto(path)
+      await expect(page.getByTestId(`lang-${lang}`)).toHaveAttribute('aria-pressed', 'true')
+      await page.waitForTimeout(400)
+      const leftovers = (await visibleTexts()).filter((t) => dict(lang)[t] !== undefined && dict(lang)[t] !== t)
+      expect(leftovers, `${lang} ${path}: frasi rimaste in inglese`).toEqual([])
+    }
+  }
+
+  await page.goto('/')
+  await page.getByTestId('lang-en').click()   // si torna all'inglese
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Six answers for every product photo')
 })

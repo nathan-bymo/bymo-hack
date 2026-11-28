@@ -72,6 +72,14 @@ famiglia finta) → si copiano in `data/demo/recorded/` e si fa `POST /api/recor
 "Recorded <data> on <GPU>" ovunque compaia un risultato registrato. Lookup per sha256 + hash del contesto: se manca,
 `RECORDED_MISSING`.
 
+### Lingue
+L'interfaccia è in **inglese** (predefinito) e si può cambiare in **italiano, francese e tedesco** con il selettore EN · IT · FR · DE in
+alto a destra; la scelta resta nel browser. Il testo inglese è la chiave (`tr('…')` in `frontend/src/i18n/`); le traduzioni stanno in
+`it.json`, `fr.json`, `de.json` (ortografia svizzera: «ss», non «ß»). I dati dei prodotti (titoli, marche) non si traducono; le categorie
+del dataset sì. `npm run check:i18n` (in `frontend/`) verifica che ogni frase del codice esista nelle tre lingue con gli stessi segnaposto;
+il test E2E controlla che dopo il cambio di lingua non resti visibile nessuna frase inglese. Una frase nuova nel codice senza traduzione
+fa fallire il controllo.
+
 ### Foto di esempio (per il video)
 La pagina **Classify** mostra una fila "Sample photos": un clic e la foto entra come se fosse caricata; se il modello
 scelto ha una risposta registrata per quella foto compare l'etichetta "Ready" e la risposta arriva subito. Le foto sono i

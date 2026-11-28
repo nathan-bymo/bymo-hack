@@ -1,7 +1,10 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { CatalogProduct, StorefrontFilters, StorefrontProductCard } from '../api/types'
-import { confidenceTone, FILTER_LABELS, percent, perspectiveLabel, STATUS_LABEL } from '../lib/catalog'
+import { useI18n } from '../i18n'
+import { confidenceTone, filterLabel, percent, perspectiveLabel, statusLabel } from '../lib/catalog'
+import { DIMENSIONS } from '../strings'
+import { plainLabel, questionName } from '../lib/labels'
 import { ConfidenceChip } from './ui'
 
 /* ---- piccoli elementi condivisi fra negozio e catalogo ---- */
@@ -11,8 +14,9 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 }
 
 export function Breadcrumbs({ items }: { items: { label: string; to?: string }[] }) {
+  const { t } = useI18n()
   return (
-    <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-[13px] text-slate">
+    <nav aria-label={t('Breadcrumb')} className="flex flex-wrap items-center gap-2 text-[13px] text-slate">
       {items.map((item, i) => (
         <span key={item.label} className="flex items-center gap-2">
           {i > 0 && <span aria-hidden="true">/</span>}
@@ -24,7 +28,7 @@ export function Breadcrumbs({ items }: { items: { label: string; to?: string }[]
 }
 
 export function SearchForm({
-  value, onChange, onSubmit, placeholder, testId, button = 'Search',
+  value, onChange, onSubmit, placeholder, testId, button,
 }: {
   value: string
   onChange: (value: string) => void
@@ -33,6 +37,7 @@ export function SearchForm({
   testId: string
   button?: string
 }) {
+  const { t } = useI18n()
   const submit = (e: FormEvent) => { e.preventDefault(); onSubmit() }
   return (
     <form onSubmit={submit} role="search" className="flex border border-graphite bg-white">
@@ -46,7 +51,7 @@ export function SearchForm({
       />
       <button type="submit" data-testid={`${testId}-submit`}
         className="border-0 bg-signal px-6 text-[15px] font-bold text-white hover:bg-graphite">
-        {button}
+        {button ?? t('Search')}
       </button>
     </form>
   )
@@ -71,22 +76,25 @@ export function ConfidenceMeter({ value, compact }: { value: number | null; comp
 }
 
 export function PerspectiveLine({ perspectives }: { perspectives: string[] }) {
-  if (!perspectives.length) return <span className="text-slate">No view read yet</span>
+  const { t } = useI18n()
+  if (!perspectives.length) return <span className="text-slate">{t('No view read yet')}</span>
   return <span>{perspectives.map((p) => perspectiveLabel(p)).join(' · ')}</span>
 }
 
 export function StatusTag({ status }: { status: CatalogProduct['status'] }) {
+  useI18n()
   const cls = status === 'live' ? 'bg-conf-high-bg text-conf-high'
     : status === 'draft' ? 'bg-conf-mid-bg text-conf-mid' : 'bg-toolbtn text-muted'
   return (
     <span data-testid={`status-${status}`} className={`inline-block whitespace-nowrap px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${cls}`}>
-      {STATUS_LABEL[status]}
+      {statusLabel(status)}
     </span>
   )
 }
 
 /** Scheda prodotto della vetrina: foto grande, marca, titolo, quante viste e quanto è sicuro il modello. */
 export function ProductCard({ product, testId = 'shop-card' }: { product: StorefrontProductCard; testId?: string }) {
+  const { t, tn } = useI18n()
   return (
     <Link to={`/shop/${product.product_id}`} data-testid={testId} data-product={product.product_id}
       className="group flex flex-col border border-rule bg-white no-underline transition-colors hover:border-graphite">
@@ -94,11 +102,11 @@ export function ProductCard({ product, testId = 'shop-card' }: { product: Storef
         <img src={product.cover.file_url} alt={product.title}
           className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.03]" />
         <span className="absolute left-0 top-0 bg-white/90 px-2 py-1 text-[11px] font-bold tabular-nums text-graphite">
-          {product.image_count} {product.image_count === 1 ? 'view' : 'views'}
+          {tn(product.image_count, '{n} view', '{n} views')}
         </span>
       </div>
       <div className="flex flex-1 flex-col border-t border-rule px-3 py-2.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate">{product.brand ?? 'No brand'}</span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate">{product.brand ?? t('No brand')}</span>
         <span className="mt-0.5 text-[16px] font-bold leading-snug tracking-tight text-graphite group-hover:underline">{product.title}</span>
         <span className="mt-1 text-[13px] leading-snug text-slate"><PerspectiveLine perspectives={product.perspectives} /></span>
       </div>
@@ -125,10 +133,8 @@ export function ValueTable({
   confidence: number | null
   compact?: boolean
 }) {
-  const rows: [string, string][] = [
-    ['subject', 'Subject'], ['background', 'Background'], ['perspective', 'Perspective'],
-    ['individuals', 'People'], ['text_classification', 'Added text'], ['text_language', 'Language'],
-  ]
+  const { t } = useI18n()
+  const rows: [string, string][] = DIMENSIONS.map((key) => [key, questionName(key)])
   return (
     <div className={compact ? '' : 'mt-1'}>
       <table className="w-full border-collapse text-left">
@@ -137,7 +143,7 @@ export function ValueTable({
             <tr key={key} className="border-b border-rule align-baseline">
               <th className="w-[42%] py-1.5 pr-3 text-[13px] font-normal text-slate">{label}</th>
               <td className="py-1.5 text-[14px] font-bold leading-snug text-graphite">
-                {values[key] ? values[key]!.replace(/_/g, ' ') : <span className="font-normal text-slate">not read yet</span>}
+                {values[key] ? plainLabel(key, values[key]) : <span className="font-normal text-slate">{t('not read yet')}</span>}
               </td>
             </tr>
           ))}
@@ -145,7 +151,7 @@ export function ValueTable({
       </table>
       {confidence !== null && (
         <div className="mt-2 flex items-center justify-between gap-3">
-          <span className="text-[12px] text-slate">Lowest confidence</span>
+          <span className="text-[12px] text-slate">{t('Lowest confidence')}</span>
           <ConfidenceChip value={confidence} />
         </div>
       )}
@@ -164,6 +170,7 @@ export function FilterPanel({
   onChange: (filters: StorefrontFilters) => void
   onOpenShop: () => void
 }) {
+  const { t, tn } = useI18n()
   const [minConf, setMinConf] = useState(filters.min_confidence)
   useEffect(() => setMinConf(filters.min_confidence), [filters.min_confidence])
   const commitMin = () => {
@@ -173,28 +180,28 @@ export function FilterPanel({
   return (
     <aside className="border border-rule bg-white" data-testid="filter-panel">
       <div className="flex items-baseline justify-between border-b-2 border-graphite px-4 py-3">
-        <h2 className="m-0 text-[18px] font-bold tracking-tight">Shop rules</h2>
-        <span className="text-[12px] text-slate">{saving ? 'Saving…' : 'Live'}</span>
+        <h2 className="m-0 text-[18px] font-bold tracking-tight">{t('Shop rules')}</h2>
+        <span className="text-[12px] text-slate">{saving ? t('Saving…') : t('Applied live')}</span>
       </div>
       <div className="px-4 py-3">
         <p className="m-0 text-[13px] leading-snug text-slate">
-          Every switch changes the customer storefront at once. {visible} photos are visible, {hidden} hidden by these rules.
+          {t('Every switch changes the customer storefront at once.')} {tn(visible, '{n} photo is visible', '{n} photos are visible')}, {t('{n} hidden by these rules.', { n: hidden })}
         </p>
         <div className="mt-3 divide-y divide-rule border-t border-rule">
           {toggles.map((key) => (
-            <label key={key} className="flex cursor-pointer items-start gap-3 py-2.5" title={FILTER_LABELS[key].hint}>
+            <label key={key} className="flex cursor-pointer items-start gap-3 py-2.5" title={filterLabel(key).hint}>
               <input type="checkbox" checked={filters[key]} data-testid={`filter-${key}`}
                 onChange={(e) => onChange({ ...filters, [key]: e.target.checked })}
                 className="mt-0.5 h-4 w-4 shrink-0 accent-signal" />
               <span className="min-w-0">
-                <span className="block text-[14px] font-bold leading-snug">{FILTER_LABELS[key].title}</span>
-                <span className="block text-[12px] leading-snug text-slate">{FILTER_LABELS[key].hint}</span>
+                <span className="block text-[14px] font-bold leading-snug">{filterLabel(key).title}</span>
+                <span className="block text-[12px] leading-snug text-slate">{filterLabel(key).hint}</span>
               </span>
             </label>
           ))}
           <div className="py-3">
             <div className="flex items-baseline justify-between gap-3">
-              <label htmlFor="min-confidence" className="text-[14px] font-bold">{FILTER_LABELS.min_confidence.title}</label>
+              <label htmlFor="min-confidence" className="text-[14px] font-bold">{filterLabel('min_confidence').title}</label>
               <span className="text-[14px] font-bold tabular-nums text-signal">{Math.round(minConf * 100)}%</span>
             </div>
             <input id="min-confidence" type="range" min={0} max={0.95} step={0.05} value={minConf}
@@ -202,12 +209,12 @@ export function FilterPanel({
               onChange={(e) => setMinConf(Number(e.target.value))}
               onPointerUp={commitMin} onKeyUp={commitMin} onBlur={commitMin}
               className="mt-2 w-full accent-signal" />
-            <p className="m-0 mt-1 text-[12px] leading-snug text-slate">{FILTER_LABELS.min_confidence.hint}</p>
+            <p className="m-0 mt-1 text-[12px] leading-snug text-slate">{filterLabel('min_confidence').hint}</p>
           </div>
         </div>
         <button type="button" onClick={onOpenShop} data-testid="open-shop"
           className="mt-2 w-full border border-graphite bg-white px-3 py-2 text-[14px] font-bold hover:bg-canvas">
-          Open the storefront →
+          {t('Open the storefront →')}
         </button>
       </div>
     </aside>
