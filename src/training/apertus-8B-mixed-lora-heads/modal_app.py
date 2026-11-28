@@ -18,12 +18,16 @@ if modal.is_local():
              .run_commands(f"uv lock --script {REMOTE}", f"uv sync --locked --script {REMOTE}"))
 
 
-@app.function(image=image, gpu="H200", cpu=8, memory=49152, timeout=150 * 60, retries=0, max_containers=1)
-def train(output_repo, data_repo, source_repo, source_path, synthetic_file, dino_revision, name):
+# MIXED_MINUTES is read when the command starts: it is the timeout of the function, so the cap on the cost.
+MINUTES = int(os.environ.get("MIXED_MINUTES", "150"))
+
+
+@app.function(image=image, gpu="H200", cpu=8, memory=65536, timeout=MINUTES * 60, retries=0, max_containers=1)
+def train(output_repo, data_repo, source_repo, source_path, synthetic_file, dino_revision, name, extra):
     env = {
         **os.environ, "UPLOAD_REPO": output_repo, "DATA_REPO": data_repo, "SOURCE_REPO": source_repo or output_repo,
         "INIT_FROM": source_path, "MIXED_SYNTHETIC_FILE": synthetic_file, "DINO_REVISION": dino_revision,
-        "RUN_NAME": name, "WORK": "/tmp/galaxus-mixed", "PYTHONUNBUFFERED": "1",
+        "RUN_NAME": name, "WORK": "/tmp/galaxus-mixed", "PYTHONUNBUFFERED": "1", **extra,
     }
     subprocess.run(["uv", "run", "--locked", "--script", REMOTE], env=env, check=True)
     return f"{output_repo}/{name}"
@@ -32,7 +36,7 @@ def train(output_repo, data_repo, source_repo, source_path, synthetic_file, dino
 @app.local_entrypoint()
 def main(output_repo: str, data_repo: str, source_repo: str = "", source_path: str = "final-abt/model/best",
          secret: str = "galaxus-dino", synthetic_file: str = "", dino_revision: str = "",
-         local_hf_auth: bool = False):
+         local_hf_auth: bool = False, vision_lora: int = 0, vision_epochs: float = 2.0, wall_minutes: int = 0):
     if local_hf_auth:
         path = Path(os.environ.get("HF_TOKEN_PATH", str(Path.home() / ".cache/huggingface/token")))
         token = os.environ.get("HF_TOKEN") or path.read_text().strip()
@@ -41,7 +45,12 @@ def main(output_repo: str, data_repo: str, source_repo: str = "", source_path: s
         credentials = [modal.Secret.from_dict({"HF_TOKEN": token})]
     else:
         credentials = [modal.Secret.from_name(secret)]
+    extra = {"WALL_MINUTES": str(wall_minutes or max(20, MINUTES - 25))}
+    if vision_lora:
+        if source_path == "final-abt/model/best":
+            raise ValueError("--vision-lora continues a mixed checkpoint: pass its --source-path.")
+        extra.update(VISION_LORA=str(vision_lora), VISION_EPOCHS=str(vision_epochs))
     name = f"mixed-modal-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
     print(f"Starting one H200. Results: {output_repo}/{name}", flush=True)
     print(train.with_options(secrets=credentials).remote(output_repo, data_repo, source_repo, source_path,
-                                                        synthetic_file, dino_revision, name))
+                                                        synthetic_file, dino_revision, name, extra))

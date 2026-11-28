@@ -26,13 +26,18 @@ class MixedClassifier(nn.Module):
         nn.init.zeros_(self.fusion[-1].weight)
 
     def forward(self, input_ids, mask, siglip, dino):
+        if siglip.dtype == torch.uint8:  # pixels: SigLIP is trained too (LoRA), so it runs inside the model
+            if self.aperture.vision is None:
+                raise ValueError("pixels given to a model without a trainable image encoder")
+            siglip = self.aperture.vision(siglip)
         if siglip.shape != dino.shape:
             raise ValueError("SigLIP and DINO require matching patch grids and feature widths.")
         mixed = siglip.float() + self.fusion(dino.float()).float()
         return self.aperture(input_ids, mask, mixed)
 
 
-def load_mixed(directory, folder, dino_revision=None, device="cuda"):
+def load_mixed(directory, folder, dino_revision=None, device="cuda", vision_lora_rank=0):
+    """vision_lora_rank: add a new LoRA (zero at the start) on SigLIP to a checkpoint that has none."""
     from transformers import AutoConfig, AutoTokenizer
 
     folder = Path(folder)
@@ -50,6 +55,11 @@ def load_mixed(directory, folder, dino_revision=None, device="cuda"):
         raise ValueError("The VQ row delimiter does not match the Apertus tokenizer.")
     settings["row_end_id"] = builder.eol
     aperture = M.build(directory, settings, device)
+    if vision_lora_rank and not settings.get("vision_lora_rank"):
+        settings.update(vision_lora_rank=vision_lora_rank, vision_lora_alpha=vision_lora_rank)
+        settings.setdefault("lora_dropout", 0.05)
+    if settings.get("vision_lora_rank"):
+        aperture.vision = M.vision_tower(settings, device)
     M.load_weights(aperture, folder, settings)
     restore_blocks(aperture.language_model, folder, settings)
     model = MixedClassifier(aperture).to(device)
@@ -104,6 +114,10 @@ class MixedEncoder:
                 raise ValueError("Unknown variant for DINO features.")
             entry["dino"] = features
         return encoded
+
+    def use_vision_lora(self, folder):
+        """Inference with a trained SigLIP LoRA: merged into the encoder that reads the images."""
+        self.siglip_vq.add_vision_lora(Path(folder) / "vision_lora")
 
     def move(self, device):
         self.siglip_vq.vq.to(device)

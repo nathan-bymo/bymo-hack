@@ -25,8 +25,9 @@ def run_mixed():
     sys.path.insert(0, str(WORK / "@@MIXED@@"))
     from mixed_model import DINO_ID, E, FUSION_NAME, PATCH_NAME
 
-    if not (DATA_REPO and UPLOAD_REPO and INIT_FROM):
-        raise ValueError("A private dataset, a private output repo and the starting checkpoint path are required.")
+    vision_rank = os.environ.get("VISION_LORA", "")  # continue a mixed checkpoint, training a LoRA on SigLIP too
+    if not (UPLOAD_REPO and INIT_FROM and (DATA_REPO or os.environ.get("KAGGLE_API_TOKEN"))):
+        raise ValueError("A private output repo, the starting checkpoint path and the data (DATA_REPO or Kaggle) are required.")
     api = HfApi()
     source_repo = os.environ.get("SOURCE_REPO") or UPLOAD_REPO
     source_token = os.environ.get("SOURCE_HF_TOKEN")
@@ -44,7 +45,10 @@ def run_mixed():
     initial = Path(snapshot_download(source_repo, token=source_token, revision=source.sha,
                                     allow_patterns=[f"{INIT_FROM}/*", f"{INIT_FROM}/lora/*"],
                                     local_dir=WORK / "source")) / INIT_FROM
-    for required in ("settings.json", "trainable.pt", "lora/adapter_model.safetensors"):
+    needed = ["settings.json", "trainable.pt", "lora/adapter_model.safetensors"]
+    if vision_rank:
+        needed.append(FUSION_NAME)
+    for required in needed:
         if not (initial / required).is_file():
             raise FileNotFoundError(initial / required)
 
@@ -76,22 +80,28 @@ def run_mixed():
                                                          token=source_token)]
                 break
 
-    wall = 125 * 60 - (time.time() - START)
+    wall = float(os.environ.get("WALL_MINUTES") or 125) * 60 - (time.time() - START)
     if wall < 15 * 60:
         raise TimeoutError("Preparation has consumed most of the training allocation.")
-    run(["@@MIXED@@/train_mixed.py", "--initial", initial, "--data-dir", DATA, "--out", RUN / "mixed",
+    if vision_rank:
+        extra += ["--vision-lora-rank", vision_rank, "--vision-epochs", os.environ.get("VISION_EPOCHS") or "2",
+                  "--lr-vision", os.environ.get("LR_VISION") or "5e-5"]
+    run(["@@MIXED@@/train_mixed.py", "--checkpoint" if vision_rank else "--initial", initial,
+         "--data-dir", DATA, "--out", RUN / "mixed",
          "--dino-revision", revision, "--source-id", f"{source_repo}/{INIT_FROM}", "--source-revision", source.sha,
          "--wall-seconds", str(wall), "--upload-repo", UPLOAD_REPO,
          "--prefix", PREFIX, "--predict-dev", *extra], "mixed.log")
 
     best = RUN / "mixed" / "best"
-    upload(best, "model/best", ["settings.json", "trainable.pt", FUSION_NAME, PATCH_NAME, "lora/*"])
+    upload(best, "model/best", ["settings.json", "trainable.pt", FUSION_NAME, PATCH_NAME, "lora/*", "vision_lora/*"])
     selected = json.loads((best / "settings.json").read_text())
     required = {"model/best/settings.json", "model/best/trainable.pt", f"model/best/{FUSION_NAME}",
                 "model/best/lora/adapter_model.safetensors", "model/training.json",
                 "predictions/prompt_test.json", "predictions/dev.csv"}
     if selected.get("unfrozen_blocks"):
         required.add(f"model/best/{PATCH_NAME}")
+    if selected.get("vision_lora_rank"):
+        required.add("model/best/vision_lora/adapter_model.safetensors")
     paths = set(api.list_repo_files(UPLOAD_REPO))
     missing = {f"{PREFIX}/{name}" for name in required} - paths
     if missing:

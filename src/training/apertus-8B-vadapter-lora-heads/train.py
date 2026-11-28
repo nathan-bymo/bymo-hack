@@ -59,7 +59,10 @@ def upload(repo, folder, path_in_repo, patterns=None):
 class Batches:
     """Turns (row index, variant) items into model inputs from the cache."""
 
-    def __init__(self, records, labels, cache, builder, pad_id, context_dropout=0.0, seed=0, ocr=None):
+    def __init__(self, records, labels, cache, builder, pad_id, context_dropout=0.0, seed=0, ocr=None, pixels=None):
+        """pixels: {(image_id, mirrored): uint8 image} when the image encoder is trained: they replace its cached
+        features."""
+        self.pixels = pixels
         self.records, self.labels, self.cache, self.ocr = records, labels, cache, ocr
         self.builder, self.pad_id = builder, pad_id
         self.context_dropout, self.rng = context_dropout, random.Random(seed)
@@ -71,10 +74,27 @@ class Batches:
             use_context = not (train and self.rng.random() < self.context_dropout)
             text = None if self.ocr is None else self.ocr[self.records[index]["image_id"]]
             sequences.append(self.builder.ids(self.records[index], entry["grid"], entry["codes"], use_context, text))
-            siglip.append(entry["siglip"])
+            if self.pixels is None:
+                siglip.append(entry["siglip"])
+            else:
+                siglip.append(self.pixels[self.records[index]["image_id"], D.is_mirrored(variant)])
             labels.append(D.mirror_labels(self.labels[index]) if D.is_mirrored(variant) else self.labels[index])
         input_ids, attention = E.collate(sequences, self.pad_id)
         return input_ids, attention, torch.stack(siglip), torch.stack(labels)
+
+
+def load_pixels(data_dir, wanted, processor, threads=16):
+    """{(image_id, mirrored): uint8 [3, H, W]} for wanted = {(image_id, mirrored): image_path}: read and resized
+    once, as at inference, and kept in memory."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(entry):
+        (image_id, mirrored), path = entry
+        picture = E.full_resolution(data_dir / path, mirrored)
+        return (image_id, mirrored), E.pixel_bytes(processor, [picture])[0].clone()
+
+    with ThreadPoolExecutor(threads) as pool:
+        return dict(pool.map(one, wanted.items()))
 
 
 @torch.inference_mode()
@@ -130,6 +150,10 @@ def main():
                         help="learned queries over the image tokens with their 2D positions, as extra head input")
     parser.add_argument("--init-checkpoint", type=Path,
                         help="continue from a checkpoint of train.py (LoRA, projector, heads); its model settings win")
+    parser.add_argument("--vision-lora-rank", type=int, default=0,
+                        help="LoRA on the image encoder (SigLIP), trained with the rest from the pixels; 0: frozen")
+    parser.add_argument("--vision-lora-alpha", type=int, default=0, help="0: the rank")
+    parser.add_argument("--lr-vision", type=float, default=5e-5)
     # training
     parser.add_argument("--epochs", type=float, default=2, help="may be fractional (phase 2 repeats phase 1)")
     parser.add_argument("--evals-per-epoch", type=int, default=2)
@@ -165,6 +189,10 @@ def main():
         for name in ("layers", "lora_rank", "lora_alpha", "lora_dropout", "head_hidden", "head_dropout"):
             setattr(args, name, initial[name])
         args.no_adapter = not initial.get("adapter", True)
+        if initial.get("vision_lora_rank"):
+            args.vision_lora_rank, args.vision_lora_alpha = initial["vision_lora_rank"], initial["vision_lora_alpha"]
+    if args.vision_lora_rank and args.no_adapter:
+        sys.exit("--vision-lora-rank needs the adapter: without soft tokens the image encoder is not used")
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     device = torch.device("cuda")
@@ -224,7 +252,12 @@ def main():
                  "ocr": args.ocr, "init_checkpoint": str(args.init_checkpoint or ""), "adapter": not args.no_adapter, "vision_dim": first["siglip"].shape[-1], "side": meta["side"],
                  "model": E.MODEL_ID, "revision": E.MODEL_REVISION, "siglip": meta["siglip"],
                  "soft_side": meta["pooled_side"], "task": E.TASK}
+    if args.vision_lora_rank:
+        settings |= {"vision_lora_rank": args.vision_lora_rank,
+                     "vision_lora_alpha": args.vision_lora_alpha or args.vision_lora_rank}
     classifier = M.build(directory, settings, device)
+    if args.vision_lora_rank:
+        classifier.vision = M.vision_tower(settings, device)
     if args.init_checkpoint:
         log(f"continuing from {args.init_checkpoint}: " + M.load_weights(classifier, args.init_checkpoint, settings))
     if args.init_projector:
@@ -240,6 +273,11 @@ def main():
                "lr": args.lr_heads, "weight_decay": 0.05}]
     if lora:
         groups.insert(0, {"params": lora, "lr": args.lr_lora, "weight_decay": 0.01})
+    if classifier.vision is not None:
+        seeing = [p for p in classifier.vision.parameters() if p.requires_grad]
+        groups.append({"params": seeing, "lr": args.lr_vision, "weight_decay": 0.01})
+        log(f"image encoder LoRA r{args.vision_lora_rank}: {sum(p.numel() for p in seeing) / 1e6:.2f} M trainable "
+            f"parameters, learning rate {args.lr_vision:g}")
     optimizer = torch.optim.AdamW(groups)
     trainable = sum(p.numel() for p in classifier.parameters() if p.requires_grad)
     log(f"{args.layers} layers kept, LoRA r{args.lora_rank}: {trainable / 1e6:.1f} M trainable parameters")
@@ -258,9 +296,19 @@ def main():
         log("focal alpha per class: " + " | ".join(
             f"{d} " + " ".join(f"{n}={w:.2f}" for n, w in zip(D.TAXONOMY[d], a.tolist()))
             for d, a in zip(D.DIMENSIONS, alphas)))
+    pixels = None
+    if classifier.vision is not None:
+        from transformers import AutoImageProcessor
+
+        wanted = {(fit.image_id[i], D.is_mirrored(v)): fit.image_path[i] for i, v in items}
+        wanted |= {(i, False): path for i, path in zip(validation.image_id, validation.image_path)}
+        clock = time.time()
+        pixels = load_pixels(args.data_dir, wanted, AutoImageProcessor.from_pretrained(settings["siglip"]))
+        log(f"{len(pixels)} pictures in memory for the image encoder, {(time.time() - clock) / 60:.1f} min")
     batches = Batches(fit.to_dict("records"), fit_labels, cache, builder, tokenizer.pad_token_id,
-                      args.context_dropout, args.seed, ocr)
-    val_batches = Batches(validation.to_dict("records"), val_labels, cache, builder, tokenizer.pad_token_id, ocr=ocr)
+                      args.context_dropout, args.seed, ocr, pixels)
+    val_batches = Batches(validation.to_dict("records"), val_labels, cache, builder, tokenizer.pad_token_id, ocr=ocr,
+                          pixels=pixels)
     metric = D.load_metric(args.data_dir)
     eval_every = max(1, steps_per_epoch // max(1, args.evals_per_epoch))
     log(f"{steps_per_epoch} steps per epoch, {total} steps, warmup {plan['warmup']}, validation every {eval_every} steps")

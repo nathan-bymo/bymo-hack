@@ -98,6 +98,9 @@ def main():
     classifier, settings = M.load(directory, args.checkpoint, "cuda:0", merge=not args.no_merge, dtype=dtype)
     soft_side = settings.get("soft_side", E.POOLED_SIDE)
     encoder = E.ImageEncoder(directory, args.encoder_device, settings.get("siglip", E.SIGLIP_ID), soft_side)
+    if settings.get("vision_lora_rank"):
+        encoder.add_vision_lora(args.checkpoint / "vision_lora")
+        print("image encoder: trained LoRA merged", flush=True)
     reader = E.TextReader(args.encoder_device) if settings.get("ocr") else None
     tokenizer = AutoTokenizer.from_pretrained(directory)
     builder = E.PromptBuilder(tokenizer, AutoConfig.from_pretrained(directory).image_token_offset,

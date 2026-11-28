@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+import pytest
 import torch
 
 from mixed_model import D, E, M, MixedClassifier, load_mixed, save_mixed
@@ -88,3 +89,73 @@ def test_stage_selection_and_mixed_checkpoint_roundtrip(tmp_path, monkeypatch):
     with torch.inference_mode():
         for expected, actual in zip(model(*sample), rebuilt(*sample), strict=True):
             torch.testing.assert_close(actual, expected, rtol=0., atol=0.)
+
+
+def tiny_vision_tower(rank=4):
+    from peft import LoraConfig, get_peft_model
+    from transformers import SiglipVisionConfig, SiglipVisionModel
+
+    torch.manual_seed(7)
+    config = SiglipVisionConfig(hidden_size=768, intermediate_size=32, num_hidden_layers=2, num_attention_heads=2,
+                                image_size=28, patch_size=4)
+    encoder = SiglipVisionModel(config).requires_grad_(False)
+    lora = LoraConfig(r=rank, lora_alpha=rank, bias="none", target_modules=E.VISION_LORA_TARGETS)
+    return M.VisionTower(get_peft_model(encoder, lora), 7, 1 / 255, [0.5] * 3, [0.5] * 3)
+
+
+def test_siglip_lora_starts_unchanged_learns_and_survives_a_reload(tmp_path):
+    torch.manual_seed(5)
+    plain = MixedClassifier(architecture()).eval()
+    ids, mask, _, dino = inputs()
+    pixels = torch.randint(0, 256, (1, 3, 28, 28), dtype=torch.uint8)
+    with pytest.raises(ValueError, match="trainable image encoder"):
+        plain(ids, mask, pixels, dino)
+
+    tower = tiny_vision_tower().eval()
+    values = (pixels.float() * (1 / 255) - 0.5) / 0.5  # the arithmetic of VisionTower.forward
+    with torch.no_grad():  # what the frozen encoder gives, rounded to float16 like the cached features
+        frozen = E.pool_patches(tower.siglip.base_model.model(pixel_values=values).last_hidden_state, 7).half().float()
+        with tower.siglip.disable_adapter():
+            torch.testing.assert_close(tower(pixels), frozen, rtol=0., atol=0.)
+        torch.testing.assert_close(tower(pixels), frozen, rtol=0., atol=0.)  # a new LoRA changes nothing
+
+    plain.aperture.vision = tower
+    with torch.no_grad():
+        torch.testing.assert_close(plain(ids, mask, pixels, dino)[0], plain(ids, mask, frozen, dino)[0],
+                                   rtol=0., atol=0.)
+    groups, _ = configure(plain, {"layers": 3}, "vision", 1e-3)
+    assert len(groups) == 4 and groups[-1]["lr"] == 1e-3
+    trained = {n for n, p in tower.named_parameters() if p.requires_grad}
+    assert trained and all("lora_" in n for n in trained)
+    plain.train()
+    optimizer = torch.optim.AdamW(groups)
+    sum(part.square().mean() for part in plain(ids, mask, pixels, dino)).backward()
+    assert sum(p.grad.abs().sum() for n, p in tower.named_parameters() if "lora_B" in n) > 0
+    optimizer.step()
+    plain.eval()
+    with torch.no_grad():
+        after = tower(pixels)
+    assert not torch.equal(after, frozen)
+
+    cfg = settings() | {"vision_lora_rank": 4, "vision_lora_alpha": 4}
+    M.save(plain.aperture, cfg, tmp_path / "saved")
+    assert (tmp_path / "saved" / "vision_lora" / "adapter_model.safetensors").is_file()
+    rebuilt = architecture()
+    rebuilt.vision = tiny_vision_tower().eval()
+    assert "vision LoRA" in M.load_weights(rebuilt, tmp_path / "saved", cfg)
+    with torch.no_grad():
+        torch.testing.assert_close(rebuilt.vision(pixels), after)
+
+    # prediction: the LoRA merged into the frozen encoder reads the images as the trained model did
+    encoder = E.ImageEncoder.__new__(E.ImageEncoder)
+    encoder.siglip = tiny_vision_tower().siglip.unload()
+    encoder.device = torch.device("cpu")
+    with torch.no_grad():
+        assert torch.allclose(encoder.siglip(pixel_values=values).last_hidden_state,
+                              tiny_vision_tower().siglip(pixel_values=values).last_hidden_state)
+    encoder.add_vision_lora(tmp_path / "saved" / "vision_lora")
+    with torch.no_grad():
+        merged = E.pool_patches(encoder.siglip(pixel_values=values).last_hidden_state, 7)
+    torch.testing.assert_close(merged, after, atol=2e-3, rtol=2e-3)
+    with pytest.raises(FileNotFoundError):
+        encoder.add_vision_lora(tmp_path / "nothing")

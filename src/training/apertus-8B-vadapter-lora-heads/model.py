@@ -16,7 +16,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from encoders import PREFIX_SLOT
+from encoders import PREFIX_SLOT, VISION_LORA_TARGETS, pool_patches
 
 LORA_TARGETS = r".*layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|o_proj)|mlp\.(up_proj|down_proj))$"
 # The VQ and audio tokenizers do not support sdpa; only the language model is used here.
@@ -189,6 +189,41 @@ class AttentionPool(nn.Module):
         return pooled.flatten(1)
 
 
+class VisionTower(nn.Module):
+    """The image encoder inside the model, so that its LoRA learns: uint8 pixels (encoders.pixel_bytes) -> the same
+    pooled features that ImageEncoder.siglip_features gives. Only used in training: predict.py merges the LoRA
+    into the encoder."""
+
+    def __init__(self, siglip, pooled_side, rescale, mean, std):
+        super().__init__()
+        self.siglip, self.pooled_side, self.rescale = siglip, pooled_side, rescale
+        self.register_buffer("mean", torch.tensor(mean).view(1, 3, 1, 1), persistent=False)
+        self.register_buffer("std", torch.tensor(std).view(1, 3, 1, 1), persistent=False)
+
+    def forward(self, pixels):
+        values = (pixels.float() * self.rescale - self.mean) / self.std
+        with torch.autocast(values.device.type, enabled=False):  # fp32, as the default encoder at inference
+            patches = self.siglip(pixel_values=values).last_hidden_state.float()
+        pooled = pool_patches(patches, self.pooled_side)
+        # Same values as the float16 features of inference, but the gradient stays in float32: a float16
+        # gradient this small would lose precision or become zero.
+        return pooled + (pooled.detach().half().float() - pooled.detach())
+
+
+def vision_tower(settings, device="cuda"):
+    """The encoder of settings["siglip"], frozen, with a new LoRA (zero at the start: nothing changes yet)."""
+    from peft import LoraConfig, get_peft_model
+    from transformers import AutoImageProcessor, SiglipVisionModel
+
+    siglip = SiglipVisionModel.from_pretrained(settings["siglip"], dtype=torch.float32)
+    processor = AutoImageProcessor.from_pretrained(settings["siglip"])
+    siglip.requires_grad_(False)
+    config = LoraConfig(r=settings["vision_lora_rank"], lora_alpha=settings["vision_lora_alpha"],
+                        lora_dropout=settings["lora_dropout"], bias="none", target_modules=VISION_LORA_TARGETS)
+    return VisionTower(get_peft_model(siglip, config), settings.get("soft_side", 7), processor.rescale_factor,
+                       processor.image_mean, processor.image_std).to(device)
+
+
 class Classifier(nn.Module):
     """Wraps any decoder with .embed_tokens and forward(inputs_embeds=, attention_mask=, position_ids=)."""
 
@@ -196,12 +231,17 @@ class Classifier(nn.Module):
         super().__init__()
         self.language_model, self.projector, self.heads, self.pool = language_model, projector, heads, pool
         self.image_range, self.row_end_id, self.soft_side = image_range, row_end_id, soft_side
+        self.vision = None  # VisionTower when the image encoder is trained too: forward then takes uint8 pixels
         self.residual_dtype = None  # float32 on T4: fp16 weights, but a residual stream beyond the fp16 range
 
     def embed(self, input_ids, siglip):
         embeddings = self.language_model.get_input_embeddings()(input_ids.clamp(min=0))
         slots = input_ids == PREFIX_SLOT
         if slots.any():
+            if siglip.dtype == torch.uint8:
+                if self.vision is None:
+                    raise ValueError("pixels given to a model without a trainable image encoder")
+                siglip = self.vision(siglip)
             soft = self.projector(siglip.to(self.projector[0].weight.dtype))
             if int(slots.sum()) != soft.shape[0] * soft.shape[1]:
                 raise ValueError("every row needs exactly one block of soft-token slots")
@@ -294,6 +334,8 @@ def save(classifier, settings, folder):
     if classifier.pool is not None:
         state["pool"] = classifier.pool.state_dict()
     torch.save(state, folder / "trainable.pt")
+    if classifier.vision is not None:
+        classifier.vision.siglip.save_pretrained(str(folder / "vision_lora"))
     (folder / "settings.json").write_text(json.dumps(settings, indent=2))
 
 
@@ -329,6 +371,18 @@ def load_weights(classifier, folder, settings):
             report.append("attention pooling")
         else:
             report.append("new attention pooling")
+    if classifier.vision is not None:
+        adapter = folder / "vision_lora" / "adapter_model.safetensors"
+        if adapter.exists():
+            from peft import set_peft_model_state_dict
+            from safetensors.torch import load_file
+
+            result = set_peft_model_state_dict(classifier.vision.siglip, load_file(str(adapter)))
+            if getattr(result, "unexpected_keys", []):
+                raise ValueError("vision LoRA weights that fit nowhere")
+            report.append("vision LoRA")
+        else:
+            report.append("new vision LoRA (starts at zero)")
     return ", ".join(report + ["new projector (other image encoder)" if new_encoder else "projector", "heads"])
 
 

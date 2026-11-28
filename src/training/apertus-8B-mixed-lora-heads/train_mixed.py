@@ -13,7 +13,7 @@ from mixed_model import D, E, M, MixedEncoder, batch_inputs, load_mixed, prepare
 from base_weights import BaseMasters
 from experiment import add_synthetic, chunks, losses_with_synthetic, training_rows
 from pipeline import probabilities
-from train import log, upload
+from train import load_pixels, log, upload
 
 
 def forward(model, builder, rows, features, ocr):
@@ -65,11 +65,17 @@ def validation(model, builder, val, cache, ocr, metric, batch_size, stage, epoch
     return row
 
 
-def configure(model, settings, stage):
+def configure(model, settings, stage, vision_lr=5e-5):
     aperture = model.aperture
     model.requires_grad_(False)
     model.fusion.requires_grad_(True)
     groups = [{"params": list(model.fusion.parameters()), "lr": 2e-4 if stage == "fusion" else 6e-5}]
+    if stage == "vision":
+        seeing = [p for name, p in aperture.vision.named_parameters() if "lora_" in name]
+        if not seeing:
+            raise ValueError("The vision stage needs a LoRA on SigLIP.")
+        for parameter in seeing:
+            parameter.requires_grad_(True)
     masters = BaseMasters(aperture.language_model, settings["layers"])
     if stage == "fusion":
         return groups, masters
@@ -88,18 +94,20 @@ def configure(model, settings, stage):
     ])
     if stage == "top2":
         groups.append({"params": masters.expand(2), "lr": 2e-6, "weight_decay": 0.})
+    if stage == "vision":
+        groups.append({"params": seeing, "lr": vision_lr})
     return groups, masters
 
 
 def train_stage(stage, epochs, model, settings, builder, fit, labels, items, cache, ocr, args, deadline, validate):
-    groups, masters = configure(model, settings, stage)
+    groups, masters = configure(model, settings, stage, args.lr_vision if stage == "vision" else 5e-5)
     rates = [group["lr"] for group in groups]
     optimizer = torch.optim.AdamW(groups, weight_decay=.01, foreach=False)
     rows = fit.to_dict("records")
     val_state = validate.best
     meaningful_best, plateau, regressions = val_state["macro_f1"], 0, 0
     previous_train_loss = None
-    generator = torch.Generator().manual_seed({"fusion": 3407, "joint": 3408, "top2": 3409}[stage])
+    generator = torch.Generator().manual_seed({"fusion": 3407, "joint": 3408, "top2": 3409, "vision": 3410}[stage])
     step = 0
     for epoch in range(1, math.ceil(epochs) + 1):
         order = torch.randperm(len(items), generator=generator).tolist()
@@ -110,10 +118,13 @@ def train_stage(stage, epochs, model, settings, builder, fit, labels, items, cac
             model.fusion.train()
         else:
             model.train()
-        train_loss = []
+        train_loss, timed_out = [], False
         for positions in chunks(order, 2 * args.train_batch):
             if time.monotonic() >= deadline:
-                return "time_limit"
+                if stage != "vision" or not train_loss:
+                    return "time_limit"
+                timed_out = True  # the vision stage scores what it has learned before it stops
+                break
             optimizer.zero_grad(set_to_none=True)
             for group, rate in zip(optimizer.param_groups, rates, strict=True):
                 group["lr"] = rate * min(1., (step + 1) / 20)
@@ -149,7 +160,7 @@ def train_stage(stage, epochs, model, settings, builder, fit, labels, items, cac
             masters.sync()
             step += 1
             if step % 100 == 0:
-                log(f"{stage} step {step}")
+                log(f"{stage} step {step} | loss {torch.stack(train_loss[-100:]).mean().item():.3f}")
         if not train_loss:
             raise RuntimeError("No training loss was computed.")
         mean_loss = torch.stack(train_loss).mean().item()
@@ -167,6 +178,8 @@ def train_stage(stage, epochs, model, settings, builder, fit, labels, items, cac
         else:
             regressions = 0
         previous_train_loss = mean_loss
+        if timed_out:
+            return "time_limit"
         if regressions >= 2:
             return "validation_regression"
         if plateau >= 2:
@@ -236,6 +249,10 @@ def main():
     parser.add_argument("--upload-repo", default="")
     parser.add_argument("--prefix", default="mixed")
     parser.add_argument("--predict-dev", action="store_true")
+    parser.add_argument("--vision-lora-rank", type=int, default=0,
+                        help="with --checkpoint: continue a mixed checkpoint training a new LoRA on SigLIP too")
+    parser.add_argument("--vision-epochs", type=float, default=2)
+    parser.add_argument("--lr-vision", type=float, default=5e-5)
     args = parser.parse_args()
     if min(args.wall_seconds, args.joint_epochs, args.train_batch, args.encode_batch) <= 0 or args.unfreeze_epochs < 0:
         parser.error("Invalid time, batch size or epoch count.")
@@ -247,14 +264,24 @@ def main():
     directory = E.model_dir()
     rows = D.read_csv(args.data_dir / "train.csv")
     metric = D.load_metric(args.data_dir)
-    model, settings, builder = load_mixed(directory, args.initial or args.checkpoint, args.dino_revision)
+    vision = args.vision_lora_rank > 0
+    if vision and not args.checkpoint:
+        parser.error("--vision-lora-rank continues a mixed checkpoint: use --checkpoint.")
+    model, settings, builder = load_mixed(directory, args.initial or args.checkpoint, args.dino_revision,
+                                          vision_lora_rank=args.vision_lora_rank)
     encoder = MixedEncoder(directory, settings["dino_revision"])
     val = D.select(rows, "test")
+    trains = bool(args.initial) or vision
+    final_checkpoint = args.out / "best" if trains else args.checkpoint
 
-    if args.initial:
-        if settings.get("unfrozen_blocks") or any(p.count_nonzero().item() for p in model.fusion[-1].parameters()):
-            raise ValueError("--initial expects the original SigLIP + VQ checkpoint.")
-        settings.update(init_checkpoint=args.source_id or str(args.initial), init_revision=args.source_revision)
+    if trains:
+        if args.initial:
+            if settings.get("unfrozen_blocks") or any(p.count_nonzero().item() for p in model.fusion[-1].parameters()):
+                raise ValueError("--initial expects the original SigLIP + VQ checkpoint.")
+        elif not settings.get("mixed") or settings.get("unfrozen_blocks"):
+            raise ValueError("The vision stage continues a mixed checkpoint without unfrozen Apertus blocks.")
+        settings.update(init_checkpoint=args.source_id or str(args.initial or args.checkpoint),
+                        init_revision=args.source_revision)
         fit, val, labels, items = training_rows(rows)
         args.real_count = len(fit)
         if args.synthetic:
@@ -264,33 +291,77 @@ def main():
         sample = fit.head(2).to_dict("records")
         with ThreadPoolExecutor(2) as workers:
             features = encoder.encode(sample, ["", "a2"], args.data_dir, ocr, workers)
-        inputs = batch_inputs(builder, sample, features, ocr, "cuda")
-        model.eval()
-        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-            direct = model.aperture(*inputs[:3])
-            mixed = model(*inputs)
-            for expected, actual in zip(direct, mixed, strict=True):
-                torch.testing.assert_close(actual, expected, rtol=0., atol=0.)
-        model.requires_grad_(False)
-        model.fusion.requires_grad_(True)
-        smoke = sum(part.float().square().mean() for part in forward(model, builder, sample, features, ocr))
-        smoke.backward()
-        grad = model.fusion[-1].weight.grad
-        if grad is None or not grad.isfinite().all() or grad.abs().sum().item() == 0:
-            raise RuntimeError("The GPU smoke test did not propagate gradients to DINO fusion.")
-        model.zero_grad(set_to_none=True)
-        del mixed, direct, inputs, smoke
-        log("GPU smoke passed: source logits unchanged, gradients reach DINO fusion")
+        if args.initial:
+            inputs = batch_inputs(builder, sample, features, ocr, "cuda")
+            model.eval()
+            with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+                direct = model.aperture(*inputs[:3])
+                mixed = model(*inputs)
+                for expected, actual in zip(direct, mixed, strict=True):
+                    torch.testing.assert_close(actual, expected, rtol=0., atol=0.)
+            model.requires_grad_(False)
+            model.fusion.requires_grad_(True)
+            smoke = sum(part.float().square().mean() for part in forward(model, builder, sample, features, ocr))
+            smoke.backward()
+            grad = model.fusion[-1].weight.grad
+            if grad is None or not grad.isfinite().all() or grad.abs().sum().item() == 0:
+                raise RuntimeError("The GPU smoke test did not propagate gradients to DINO fusion.")
+            model.zero_grad(set_to_none=True)
+            del mixed, direct, inputs, smoke
+            log("GPU smoke passed: source logits unchanged, gradients reach DINO fusion")
+
+        else:
+            from transformers import AutoImageProcessor
+
+            processor = AutoImageProcessor.from_pretrained(settings["siglip"])
+            pictures = load_pixels(args.data_dir, {(r["image_id"], False): r["image_path"] for r in sample}, processor)
+            seen = torch.stack([pictures[r["image_id"], False] for r in sample]).to("cuda")
+            model.eval()
+            with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+                live = model.aperture.vision(seen)
+            frozen = encoder.siglip_vq.siglip_features([E.full_resolution(args.data_dir / r["image_path"])
+                                                        for r in sample]).float().to("cuda")
+            gap = (live.float() - frozen).abs().max().item()
+            if gap > 0.02:
+                raise RuntimeError(f"The new LoRA is zero, yet SigLIP inside the model differs by {gap:.4f}.")
+            configure(model, settings, "vision")
+            model.train()
+            inputs = batch_inputs(builder, sample, [{**f, "siglip": pictures[r["image_id"], False]}
+                                                    for r, f in zip(sample, features, strict=True)], ocr, "cuda")
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                smoke = sum(part.float().square().mean() for part in model(*inputs))
+            smoke.backward()
+            reached = sum(p.grad.abs().sum().item() for n, p in model.aperture.vision.named_parameters()
+                          if "lora_B" in n and p.grad is not None)
+            if not 0 < reached < float("inf"):
+                raise RuntimeError("The GPU smoke test did not propagate gradients to the SigLIP LoRA.")
+            model.zero_grad(set_to_none=True)
+            del inputs, smoke, live, seen
+            log(f"GPU smoke passed: same SigLIP features at the start (max gap {gap:.5f}), "
+                "gradients reach its LoRA")
 
         combined = fit.to_dict("records") + val.to_dict("records")
         cache = prepare_features(encoder, combined, items + [(len(fit) + i, "") for i in range(len(val))],
                                  args.data_dir, ocr, args.encode_batch)
+        if vision:  # SigLIP learns: the cache keeps the pixels, the model computes the features
+            from transformers import AutoImageProcessor
+
+            views = [(combined[i], variant) for i, variant in
+                     items + [(len(fit) + i, "") for i in range(len(val))]]
+            wanted = {(row["image_id"], D.is_mirrored(v)): row["image_path"] for row, v in views}
+            pictures = load_pixels(args.data_dir, wanted, AutoImageProcessor.from_pretrained(settings["siglip"]))
+            for row, variant in views:
+                name = D.key(row["image_id"], variant)
+                cache[name] = {**cache[name], "siglip": pictures[row["image_id"], D.is_mirrored(variant)]}
+            log(f"{len(pictures)} pictures in memory for the SigLIP LoRA")
         encoder.move("cpu")
         torch.cuda.empty_cache()
         choose = Selection(args, val, cache, ocr, metric, builder)
         choose("baseline", 0., model, settings)
         reasons = {}
-        for stage, epochs in (("fusion", .5), ("joint", args.joint_epochs), ("top2", args.unfreeze_epochs)):
+        stages = ((("vision", args.vision_epochs),) if vision else
+                  (("fusion", .5), ("joint", args.joint_epochs), ("top2", args.unfreeze_epochs)))
+        for stage, epochs in stages:
             if time.monotonic() >= deadline or not epochs:
                 break
             if stage == "top2" and reasons.get("joint") != "validation_plateau":
@@ -320,6 +391,9 @@ def main():
         del choose, cache
         encoder.move("cuda")
 
+    if settings.get("vision_lora_rank"):  # the live encoder must read the images as the trained model saw them
+        encoder.use_vision_lora(final_checkpoint)
+        log("SigLIP LoRA merged into the encoder for prediction")
     export(model, builder, val, encoder, args, "prompt_test", metric)
     if args.predict_dev:
         export(model, builder, D.read_csv(args.data_dir / "dev.csv"), encoder, args, "dev")

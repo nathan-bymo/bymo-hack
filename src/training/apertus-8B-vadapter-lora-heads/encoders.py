@@ -31,6 +31,25 @@ TASK = ("Classify this product image: what it shows, what is behind the product,
         "whether a real person or animal is visible, which text was added, and the language of the text.")
 
 
+# LoRA of the image encoder (train.py --vision-lora-rank): every attention and MLP layer of its transformer blocks.
+VISION_LORA_TARGETS = r".*encoder\.layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|out_proj)|mlp\.(fc1|fc2))$"
+
+
+def pool_patches(patches, side):
+    """[batch, patches, channels] -> [batch, side^2, channels]: the square patch grid average-pooled."""
+    batch, count, channels = patches.shape
+    width = int(count**0.5)
+    assert width * width == count, f"expected a square patch grid, got {count} patches"
+    grid = patches.transpose(1, 2).reshape(batch, channels, width, width)
+    return torch.nn.functional.adaptive_avg_pool2d(grid, side).flatten(2).transpose(1, 2)
+
+
+def pixel_bytes(processor, pil_images):
+    """uint8 [batch, 3, H, W]: the images as the processor resizes them, before rescaling and normalisation."""
+    return processor(images=pil_images, input_data_format="channels_first", do_rescale=False, do_normalize=False,
+                     return_tensors="pt")["pixel_values"]
+
+
 def model_dir():
     from huggingface_hub import snapshot_download
 
@@ -116,12 +135,16 @@ class ImageEncoder:
         pixels = self.siglip_processor(images=pil_images, input_data_format="channels_first",
                                        return_tensors="pt")["pixel_values"]
         patches = self.siglip(pixel_values=pixels.to(self.device, self.siglip_dtype)).last_hidden_state.float()
-        batch, count, channels = patches.shape
-        side = int(count**0.5)
-        assert side * side == count, f"expected a square patch grid, got {count} patches"
-        grid = patches.transpose(1, 2).reshape(batch, channels, side, side)
-        pooled = torch.nn.functional.adaptive_avg_pool2d(grid, self.pooled_side)
-        return pooled.flatten(2).transpose(1, 2).to("cpu", torch.float16)
+        return pool_patches(patches, self.pooled_side).to("cpu", torch.float16)
+
+    def add_vision_lora(self, folder):
+        """The LoRA trained on the image encoder (<checkpoint>/vision_lora), merged: same cost per image."""
+        from peft import PeftModel
+
+        if not (Path(folder) / "adapter_model.safetensors").exists():
+            raise FileNotFoundError(f"the checkpoint was trained with a LoRA on the image encoder, missing in {folder}")
+        merged = PeftModel.from_pretrained(self.siglip, str(folder)).merge_and_unload()
+        self.siglip = merged.to(self.device).eval()
 
     def siglip_only(self, paths, mirrored):
         """SigLIP features of full images (mirrored where asked), when the VQ codes are already cached."""
