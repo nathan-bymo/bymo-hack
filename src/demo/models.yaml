@@ -72,15 +72,15 @@ models:
                  note: "dev pubblico; righe final ancora ai valori di default di sample_submission.csv (RISULTATI.md:15-17)"}
 
   - id: apertus-team-best-submission
-    display_name: "Best team submission on Kaggle dev (28/11 03:19)"
-    short_name: "Best team submission"
-    description: "Our best public score so far. The model behind it is not yet described in the repository."
+    display_name: "Ensemble 50/50 SigLIP+VQ and DINOv3 81 tokens (2 models), Kaggle dev 28/11 03:19"
+    short_name: "Ensemble of two models"
+    description: "50/50 average of the SigLIP + VQ model and a DINOv3 model with 81 image tokens: our best public score."
     featured: true
     family: submission_only
     adapter: null
     runtime: none
-    status_override: {status: unavailable, reason: "solo punteggio Kaggle: modello non ancora descritto nel repository"}
-    training_label: "not yet described"
+    status_override: {status: unavailable, reason: "ensemble di due modelli: solo punteggio Kaggle (due decoder, metà velocità)"}
+    training_label: "two trained models, probabilities averaged"
     evals: []
     kaggle_dev: {score: 0.847, submitted_at: "2026-11-28T03:19:00Z", source: "src/training/benchmark/README.md:26",
                  source_label: "team submission on Kaggle, 28/11 03:19"}
@@ -267,7 +267,7 @@ models:
   - id: apertus-8b-mixed-lora-heads
     display_name: "Apertus 8B · SigLIP 2 + DINOv3 + VQ + OCR + LoRA + 6 heads (mixed)"
     short_name: "Two image encoders (mixed)"
-    description: "The final model with a second image encoder, DINOv3, added to SigLIP 2. 10,683 real images plus synthetic text."
+    description: "SigLIP 2 and DINOv3 image encoders with Apertus 8B, one decoder. The team's default delivery, 14 photos per second."
     featured: true
     family: mixed_heads
     adapter: HeadsAdapter
@@ -286,16 +286,52 @@ models:
     training: {data: "train.csv tranne prompt-test (10.683) + 1.040 sintetiche", phase: 2,
                seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
     vram_estimate_gb: null
-    memory: {gb: null, kind: not_reported, what: "61 GiB peak in training",
-             source: "weights/apertus-8B-mixed-lora-heads-final/README.md:9-10"}
+    memory: {gb: 23.0, kind: measured, what: "peak GPU memory, fast path + TF32, H100 80GB",
+             source: "src/training/apertus-8B-mixed-lora-heads/RESULTS.md:142"}
     measured:
       - {what: "img/s (end to end)", value: 5.9, conditions: "1× H200, prompt-test",
          source: "weights/apertus-8B-mixed-lora-heads-final/README.md:9", gpu_label: "H200 (HF)", cost_eligible: true}
+      - {what: "img/s (percorso veloce + TF32)", value: 14.34, conditions: "1× H100 80GB, dev, configurazione di consegna",
+         source: "src/training/apertus-8B-mixed-lora-heads/RESULTS.md:142", gpu_label: "H100 80GB", cost_eligible: false, preferred: true}
     evals:
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.843, weighted_f1: 0.924,
          source: "weights/apertus-8B-mixed-lora-heads-final/prompt_test_metrics.json"}
     contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
-    kaggle_dev: {score: null, note: "non ancora inviato (weights/apertus-8B-mixed-lora-heads-final/README.md:4-5)"}
+    kaggle_dev: {score: 0.84215, submitted_at: "2026-11-28T06:39:00Z", source: "src/training/apertus-8B-mixed-lora-heads/RESULTS.md:25",
+                 source_label: "team submission on Kaggle, 28/11 (59038887)"}
+
+  - id: apertus-8b-siglip-lora
+    display_name: "Apertus 8B · final-abt + LoRA r16 on SigLIP 2 (siglip-lora-1128-0815)"
+    short_name: "LoRA on the image encoder"
+    description: "The final model with a LoRA adapter on SigLIP 2 too, so the image encoder learns the task. 10,683 images."
+    featured: true
+    family: vadapter_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      location_label: "team's private Hugging Face repo"
+      copy_note: "MANNIK14/galaxus-vlh-private/siglip-lora-1128-0815/model/best (src/training/benchmark/README.md:66)"
+      requires_base: true
+    code: {root: "src/training/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
+    prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
+    training_label: "10,683 images outside prompt-test"
+    training: {data: "train.csv tranne prompt-test (10.683)", phase: 2,
+               seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
+    vram_estimate_gb: 79.8
+    memory: {gb: 79.8, kind: measured, what: "peak GPU memory in prediction, H200",
+             source: "src/training/benchmark/README.md:48"}
+    measured:
+      - {what: "img/s (predizione)", value: 6.75, conditions: "H200, prompt-test",
+         source: "src/training/benchmark/README.md:48", gpu_label: "H200 (HF)", cost_eligible: true}
+    evals:
+      - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.8356, weighted_f1: 0.9234,
+         source: "src/training/benchmark/overall.md:18",
+         note: "checkpoint scelto su prompt-test: non è più una prova indipendente (results_siglip_lora.md:13-14)"}
+    contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
+    kaggle_dev: {score: 0.83526, submitted_at: "2026-11-28T08:20:00Z", source: "src/training/benchmark/README.md:28",
+                 source_label: "team submission on Kaggle, 28/11 (59043423)"}
 
   - id: apertus-8b-vadapter-lora-heads-p14
     display_name: "Apertus 8B · final model with SigLIP 2 so400m 512, 196 image tokens (P14)"

@@ -54,6 +54,8 @@ export function headlineScore(model: ModelSummary): ScoreInfo | null {
 
 /** La velocità end to end più economica (costo per 100.000 immagini più basso), altrimenti la prima riportata. */
 export function bestSpeed(model: ModelSummary): SpeedInfo | null {
+  const preferred = model.speeds.find((s) => s.preferred)   // configurazione di consegna indicata dal team
+  if (preferred) return preferred
   const costed = model.speeds.filter((s) => s.cost_per_100k_usd !== null)
   if (costed.length) return [...costed].sort((a, b) => (a.cost_per_100k_usd ?? 0) - (b.cost_per_100k_usd ?? 0))[0]
   return model.speeds[0] ?? null

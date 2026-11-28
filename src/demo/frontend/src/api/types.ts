@@ -99,7 +99,7 @@ export interface ModelSummary {
 }
 export interface SpeedInfo {
   images_per_second: number; what: string; conditions: string | null; gpu_label: string | null
-  usd_per_hour: number | null; cost_per_100k_usd: number | null; cost_note: string | null; source: string
+  usd_per_hour: number | null; cost_per_100k_usd: number | null; cost_note: string | null; source: string; preferred?: boolean
 }
 export interface ScoreInfo {
   set: string; macro_f1: number | null; weighted_f1?: number | null; validity: string; source: string

@@ -174,7 +174,7 @@ class Registry:
             out.append({"images_per_second": m["value"], "what": m["what"], "conditions": m.get("conditions"),
                         "gpu_label": gpu or ("gateway" if raw["family"] == ZEROSHOT else None),
                         "usd_per_hour": price, "cost_per_100k_usd": cost, "cost_note": reason,
-                        "source": m["source"]})
+                        "source": m["source"], "preferred": bool(m.get("preferred"))})
         return out
 
     @staticmethod

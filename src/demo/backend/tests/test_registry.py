@@ -10,7 +10,7 @@ def test_models_without_env_are_unavailable_with_readable_reasons(client, monkey
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     body = client.get("/api/models").json()
     by_id = {m["model_id"]: m for m in body["models"]}
-    assert len(by_id) == 14
+    assert len(by_id) == 15
     for zid in ("apertus-8b-zeroshot-v2", "apertus-70b-zeroshot-v2"):
         assert by_id[zid]["status"] == "unavailable" and "LLM_API_KEY" in by_id[zid]["status_reason"]
     for mid in ("apertus-8b-lora-p10", "apertus-8b-lora-heads-p11", "apertus-8b-fullft-heads",

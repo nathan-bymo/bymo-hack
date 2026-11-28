@@ -181,7 +181,7 @@ export default function ResultsPage() {
         </div>
         <p className="m-0 mt-3 max-w-[70ch] text-[13px] text-slate">
           Cost = GPU price per hour ÷ images per hour × 100,000, with Hugging Face list prices (A100 $2.50/h, L40S $1.80/h, H200 $5/h).
-          Where a model was measured on two GPUs, the cheaper one is shown. Every model gets through 100,000 images in less than a day.
+          Where a model was measured on two GPUs, the cheaper one is shown; the mixed model is shown in its delivery setup on an H100, whose price is not in this list. Every model gets through 100,000 images in less than a day.
         </p>
       </section>
 

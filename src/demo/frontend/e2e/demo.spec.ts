@@ -55,10 +55,10 @@ test('percorso completo della demo', async ({ page }) => {
   // 5. Results: classifica Kaggle con il gruppo di valutazione, domanda per domanda, velocità e costo
   await page.getByRole('link', { name: 'Results', exact: true }).click()
   const kaggle = page.getByTestId('board-kaggle_dev')
-  await expect(kaggle.getByTestId('board-row')).toHaveCount(10)   // 7 punteggi del team + 3 riferimenti
+  await expect(kaggle.getByTestId('board-row')).toHaveCount(12)   // 9 punteggi del team + 3 riferimenti
   await expect(kaggle.getByTestId('board-row').first()).toContainText('0.917')
   await expect(kaggle).toContainText('0.832')
-  await expect(page.getByTestId('assessment-group')).toContainText('Best team submission (0.847) is in the middle assessment group: above both Gemini references')
+  await expect(page.getByTestId('assessment-group')).toContainText('Ensemble of two models (0.847) is in the middle assessment group: above both Gemini references')
   await expect(kaggle.getByTestId('board-row').nth(1)).toContainText('0.847')
   await expect(page.getByTestId('pq-macro')).toContainText('0.821')
   await expect(page.getByTestId('pq-weighted')).toContainText('0.917')
@@ -90,7 +90,7 @@ test('percorso completo della demo', async ({ page }) => {
   await page.getByRole('link', { name: 'How it works', exact: true }).click()
   await expect(page.getByTestId('pipeline')).toContainText('SigLIP 2')
   await expect(page.getByTestId('walkthrough').locator('li')).toHaveCount(4)
-  await expect(page.getByTestId('experiments').getByTestId('experiment')).toHaveCount(19)   // P0–P15, full fine-tune, modello finale, mixed
+  await expect(page.getByTestId('experiments').getByTestId('experiment')).toHaveCount(21)   // P0–P15, full fine-tune, modello finale, mixed, LoRA su SigLIP, ensemble
   await expect(page.getByTestId('experiments')).toContainText('P13')
   await expect(page.getByTestId('training-steps').locator('tbody tr')).toHaveCount(3)
   await expect(page.getByTestId('insights-mattered').locator('li')).toHaveCount(5)
