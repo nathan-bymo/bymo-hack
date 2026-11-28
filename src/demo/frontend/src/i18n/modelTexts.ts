@@ -18,5 +18,6 @@ export const MODEL_TEXTS = [
   T('LoRA + pooling, 512² (P12)'), T('P11 with sharper images (512²), left/right features and 2D attention pooling. 9,344 training images.'),
   T('Full fine-tune'), T('Every layer of Apertus 8B retrained, with six small classifiers on top. All 11,876 labelled images.'),
   T('This model does not answer in this demo.'),
+  T("Qwen 3.5 9B fine-tuned (organisers' baseline)"), T('Gemini 4 Argon, zero-shot'), T('Gemini 3.8 Flash, zero-shot'),   // riferimenti degli organizzatori (dal backend)
   T('Galaxus × Apertus — Image classification'),   // titolo della scheda del browser (lo imposta I18nProvider)
 ]

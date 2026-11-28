@@ -16,7 +16,8 @@ const LANGS = ['it', 'fr', 'de']
 // traduzioni uguali all'inglese perché giuste (nome proprio, parola uguale, sigla)
 const SAME_OK = new Set(['Logo', 'A logo', 'Label', 'Live', 'live', 'Menu', 'Photo', 'Photos', 'Brand', 'Category', 'Subcategory', 'Product', 'Catalog',
   'Perspective', 'Perspectives', 'Date', 'Status', 'Cover', 'Admin view', 'No', 'EN', 'IT', 'FR', 'DE', 'n/a', 'Accessories', 'Description', 'Original', 'Test', 'Dutch', 'Question', '{n} photo', '{n} photos', 'position {n}',
-  'LoRA + pooling, 512² (P12)', '(optional)', 'Unkategorisiert'])
+  'LoRA + pooling, 512² (P12)', '(optional)', 'Unkategorisiert',
+  'Gemini 3.8 Flash, zero-shot', 'Gemini 4 Argon, zero-shot', 'Challenge', '{n} classes'])
 
 function files(dir) {
   return readdirSync(dir).flatMap((name) => {

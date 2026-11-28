@@ -4,6 +4,7 @@ import { LANGS, T, useI18n } from '../i18n'
 import { S } from '../strings'
 
 const LINKS = [
+  { to: '/challenge', label: T('Challenge'), end: false },
   { to: '/shop', label: T('Storefront'), end: false },
   { to: '/catalog', label: T('Catalog'), end: false },
   { to: '/', label: T('Classify'), end: true },

@@ -90,6 +90,18 @@ test('percorso completo della demo', async ({ page }) => {
   await page.getByTestId('try-file-input').setInputFiles(files('synthetic-1.jpg'))   // la stessa foto ricaricata torna visibile
   await expect(page.getByTestId('try-image')).toBeVisible()
 
+  // 4d. pagina Challenge: spiega la sfida e mostra pochi risultati, presi dai punteggi del registro dei modelli
+  await page.getByRole('link', { name: 'Challenge', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Teach Apertus to read every product photo')
+  await expect(page.getByTestId('challenge-task').locator('li').first()).toContainText('classes')
+  await expect(page.getByTestId('challenge-judging')).toContainText('macro F1')
+  const rows = page.getByTestId('challenge-row')
+  await expect(rows.first()).toContainText('0.917')   // il riferimento degli organizzatori (Qwen) è il punteggio più alto
+  await expect(page.getByTestId('challenge-chart')).toContainText('Gemini 4 Argon')
+  expect(await rows.count()).toBeGreaterThanOrEqual(5)   // riferimenti + i nostri migliori
+  await expect(page.getByTestId('challenge-sentence')).toContainText('below the organisers’ fine-tuned Qwen')
+  await shot(page, '07-challenge')
+
   // 5. Results e How it works non esistono più: i vecchi indirizzi portano alla pagina Demo
   for (const old of ['/models', '/results', '/how']) {
     await page.goto(old)
@@ -133,7 +145,7 @@ test('lingue dell\'interfaccia', async ({ page }) => {
     await expect(page).toHaveTitle(new RegExp(expected[lang].title))
     await page.reload()   // la scelta resta dopo il refresh
     await expect(page.locator('html')).toHaveAttribute('lang', lang)
-    for (const path of ['/', '/catalog', '/shop', '/shop?q=nulla-del-genere']) {
+    for (const path of ['/', '/challenge', '/catalog', '/shop', '/shop?q=nulla-del-genere']) {
       await page.goto(path)
       await expect(page.getByTestId(`lang-${lang}`)).toHaveAttribute('aria-pressed', 'true')
       await page.waitForTimeout(400)

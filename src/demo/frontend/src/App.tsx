@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import CatalogPage from './pages/CatalogPage'
+import ChallengePage from './pages/ChallengePage'
 import CatalogProductPage from './pages/CatalogProductPage'
 import ClassifyPage from './pages/ClassifyPage'
 import ShopPage from './pages/ShopPage'
@@ -10,6 +11,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<ClassifyPage />} />
+      <Route path="/challenge" element={<ChallengePage />} />
       <Route path="/shop" element={<ShopPage />} />
       <Route path="/shop/:productId" element={<ShopProductPage />} />
       <Route path="/catalog" element={<CatalogPage />} />
