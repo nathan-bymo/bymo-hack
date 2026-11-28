@@ -29,6 +29,34 @@ import model as M  # noqa: E402
 ROOT = HERE.parents[2]
 
 
+def with_placeholders(encode, paths, placeholder):
+    """encode(paths) -> one entry per path. If the batch fails, every image is tried alone, and one that still fails
+    is replaced by a blank placeholder: every image gets a prediction. Returns (entries, indexes replaced)."""
+    try:
+        return encode(paths), []
+    except Exception as error:
+        print(f"a batch failed ({type(error).__name__}: {str(error)[:200]}): one image at a time", flush=True)
+    entries, replaced = [], []
+    for index, path in enumerate(paths):
+        try:
+            entries.extend(encode([path]))
+        except Exception as error:
+            print(f"image replaced by a blank one: {type(error).__name__}: {str(error)[:200]}", flush=True)
+            entries.extend(encode([placeholder]))
+            replaced.append(index)
+    return entries, replaced
+
+
+def blank_image():
+    import tempfile
+
+    from PIL import Image
+
+    path = Path(tempfile.mkdtemp()) / "blank.png"
+    Image.new("RGB", (256, 256), (255, 255, 255)).save(path)
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--checkpoint", type=Path, required=True, help="folder saved by train.py (best/ or last/)")
@@ -68,11 +96,12 @@ def main():
     loading = time.time()
     dtype = getattr(torch, args.dtype)
     classifier, settings = M.load(directory, args.checkpoint, "cuda:0", merge=not args.no_merge, dtype=dtype)
-    encoder = E.ImageEncoder(directory, args.encoder_device)
+    soft_side = settings.get("soft_side", E.POOLED_SIDE)
+    encoder = E.ImageEncoder(directory, args.encoder_device, settings.get("siglip", E.SIGLIP_ID), soft_side)
     reader = E.TextReader(args.encoder_device) if settings.get("ocr") else None
     tokenizer = AutoTokenizer.from_pretrained(directory)
     builder = E.PromptBuilder(tokenizer, AutoConfig.from_pretrained(directory).image_token_offset,
-                              E.POOLED_SIDE**2 if settings.get("adapter", True) else 0, settings.get("language_hint", False))
+                              soft_side**2 if settings.get("adapter", True) else 0, settings.get("language_hint", False))
     print(f"model loaded in {time.time() - loading:.0f} s; {len(rows)} images, VQ side {settings['side']}", flush=True)
 
     original_order = list(rows.image_id)
@@ -82,14 +111,21 @@ def main():
 
     stage_seconds = {"ocr": 0.0, "forward": 0.0, "tta": 0.0}
 
-    def encode(batch):  # runs one batch ahead of the GPU forward
-        paths = [args.data_dir / r["image_path"] for r in batch]
-        encoded = encoder.encode(paths, [""] * len(batch), settings["side"])
+    placeholder, replaced_images = blank_image(), [0]
+
+    def encode_paths(paths):
+        encoded = encoder.encode(paths, [""] * len(paths), settings["side"])
         clock = time.perf_counter()
-        texts = reader.read([E.full_resolution(path) for path in paths]) if reader else [None] * len(batch)
+        texts = reader.read([E.full_resolution(path) for path in paths]) if reader else [None] * len(paths)
         stage_seconds["ocr"] += time.perf_counter() - clock
         for entry, text in zip(encoded, texts):
             entry["ocr"] = text
+        return encoded
+
+    def encode(batch):  # runs one batch ahead of the GPU forward
+        paths = [args.data_dir / r["image_path"] for r in batch]
+        encoded, replaced = with_placeholders(encode_paths, paths, placeholder)
+        replaced_images[0] += len(replaced)
         return encoded
 
     def forward(batch, encoded):
@@ -180,6 +216,7 @@ def main():
               "fp32_safe_mode": fallback["used"], "first_non_finite": fallback["where"],
               "batch_size": args.batch_size, "context": not args.no_context,
               "checkpoint": str(args.checkpoint), "tta_flip": args.tta_flip, "flipped_images": flip_counter[0],
+              "images_replaced_by_blank": replaced_images[0],
               "seconds_per_stage": {k: round(v, 1) for k, v in {**encoder.seconds, **stage_seconds}.items()},
               "note": "images, siglip, vq and ocr run in a thread one batch ahead of forward: stages overlap"}
     if all(f"{d}_source" in rows for d in D.DIMENSIONS):

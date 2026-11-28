@@ -644,3 +644,71 @@ def test_extra_rows_only_from_training_products_and_seen_once(tmp_path):
     rows, items = D.add_extra(fit, [(0, ""), (0, "a1"), (1, "")], kept)
     assert list(rows.image_id) == ["a", "b", "syn_1"]
     assert items == [(0, ""), (0, "a1"), (1, ""), (2, "")]
+
+
+def test_another_encoder_keeps_heads_and_pool_but_starts_a_new_projector(tmp_path):
+    old = full_classifier(seed=1)
+    M.save(old, {"lora_rank": 0}, tmp_path)
+    torch.manual_seed(2)
+    new = full_classifier(seed=2)
+    new.projector = M.Projector(11, 8)  # a larger image encoder
+    before = new.projector[0].weight.clone()
+    report = M.load_weights(new, tmp_path, {"lora_rank": 0})
+    assert "new projector" in report
+    assert torch.equal(new.projector[0].weight, before)
+    for name, value in old.heads.state_dict().items():
+        assert torch.equal(new.heads.state_dict()[name], value)
+    for name, value in old.pool.state_dict().items():
+        assert torch.equal(new.pool.state_dict()[name], value)
+
+
+def test_the_checkpoint_sets_the_soft_token_grid():
+    decoder = TinyDecoder()
+    settings = {"head_hidden": 16, "head_dropout": 0.0, "vision_dim": 6}
+    assert M.assemble(decoder, IMAGE_RANGE, settings).soft_side == 7  # checkpoints without "soft_side"
+    assert M.assemble(decoder, IMAGE_RANGE, settings | {"soft_side": 14}).soft_side == 14
+
+
+def test_reused_vq_codes_run_the_new_encoder_once_per_picture(tmp_path, monkeypatch):
+    import encode as C
+
+    old, out = tmp_path / "old", tmp_path / "new"
+    old.mkdir()
+    out.mkdir()
+    settings = {"model": "m", "revision": "r", "side": 256, "augmentation": "a"}
+    (old / "meta.json").write_text(__import__("json").dumps(settings | {"siglip": "small"}))
+    entry = lambda n: {"grid": (1, n), "codes": torch.arange(n, dtype=torch.int32), "siglip": torch.zeros(4, 2)}
+    torch.save({"a": entry(1), "a|a1": entry(2), "a|a1m": entry(3), "b": entry(4)}, old / "shard_00000.pt")
+    calls = []
+
+    class Fake:
+        def siglip_only(self, paths, mirrored):
+            calls.extend(zip([p.name for p in paths], mirrored))
+            return torch.stack([torch.full((9, 5), float(m)) for m in mirrored])
+
+    monkeypatch.setattr(C, "new_encoder", lambda args: Fake())
+    args = SimpleNamespace(reuse_cache=old, out=out, data_dir=tmp_path, shard_size=1024, batch_size=2)
+    todo = [("a", "a.jpg", ""), ("a", "a.jpg", "a1"), ("a", "a.jpg", "a1m"), ("b", "b.jpg", ""), ("c", "c.jpg", "")]
+    _, others = C.reuse_codes(args, todo, settings | {"siglip": "large"})
+    assert others == [("c", "c.jpg", "")]  # no cached codes: encoded in full
+    assert sorted(calls) == [("a.jpg", False), ("a.jpg", True), ("b.jpg", False)]
+    cache = C.load_cache(out)
+    assert cache["a|a1"]["grid"] == (1, 2) and cache["a|a1"]["siglip"].shape == (9, 5)
+    assert torch.equal(cache["a|a1m"]["codes"], torch.arange(3, dtype=torch.int32))
+    assert cache["a|a1m"]["siglip"][0, 0] == 1 and cache["a"]["siglip"][0, 0] == 0
+    with pytest.raises(SystemExit):
+        C.reusable_codes(old, settings | {"side": 512})
+
+
+def test_one_broken_image_never_stops_the_prediction(tmp_path):
+    import predict as P
+
+    def encode(paths):
+        if any(p == "broken" for p in paths):
+            raise ValueError("cannot read")
+        return [{"path": p} for p in paths]
+
+    assert P.with_placeholders(encode, ["a", "b"], "blank") == ([{"path": "a"}, {"path": "b"}], [])
+    entries, replaced = P.with_placeholders(encode, ["a", "broken", "c"], "blank")
+    assert [e["path"] for e in entries] == ["a", "blank", "c"] and replaced == [1]
+    assert P.blank_image().exists()

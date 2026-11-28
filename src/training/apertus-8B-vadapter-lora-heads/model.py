@@ -281,7 +281,7 @@ def assemble(decoder, image_range, settings):
     heads = Heads(3 * hidden, CLASS_COUNTS, settings["head_hidden"], settings["head_dropout"],
                   4 * hidden if settings.get("spatial") else 0, pool.output_size if pool else 0)
     return Classifier(decoder, Projector(settings["vision_dim"], hidden), heads, image_range,
-                      settings.get("row_end_id"), pool=pool)
+                      settings.get("row_end_id"), soft_side=settings.get("soft_side", 7), pool=pool)
 
 
 def save(classifier, settings, folder):
@@ -312,7 +312,10 @@ def load_weights(classifier, folder, settings):
             raise ValueError(f"LoRA weights that fit nowhere: {unexpected[:5]}")
         report.append(f"{len(state)} LoRA tensors")
     trainable = torch.load(folder / "trainable.pt", map_location="cpu", weights_only=True)
-    classifier.projector.load_state_dict(trainable["projector"])
+    # Another image encoder has another feature size: its projector cannot be reused and starts from zero.
+    new_encoder = trainable["projector"]["0.weight"].shape != classifier.projector[0].weight.shape
+    if not new_encoder:
+        classifier.projector.load_state_dict(trainable["projector"])
     result = classifier.heads.load_state_dict(trainable["heads"], strict=False)
     new = [k for k in result.missing_keys if "spatial" not in k and "pooled" not in k]
     if new or result.unexpected_keys:
@@ -326,7 +329,7 @@ def load_weights(classifier, folder, settings):
             report.append("attention pooling")
         else:
             report.append("new attention pooling")
-    return ", ".join(report + ["projector", "heads"])
+    return ", ".join(report + ["new projector (other image encoder)" if new_encoder else "projector", "heads"])
 
 
 FP16_SAFE = 2.0e4  # largest MLP activation let into an fp16 matmul (fp16 max is 65504)

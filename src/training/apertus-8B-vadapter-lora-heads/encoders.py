@@ -43,7 +43,8 @@ def model_dir():
 class ImageEncoder:
     """Frozen VQ tokenizer of Apertus (fp32, no TF32: codes are an argmax) and frozen SigLIP 2."""
 
-    def __init__(self, directory, device="cuda"):
+    def __init__(self, directory, device="cuda", siglip_id=SIGLIP_ID, pooled_side=POOLED_SIDE):
+        """siglip_id, pooled_side: the image encoder of the checkpoint (settings "siglip" and "soft_side")."""
         from transformers import AutoConfig, AutoImageProcessor, AutoProcessor, SiglipVisionModel
         from transformers.models.apertus1p5.modeling_apertus1p5 import Apertus1p5VisionTokenizerModel
         from safetensors import safe_open
@@ -66,8 +67,11 @@ class ImageEncoder:
         self.device = torch.device(device)
         self.vq = vq.to(self.device, torch.float32).eval()
         self.apertus_processor = AutoProcessor.from_pretrained(directory).image_processor
-        self.siglip = SiglipVisionModel.from_pretrained(SIGLIP_ID, dtype=torch.float32).to(self.device).eval()
-        self.siglip_processor = AutoImageProcessor.from_pretrained(SIGLIP_ID)
+        self.pooled_side = pooled_side
+        # The default encoder stays in fp32, as in the first checkpoints; a larger one runs in bf16 to keep the speed.
+        self.siglip_dtype = torch.float32 if siglip_id == SIGLIP_ID else torch.bfloat16
+        self.siglip = SiglipVisionModel.from_pretrained(siglip_id, dtype=self.siglip_dtype).to(self.device).eval()
+        self.siglip_processor = AutoImageProcessor.from_pretrained(siglip_id)
 
     VQ_BATCH = 32  # images of the same size encoded together
 
@@ -108,15 +112,23 @@ class ImageEncoder:
 
     @torch.inference_mode()
     def siglip_features(self, pil_images):
-        """[batch, 49, 768] float16: SigLIP patch grid average-pooled to POOLED_SIDE x POOLED_SIDE."""
-        pixels = self.siglip_processor(images=pil_images, return_tensors="pt")["pixel_values"].to(self.device)
-        patches = self.siglip(pixel_values=pixels).last_hidden_state
+        """[batch, pooled_side^2, channels] float16: SigLIP patch grid average-pooled to pooled_side x pooled_side."""
+        pixels = self.siglip_processor(images=pil_images, return_tensors="pt")["pixel_values"]
+        patches = self.siglip(pixel_values=pixels.to(self.device, self.siglip_dtype)).last_hidden_state.float()
         batch, count, channels = patches.shape
         side = int(count**0.5)
         assert side * side == count, f"expected a square patch grid, got {count} patches"
         grid = patches.transpose(1, 2).reshape(batch, channels, side, side)
-        pooled = torch.nn.functional.adaptive_avg_pool2d(grid, POOLED_SIDE)
+        pooled = torch.nn.functional.adaptive_avg_pool2d(grid, self.pooled_side)
         return pooled.flatten(2).transpose(1, 2).to("cpu", torch.float16)
+
+    def siglip_only(self, paths, mirrored):
+        """SigLIP features of full images (mirrored where asked), when the VQ codes are already cached."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        if not hasattr(self, "readers"):
+            self.readers = ThreadPoolExecutor(16)
+        return self.siglip_features(list(self.readers.map(full_resolution, paths, mirrored)))
 
     def encode(self, paths, variants, side, names=None):
         """One dict per image: grid, codes and siglip features. Images are decoded and resized in threads.
@@ -184,7 +196,7 @@ def sort_by_vq_size(items, path_of, side):
 
 
 def full_resolution(path, mirrored=False):
-    """The original image on white for SigLIP (its processor resizes to 224 x 224)."""
+    """The original image on white for SigLIP (its processor resizes to the size of the encoder)."""
     from PIL import Image, ImageOps
 
     with Image.open(path) as image:

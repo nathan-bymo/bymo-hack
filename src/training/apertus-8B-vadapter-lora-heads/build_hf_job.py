@@ -17,6 +17,10 @@ Environment of the job (-e NAME=value):
   TRAIN_ARGS       extra arguments for train.py, e.g. "--epochs 3 --class-alpha effective"
   EPOCHS           phase 2 only: the epochs chosen in phase 1
   SIDE             VQ image side, default 256
+  SIGLIP           another frozen image encoder, e.g. google/siglip2-so400m-patch16-512 (with SOFT_SIDE, default 14:
+                   soft tokens per side); its projector starts from zero when INIT_FROM used the default encoder
+  REUSE_CACHE      with SIGLIP: cache name in UPLOAD_REPO/cache/ (e.g. all_but_test_256) whose VQ codes and OCR
+                   texts are reused, so only the new encoder runs
   INIT_PROJECTOR   optional "<repo>:<file>" of a projector of apertus-vadapter-benchmark, read with HF_TOKEN
   DEV_ONLY         1 with PREDICT_FROM: only dev.csv -> predictions/dev_submission.csv (no training images)
   PREDICT_DEV      1 to also predict dev.csv (a file in the private repo; nothing is submitted)
@@ -24,6 +28,10 @@ Environment of the job (-e NAME=value):
   PREDICT_TTA      1 to also predict coverage with the mirror test-time augmentation (predict.py --tta-flip)
   Budget: TRAIN_ARGS="--epochs 2 --max-minutes 45" fits the schedule into 45 training minutes; the job timeout is
   the hard cap on the cost (H200: 5 $/h on 27 November 2026, `hf jobs hardware`).
+  FINAL            1 with PREDICT_FROM: decrypts the final images and predicts them -> predictions/final.csv. Needs
+                   FINAL_PASSPHRASE (given at launch, never written to a file). FINAL_ARCHIVE: path in UPLOAD_REPO of a
+                   test archive for a rehearsal; default final_encrypted.bin from Kaggle, checked against its SHA-256.
+                   The images stay on the job's disk: only the predictions are uploaded.
   CHECK_ONLY       1 to only check secrets, data and model access and the real tokenizer (a CPU is enough)
   OCR              1: OCR text (docTR) of every image in the prompt, read once into the cache
   TARGETED_CONTINUATION  1: use prompt-test for early stopping and scale only the selected rare text classes
@@ -88,6 +96,7 @@ import hashlib
 import io
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -101,6 +110,8 @@ DATA, RUN = WORK / "data", WORK / "data" / "run"
 FOLDER = "@@FOLDER@@"
 PHASE = os.environ.get("PHASE", "1")
 SIDE = os.environ.get("SIDE", "256")
+SIGLIP = os.environ.get("SIGLIP", "")  # another image encoder; empty: the default of encoders.py
+SOFT_SIDE = os.environ.get("SOFT_SIDE", "14")
 UPLOAD_REPO = os.environ.get("UPLOAD_REPO", "")
 DATA_REPO = os.environ.get("DATA_REPO", "")  # private HF dataset with the competition data (see the builder)
 PREFIX = os.environ.get("RUN_NAME", f"phase{PHASE}")
@@ -109,6 +120,7 @@ INIT_FROM = os.environ.get("INIT_FROM", "")  # e.g. phase1/model/best in UPLOAD_
 OCR = bool(os.environ.get("OCR"))  # OCR text of the image in the prompt
 SYNTHETIC = os.environ.get("SYNTHETIC", "")  # zip in UPLOAD_REPO with extra training images
 TRAIN_SHA256 = "@@TRAIN_SHA256@@"
+FINAL_SHA256 = "4b37a260c9fcc0325e8ee43ec5db1519dea7ff6ced0d918fb691c1c563506465"  # the Kaggle data page
 BUNDLE = "@@BUNDLE@@"
 
 
@@ -190,12 +202,71 @@ def download_synthetic():
     return ["--extra-csv", table]
 
 
+def final_data():
+    """The folder with final.csv and final_images/, decrypted on the job's disk. The passphrase is never printed."""
+    passphrase = os.environ.get("FINAL_PASSPHRASE", "")
+    assert passphrase, "FINAL=1 needs FINAL_PASSPHRASE"
+    store = DATA / "final_download"
+    store.mkdir(parents=True, exist_ok=True)
+    test_archive = os.environ.get("FINAL_ARCHIVE", "")
+    if test_archive:
+        from huggingface_hub import hf_hub_download
+
+        archive = Path(hf_hub_download(UPLOAD_REPO, test_archive, local_dir=store))
+        log("REHEARSAL with the test archive", test_archive)
+    else:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+
+        api = KaggleApi()
+        api.authenticate()
+        api.competition_download_file("hackapertus-galaxus", "final_encrypted.bin", path=str(store), quiet=True)
+        archive = store / "final_encrypted.bin"
+        if not archive.exists():  # Kaggle sometimes wraps a single file in a zip
+            import zipfile
+
+            with zipfile.ZipFile(store / "final_encrypted.bin.zip") as wrapper:
+                wrapper.extractall(store)
+        digest = hashlib.sha256()
+        with open(archive, "rb") as handle:
+            for block in iter(lambda: handle.read(1 << 22), b""):
+                digest.update(block)
+        assert digest.hexdigest() == FINAL_SHA256, "final_encrypted.bin does not match the published SHA-256"
+        log("final_encrypted.bin downloaded, SHA-256 matches")
+    if not shutil.which("7z"):
+        subprocess.run("apt-get update -qq && apt-get install -y -qq p7zip-full >/dev/null", shell=True, check=True)
+    target = DATA / "final"
+    result = subprocess.run(["7z", "x", f"-p{passphrase}", f"-o{target}", "-y", str(archive)], capture_output=True,
+                            text=True)
+    if result.returncode:  # the command line holds the passphrase: only the tool's own message is shown
+        raise SystemExit("7z could not open the archive: " + (result.stderr or result.stdout)[-300:].replace(passphrase, "***"))
+    tables = sorted(target.rglob("final.csv"))
+    assert tables, "the archive holds no final.csv"
+    log("final images decrypted")
+    return tables[0].parent
+
+
+def predict_final():
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(3) as pool:  # the three downloads together: every minute counts after 13:00
+        folder = pool.submit(final_data)
+        checkpoint = pool.submit(fetch_checkpoint, PREDICT_FROM)
+        pool.submit(download_model).result()
+        folder, checkpoint = folder.result(), checkpoint.result()
+    outputs = RUN / "predictions"
+    run([f"{FOLDER}/predict.py", "--checkpoint", checkpoint, "--data-dir", folder, "--csv", folder / "final.csv",
+         "--out", outputs / "final.csv"], "predict_final.log")
+    upload(outputs, "predictions", ["final*"])
+    upload(RUN, "logs", ["*.log"])
+    log("ALL DONE")
+
+
 def download_model():
     import encoders
     from huggingface_hub import snapshot_download
 
     encoders.model_dir()
-    snapshot_download(encoders.SIGLIP_ID)
+    snapshot_download(SIGLIP or encoders.SIGLIP_ID)
     log("models downloaded")
 
 
@@ -380,6 +451,9 @@ def main():
     assert PHASE == "1" or os.environ.get("EPOCHS"), "phase 2 needs EPOCHS, chosen in phase 1"
     log("phase", PHASE, "| torch", torch.__version__, "| GPU", torch.cuda.get_device_name(0))
     assert UPLOAD_REPO, "set UPLOAD_REPO: without it the results are lost when the job ends"
+    if os.environ.get("FINAL"):
+        assert PREDICT_FROM, "FINAL=1 needs PREDICT_FROM, the checkpoint to use"
+        return predict_final()
     from huggingface_hub import HfApi
 
     HfApi().create_repo(UPLOAD_REPO, private=True, exist_ok=True)
@@ -408,14 +482,24 @@ def main():
         raise ValueError("TARGETED_CONTINUATION requires phase 1, all_but_test, INIT_FROM, OCR and SIDE=256")
     targeted_flags = ["--prompt-test-validation", "--rare-text-only"] if targeted else []
     val_fraction = "0" if part == "all" else "0.1"
-    cache = DATA / "cache" / f"{part}_{SIDE}"
-    name = f"{part}_{SIDE}"
+    suffix = f"_{SIGLIP.split('/')[-1]}_s{SOFT_SIDE}" if SIGLIP else ""
+    name = f"{part}_{SIDE}{suffix}"
+    cache = DATA / "cache" / name
     fetch_cache(cache, name)
-    if part != "training" and not cache.exists():  # the training cache covers most of the images
-        fetch_cache(cache, f"training_{SIDE}")
+    for other in (f"all_but_test_{SIDE}{suffix}", f"training_{SIDE}{suffix}"):  # they cover most of the images
+        if part != "training" and not cache.exists():
+            fetch_cache(cache, other)
+    encoder_flags = []
+    if SIGLIP:
+        encoder_flags = ["--siglip-id", SIGLIP, "--pooled-side", SOFT_SIDE]
+        if os.environ.get("REUSE_CACHE"):
+            reuse = DATA / "cache" / "reuse"
+            fetch_cache(reuse, os.environ["REUSE_CACHE"])
+            assert reuse.exists(), "REUSE_CACHE is not in UPLOAD_REPO"
+            encoder_flags += ["--reuse-cache", reuse]
     synthetic = download_synthetic()
-    run([f"{FOLDER}/encode.py", "--part", part, "--side", SIDE, "--out", cache,
-         "--val-fraction", val_fraction, *targeted_flags, *synthetic, *(["--ocr"] if OCR else [])], "encode.log")
+    run([f"{FOLDER}/encode.py", "--part", part, "--side", SIDE, "--out", cache, "--val-fraction", val_fraction,
+         *targeted_flags, *synthetic, *encoder_flags, *(["--ocr"] if OCR else [])], "encode.log")
     if not targeted:
         store_cache(cache, name)
     extra = shlex.split(os.environ.get("TRAIN_ARGS", "")) + init_projector() + synthetic

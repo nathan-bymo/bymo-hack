@@ -214,14 +214,16 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(directory)
     if args.language_hint and not args.ocr:
         sys.exit("--language-hint needs --ocr")
+    meta = json.loads((args.cache / "meta.json").read_text())  # the image encoder that wrote the cache
     builder = E.PromptBuilder(tokenizer, AutoConfig.from_pretrained(directory).image_token_offset,
-                              0 if args.no_adapter else E.POOLED_SIDE**2, args.language_hint)
+                              0 if args.no_adapter else meta["pooled_side"]**2, args.language_hint)
     settings = {key_: value for key_, value in vars(args).items()
                 if key_ in ("layers", "lora_rank", "lora_alpha", "lora_dropout", "head_hidden", "head_dropout")}
     first = next(iter(cache.values()))
     settings |= {"attention_pool": args.attention_pool, "spatial": args.spatial, "row_end_id": builder.eol, "language_hint": args.language_hint,
-                 "ocr": args.ocr, "init_checkpoint": str(args.init_checkpoint or ""), "adapter": not args.no_adapter, "vision_dim": first["siglip"].shape[-1], "side": json.loads((args.cache / "meta.json").read_text())["side"],
-                 "model": E.MODEL_ID, "revision": E.MODEL_REVISION, "siglip": E.SIGLIP_ID, "task": E.TASK}
+                 "ocr": args.ocr, "init_checkpoint": str(args.init_checkpoint or ""), "adapter": not args.no_adapter, "vision_dim": first["siglip"].shape[-1], "side": meta["side"],
+                 "model": E.MODEL_ID, "revision": E.MODEL_REVISION, "siglip": meta["siglip"],
+                 "soft_side": meta["pooled_side"], "task": E.TASK}
     classifier = M.build(directory, settings, device)
     if args.init_checkpoint:
         log(f"continuing from {args.init_checkpoint}: " + M.load_weights(classifier, args.init_checkpoint, settings))

@@ -40,6 +40,11 @@ def main():
     parser.add_argument("--part", default="training", choices=("training", "all", "all_but_test", "coverage"))
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--side", type=int, default=256, help="area of the VQ image, aspect ratio kept")
+    parser.add_argument("--siglip-id", default=E.SIGLIP_ID, help="frozen image encoder of the continuous tokens")
+    parser.add_argument("--pooled-side", type=int, default=E.POOLED_SIDE, help="soft tokens per side")
+    parser.add_argument("--reuse-cache", type=Path,
+                        help="cache of another image encoder: its VQ codes and OCR texts are copied, only the "
+                             "SigLIP features are computed again")
     parser.add_argument("--val-fraction", type=float, default=0.1, help="the same as train.py")
     parser.add_argument("--no-repeats", action="store_true")
     parser.add_argument("--no-mirrors", action="store_true")
@@ -52,8 +57,8 @@ def main():
     parser.add_argument("--ocr", action="store_true", help="also the OCR text of every original image (ocr.json)")
     args = parser.parse_args()
 
-    settings = {"model": E.MODEL_ID, "revision": E.MODEL_REVISION, "siglip": E.SIGLIP_ID, "side": args.side,
-                "pooled_side": E.POOLED_SIDE, "augmentation": E.AUGMENTATION}
+    settings = {"model": E.MODEL_ID, "revision": E.MODEL_REVISION, "siglip": args.siglip_id, "side": args.side,
+                "pooled_side": args.pooled_side, "augmentation": E.AUGMENTATION}
     args.out.mkdir(parents=True, exist_ok=True)
     meta = args.out / "meta.json"
     if meta.exists():
@@ -87,9 +92,14 @@ def main():
     todo = E.sort_by_vq_size(todo, lambda job: args.data_dir / job[1], args.side)  # full VQ batches
     print(f"{len(rows)} images ({args.part}), {len(jobs)} variants with mirrors and augmented repeats, "
           f"{len(done)} cached, {len(todo)} to do", flush=True)
+    encoder = None
+    if todo and args.reuse_cache:
+        encoder, todo = reuse_codes(args, todo, settings)
     if todo:
-        encode_images(args, todo)
+        encode_images(args, todo, encoder)
     if args.ocr:
+        if args.reuse_cache:
+            copy_ocr(args.reuse_cache, args.out)
         read_text(args, encoding_rows)
 
 
@@ -135,8 +145,68 @@ def read_text(args, rows):
                       f"text found in {found / done:.0%}", flush=True)
 
 
-def encode_images(args, todo):
-    encoder = E.ImageEncoder(E.model_dir())
+def new_encoder(args):
+    return E.ImageEncoder(E.model_dir(), siglip_id=args.siglip_id, pooled_side=args.pooled_side)
+
+
+def reusable_codes(folder, settings):
+    """{key: (grid, codes)} of another cache made with the same Apertus, VQ side and augmentation."""
+    old = json.loads((Path(folder) / "meta.json").read_text())
+    for name in ("model", "revision", "side", "augmentation"):
+        if old.get(name) != settings[name]:
+            sys.exit(f"{folder}: its VQ codes were made with another {name}, they cannot be reused")
+    return {key: (entry["grid"], entry["codes"]) for key, entry in load_cache(folder).items()}
+
+
+def siglip_key(job):
+    """Variants of one image share the full picture given to SigLIP: only the mirror changes it."""
+    image_id, _, variant = job
+    return image_id, variant.endswith("m")
+
+
+def reuse_codes(args, todo, settings):
+    """Writes the jobs whose VQ codes are cached (only SigLIP runs); returns the encoder and the other jobs."""
+    codes = reusable_codes(args.reuse_cache, settings)
+    known = sorted((job for job in todo if D.key(job[0], job[2]) in codes), key=siglip_key)
+    others = [job for job in todo if D.key(job[0], job[2]) not in codes]
+    print(f"VQ codes reused for {len(known)} variants, {len(others)} to encode in full", flush=True)
+    if not known:
+        return None, others
+    encoder = new_encoder(args)
+    next_shard = len(list(args.out.glob("shard_*.pt")))
+    started = time.time()
+    for start in range(0, len(known), args.shard_size):
+        chunk = known[start:start + args.shard_size]
+        first = {}
+        for job in chunk:
+            first.setdefault(siglip_key(job), job)
+        wanted, features = list(first.items()), {}
+        for begin in range(0, len(wanted), args.batch_size):
+            batch = wanted[begin:begin + args.batch_size]
+            values = encoder.siglip_only([args.data_dir / job[1] for _, job in batch], [k[1] for k, _ in batch])
+            features.update(zip([k for k, _ in batch], values))
+        shard = {}
+        for job in chunk:
+            grid, image_codes = codes[D.key(job[0], job[2])]
+            shard[D.key(job[0], job[2])] = {"grid": grid, "codes": image_codes, "siglip": features[siglip_key(job)]}
+        temporary = args.out / "writing.tmp"
+        torch.save(shard, temporary)
+        temporary.rename(args.out / f"shard_{next_shard:05d}.pt")
+        next_shard += 1
+        done = start + len(chunk)
+        print(f"SigLIP {done}/{len(known)} variants, {done / (time.time() - started):.1f} variants/s", flush=True)
+    return encoder, others
+
+
+def copy_ocr(source, out):
+    """The OCR texts do not depend on the image encoder."""
+    for name in ("ocr.json", "ocr_meta.json"):
+        if (Path(source) / name).exists() and not (out / name).exists():
+            (out / name).write_bytes((Path(source) / name).read_bytes())
+
+
+def encode_images(args, todo, encoder=None):
+    encoder = encoder or new_encoder(args)
     next_shard = len(list(args.out.glob("shard_*.pt")))
     started, processed, failures = time.time(), 0, []
     for start in range(0, len(todo), args.shard_size):

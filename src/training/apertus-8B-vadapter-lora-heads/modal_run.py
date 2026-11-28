@@ -22,7 +22,7 @@ GPU = os.environ.get("MODAL_GPU", "H200")
 HOURS = float(os.environ.get("MODAL_HOURS", "2"))
 
 image = (modal.Image.debian_slim(python_version="3.12")
-         .apt_install("git", "libgl1", "libglib2.0-0")
+         .apt_install("git", "libgl1", "libglib2.0-0", "p7zip-full")
          .pip_install("uv")
          .add_local_file(JOB, "/job/hf_job_vlh.py"))
 app = modal.App("galaxus-vlh", image=image)
