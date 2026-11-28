@@ -38,7 +38,13 @@ def train(output_repo, data_repo, source_repo, source_path, synthetic_file, dino
 def main(output_repo: str, data_repo: str, source_repo: str = "", source_path: str = "final-abt/model/best",
          secret: str = "galaxus-dino", synthetic_file: str = "", dino_revision: str = "",
          local_hf_auth: bool = False, vision_lora: int = 0, vision_epochs: float = 2.0, wall_minutes: int = 0,
-         final: bool = False, final_archive: str = ""):
+         final: bool = False, final_archive: str = "", teacher_file: str = "", teacher_sha256: str = "",
+         source_revision: str = ""):
+    pilot = bool(teacher_file)  # distillation pilot on the dev pseudo-labels (RESULTS.md, section 4)
+    if pilot != bool(teacher_sha256) or pilot != bool(source_revision):
+        raise ValueError("Provide the teacher file, its SHA-256 and the pinned source revision together.")
+    if pilot and (vision_lora or final):
+        raise ValueError("The distillation pilot runs alone: no --vision-lora or --final.")
     if local_hf_auth:
         path = Path(os.environ.get("HF_TOKEN_PATH", str(Path.home() / ".cache/huggingface/token")))
         token = os.environ.get("HF_TOKEN") or path.read_text().strip()
@@ -53,6 +59,10 @@ def main(output_repo: str, data_repo: str, source_repo: str = "", source_path: s
             raise ValueError("--vision-lora continues a mixed checkpoint: pass its --source-path.")
         extra.update(VISION_LORA=str(vision_lora), VISION_EPOCHS=str(vision_epochs))
     prefix = "mixed-modal"
+    if pilot:
+        extra.update(MIXED_TEACHER_FILE=teacher_file, MIXED_TEACHER_SHA256=teacher_sha256,
+                     MIXED_SOURCE_REVISION=source_revision)
+        prefix = "distill-modal"
     if final:
         # The passphrase is typed (or taken from the environment) at launch: it is never written to a file.
         secrets = {"FINAL_PASSPHRASE": os.environ.get("FINAL_PASSPHRASE") or getpass.getpass("Passphrase: ")}

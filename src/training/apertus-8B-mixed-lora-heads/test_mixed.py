@@ -1,11 +1,15 @@
 """Verify zero-residual parity, staged gradients and checkpoint reload."""
 
+import time
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 import torch
 
+from distillation import load_teacher, soft_losses
 from mixed_model import D, E, M, MixedClassifier, load_mixed, save_mixed
+import train_mixed
 from train_mixed import configure
 
 
@@ -180,3 +184,83 @@ def test_one_broken_image_never_stops_the_mixed_prediction(tmp_path):
     assert replaced == ["broken.png"] and batches[0][2]["broken.png"] == ""
     read = [entry["path"] for _, features, _ in batches for entry in features]
     assert len(read) == 3 and read[1].endswith("blank.png") and read[2].endswith("c.png")
+
+
+def test_teacher_requires_matching_split_checksum_and_order(tmp_path):
+    import hashlib
+
+    dev = pd.DataFrame({"image_id": ["one", "two"], "product_id": ["p1", "p2"],
+                        "image_path": ["dev_images/one.jpg", "dev_images/two.jpg"]})
+    train = pd.DataFrame({"image_id": ["three"], "product_id": ["p3"]})
+    artifact = tmp_path / "teacher.pt"
+    probabilities = [torch.full((2, size), 1 / size) for size in D.CLASS_COUNTS]
+    mask = torch.ones((2, len(D.DIMENSIONS)), dtype=torch.bool)
+    torch.save({"image_ids": dev.image_id.tolist(), "dimensions": D.DIMENSIONS,
+                "probabilities": probabilities, "mask": mask}, artifact)
+    sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    _, actual = load_teacher(artifact, sha, dev, train)
+    assert torch.equal(actual, mask)
+    with pytest.raises(ValueError, match="checksum"):
+        load_teacher(artifact, "invalid", dev, train)
+    with pytest.raises(ValueError, match="IDs"):
+        load_teacher(artifact, sha, dev.iloc[::-1], train)
+    with pytest.raises(ValueError, match="outside train"):
+        load_teacher(artifact, sha, dev, train.assign(product_id="p1"))
+
+
+def test_soft_loss_masks_gradients_and_uses_full_distribution():
+    logits = torch.tensor([[2., -2.], [-3., 3.], [1., -1.]], requires_grad=True)
+    probabilities = [torch.tensor([[.2, .8], [.6, .4]])]
+    mask = torch.tensor([[False], [True]])
+    losses = soft_losses([logits], probabilities, mask, torch.tensor([2, 0]), torch.tensor([0, 1]))
+    assert len(losses) == 1
+    direct = -(probabilities[0][1] * logits[0].log_softmax(0)).sum()
+    torch.testing.assert_close(losses[0], direct)
+    losses[0].backward()
+    assert logits.grad[0].abs().sum() > 0
+    assert logits.grad[1:].count_nonzero() == 0
+
+
+def test_control_and_student_complete_matched_optimizer_updates(monkeypatch):
+    model = MixedClassifier(architecture())
+    fit = pd.DataFrame({"image_id": ["a", "b", "c", "d", "e", "f"]})
+    labels = torch.zeros((6, len(D.DIMENSIONS)), dtype=torch.long)
+    labels[5:] = -1
+    args = SimpleNamespace(real_count=5, train_batch=1, alphas=[None] * len(D.DIMENSIONS))
+    sample = inputs()
+    monkeypatch.setattr(train_mixed, "forward",
+                        lambda model, builder, rows, features, ocr: model(
+                            *(part.expand(len(rows), *part.shape[1:]) for part in sample)))
+    updates = []
+    soft_calls = []
+    actual_adamw = torch.optim.AdamW
+    actual_soft_losses = train_mixed.soft_losses
+
+    class CountSteps(actual_adamw):
+        def step(self, closure=None):
+            updates.append(self)
+            return super().step(closure)
+
+    class Validate:
+        best = {"macro_f1": .5, "validation_loss": .5}
+
+        def __call__(self, *args):
+            return self.best
+
+    def count_soft_loss(*args):
+        soft_calls.append(True)
+        return actual_soft_losses(*args)
+
+    monkeypatch.setattr(torch.optim, "AdamW", CountSteps)
+    monkeypatch.setattr(train_mixed, "soft_losses", count_soft_loss)
+    cache = {image_id: None for image_id in fit.image_id}
+    probabilities = [torch.full((1, size), 1 / size) for size in D.CLASS_COUNTS]
+    teacher = (probabilities, torch.ones((1, len(D.DIMENSIONS)), dtype=torch.bool), 5)
+    for stage, frame, targets in (("control", fit.iloc[:5], None), ("distill", fit, teacher)):
+        count_before = len(updates)
+        result = train_mixed.train_stage(stage, .5, model, {"layers": 3}, None, frame, labels[:len(frame)],
+                                         [(i, "") for i in range(len(frame))], cache, {}, args,
+                                         time.monotonic() + 30, Validate(), teacher=targets, sample_count=5)
+        assert result == "epoch_limit"
+        assert len(updates) - count_before == 3
+    assert len(soft_calls) == 1

@@ -7,10 +7,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import pandas as pd
 import torch
 
 from mixed_model import D, E, M, MixedEncoder, batch_inputs, load_mixed, prepare_features, save_mixed
 from base_weights import BaseMasters
+from distillation import load_teacher, paired_macro_intervals, soft_losses
 from experiment import add_synthetic, chunks, losses_with_synthetic, training_rows
 from pipeline import probabilities
 from train import load_pixels, log, upload
@@ -98,7 +100,7 @@ def validation(model, builder, val, cache, ocr, metric, batch_size, stage, epoch
     log(f"validation {stage} epoch {epoch:g}: macro F1 {row['macro_f1']:.5f} | "
         f"weighted F1 {row['weighted_f1']:.5f} | loss {row['validation_loss']:.4f} | "
         + " ".join(f"{d}={value:.3f}" for d, value in row["dimensions"].items()))
-    return row
+    return row, probs
 
 
 def configure(model, settings, stage, vision_lr=5e-5):
@@ -135,19 +137,26 @@ def configure(model, settings, stage, vision_lr=5e-5):
     return groups, masters
 
 
-def train_stage(stage, epochs, model, settings, builder, fit, labels, items, cache, ocr, args, deadline, validate):
+def train_stage(stage, epochs, model, settings, builder, fit, labels, items, cache, ocr, args, deadline, validate,
+                *, teacher=None, sample_count=None):
     groups, masters = configure(model, settings, stage, args.lr_vision if stage == "vision" else 5e-5)
-    rates = [group["lr"] for group in groups]
+    pilot = stage in ("control", "distill")
+    rates = [group["lr"] * (.5 if pilot else 1.) for group in groups]
     optimizer = torch.optim.AdamW(groups, weight_decay=.01, foreach=False)
     rows = fit.to_dict("records")
     val_state = validate.best
     meaningful_best, plateau, regressions = val_state["macro_f1"], 0, 0
     previous_train_loss = None
-    generator = torch.Generator().manual_seed({"fusion": 3407, "joint": 3408, "top2": 3409, "vision": 3410}[stage])
+    seed = {"fusion": 3407, "joint": 3408, "top2": 3409, "vision": 3410, "control": 3410, "distill": 3410}[stage]
+    generator = torch.Generator().manual_seed(seed)
     step = 0
     for epoch in range(1, math.ceil(epochs) + 1):
         order = torch.randperm(len(items), generator=generator).tolist()
-        if epochs < 1:
+        if sample_count is not None:
+            if not 0 < sample_count <= len(order):
+                raise ValueError("The pilot budget must fit in a single pass over each branch's examples.")
+            order = order[:sample_count]
+        elif epochs < 1:
             order = order[:math.ceil(len(order) * epochs)]
         if stage == "fusion":
             model.eval()
@@ -170,10 +179,19 @@ def train_stage(stage, epochs, model, settings, builder, fit, labels, items, cac
                 indices = [i for i, _ in views]
                 records = [rows[i] for i in indices]
                 features = [cache[D.key(row["image_id"], variant)] for row, (_, variant) in zip(records, views, strict=True)]
-                target = labels[indices].to("cuda")
-                synthetic = torch.tensor([i >= args.real_count for i in indices], device="cuda")
-                losses = losses_with_synthetic(forward(model, builder, records, features, ocr), target, synthetic, args.alphas)
+                logits = forward(model, builder, records, features, ocr)
+                device = logits[0].device
+                target = labels[indices].to(device)
+                supervised_count = teacher[2] if teacher else len(fit)
+                synthetic = torch.tensor([args.real_count <= i < supervised_count for i in indices], device=device)
+                losses = losses_with_synthetic(logits, target, synthetic, args.alphas)
                 active = [loss for loss in losses if loss is not None]
+                if teacher:
+                    positions = torch.tensor([k for k, i in enumerate(indices) if i >= supervised_count],
+                                             dtype=torch.long)
+                    if positions.numel():
+                        teacher_rows = torch.tensor([indices[k] - supervised_count for k in positions.tolist()])
+                        active.extend(.5 * loss for loss in soft_losses(logits, *teacher[:2], positions, teacher_rows))
                 if active:
                     value = sum(active)
                     (value / len(microbatches)).backward()
@@ -229,15 +247,17 @@ class Selection:
         self.best = None
         self.history = []
         self.replay = None
+        self.predictions = None
 
     def __call__(self, stage, epoch, model, settings, masters=None, train_loss=None):
-        row = validation(model, self.builder, self.val, self.cache, self.ocr, self.metric,
-                         2 * self.args.train_batch, stage, epoch)
+        row, probs = validation(model, self.builder, self.val, self.cache, self.ocr, self.metric,
+                                2 * self.args.train_batch, stage, epoch)
         row["training_loss"] = train_loss
         row["unfrozen_blocks"] = 2 if stage == "top2" else 0
         self.history.append(row)
         if self.best is None or row["macro_f1"] > self.best["macro_f1"]:
             self.best = row
+            self.predictions = probs
             subset = self.val.head(4).to_dict("records")
             _, self.replay = predict_batches(model, self.builder, cached_batches(subset, self.cache, self.ocr, 4))
             save_mixed(model, {**settings, "unfrozen_blocks": row["unfrozen_blocks"]},
@@ -263,6 +283,90 @@ def export(model, builder, frame, encoder, args, name, metric=None):
     (args.out / f"{name}.json").write_text(json.dumps(report, indent=2))
     upload(args.upload_repo, args.out, f"{args.prefix}/predictions", [f"{name}.*"])
     log(f"{name}: {len(frame)} images at {report['images_per_second']:.2f} img/s")
+    return report
+
+
+def run_pilot(args, directory, rows, metric, deadline, dev, teacher):
+    model, settings, builder = load_mixed(directory, args.warm_start, args.dino_revision)
+    settings.update(distill_source=args.source_id or str(args.warm_start), distill_revision=args.source_revision)
+    encoder = MixedEncoder(directory, settings["dino_revision"])
+    fit, val, labels, items = training_rows(rows)
+    args.real_count = len(fit)
+    if args.synthetic:
+        fit, labels, items = add_synthetic(fit, val, labels, items, D.read_csv(args.synthetic), args.data_dir)
+    args.alphas = D.class_alpha(D.item_labels(labels, [(i, v) for i, v in items if i < args.real_count]))
+    supervised_count = len(fit)
+    probabilities, mask = teacher
+    eligible = mask.any(1)
+    dev = dev.loc[eligible.numpy()].reset_index(drop=True)
+    probabilities = [values[eligible] for values in probabilities]
+    mask = mask[eligible]
+    fit_distill = pd.concat([fit, dev], ignore_index=True)
+    labels_distill = torch.cat([labels, labels.new_full((len(dev), len(D.DIMENSIONS)), -1)])
+    distill_items = [*items, *((supervised_count + i, "") for i in range(len(dev)))]
+    budget = math.ceil(len(distill_items) * .5)
+    if budget > len(items):
+        raise ValueError("Not enough supervised views for a matched control.")
+
+    # Compare actual image-to-CSV throughput using the same hardware, batches and OCR path.
+    baseline_live = export(model, builder, val, encoder, args, "baseline_prompt_test", metric)
+    ocr = json.loads(args.ocr_cache.read_text()) if args.ocr_cache else {}
+    combined = pd.concat([fit_distill, val], ignore_index=True).to_dict("records")
+    cache = prepare_features(encoder, combined, distill_items + [(len(fit_distill) + i, "") for i in range(len(val))],
+                             args.data_dir, ocr, args.encode_batch)
+    encoder.move("cpu")
+    torch.cuda.empty_cache()
+    control_args = argparse.Namespace(**(vars(args) | {"out": args.out / "control", "prefix": f"{args.prefix}/control"}))
+    control = Selection(control_args, val, cache, ocr, metric, builder)
+    control("baseline", 0., model, settings)
+    baseline_probs = control.predictions
+    torch.manual_seed(3410)
+    outcome = train_stage("control", .5, model, settings, builder, fit, labels, items, cache, ocr, args, deadline,
+                          control, sample_count=budget)
+    if outcome != "epoch_limit":
+        raise RuntimeError(f"Control did not finish the pilot budget: {outcome}")
+    del model
+    torch.cuda.empty_cache()
+
+    model, _, builder = load_mixed(directory, args.warm_start, args.dino_revision)
+    choose = Selection(args, val, cache, ocr, metric, builder)
+    choose("baseline", 0., model, settings)
+    for actual, expected in zip(choose.predictions, baseline_probs, strict=True):
+        torch.testing.assert_close(actual, expected, atol=2e-5, rtol=2e-4)
+    torch.manual_seed(3410)
+    settings["teacher_sha256"] = args.teacher_sha256
+    outcome = train_stage("distill", .5, model, settings, builder, fit_distill, labels_distill, distill_items,
+                          cache, ocr, args, deadline, choose, teacher=(probabilities, mask, supervised_count),
+                          sample_count=budget)
+    if outcome != "epoch_limit":
+        raise RuntimeError(f"Distillation did not finish the pilot budget: {outcome}")
+    intervals = paired_macro_intervals(val, baseline_probs, control.predictions, choose.predictions)
+    control_history, history, best = control.history, choose.history, choose.best
+    del model
+    torch.cuda.empty_cache()
+    model, _, builder = load_mixed(directory, args.out / "best", args.dino_revision)
+    _, replay = predict_batches(model, builder, cached_batches(val.head(4).to_dict("records"), cache, ocr, 4))
+    for actual, expected in zip(replay, choose.replay, strict=True):
+        torch.testing.assert_close(actual, expected, atol=2e-5, rtol=2e-4)
+    del choose, control, cache
+    encoder.move("cuda")
+    student_live = export(model, builder, val, encoder, args, "prompt_test", metric)
+    first, last = (entry["metrics"]["overall"] for entry in (baseline_live, student_live))
+    macro_change = last["f1_macro"] - first["f1_macro"]
+    weighted_change = last["f1_weighted"] - first["f1_weighted"]
+    speed_ratio = student_live["images_per_second"] / baseline_live["images_per_second"]
+    summary = {"best": best, "history": history, "control_history": control_history, "matched_views": budget,
+               "matched_updates": math.ceil(budget / (2 * args.train_batch)), "teacher_images": len(dev),
+               "teacher_sha256": args.teacher_sha256, "source_revision": args.source_revision,
+               "paired_cached_macro_ci95": intervals,
+               "macro_f1_change_live": macro_change, "weighted_f1_change_live": weighted_change,
+               "live_throughput_ratio": speed_ratio, "peak_cuda_gib": torch.cuda.max_memory_allocated() / 1024**3,
+               "passes_gate": (best["stage"] == "distill" and macro_change >= .008 and weighted_change >= -.002
+                               and min(interval[0] for interval in intervals.values()) > 0 and speed_ratio >= .90)}
+    (args.out / "training.json").write_text(json.dumps(summary, indent=2))
+    upload(args.upload_repo, args.out, f"{args.prefix}/model", ["training.json"])
+    log(f"Pilot gate: {summary['passes_gate']} | macro delta {macro_change:+.5f} | "
+        f"weighted delta {weighted_change:+.5f} | throughput ratio {speed_ratio:.3f}")
 
 
 def main():
@@ -272,6 +376,8 @@ def main():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--initial", type=Path)
     source.add_argument("--checkpoint", type=Path)
+    source.add_argument("--warm-start", type=Path,
+                        help="Mixed checkpoint for training. Requires --teacher and --teacher-sha256.")
     parser.add_argument("--dino-revision")
     parser.add_argument("--source-id")
     parser.add_argument("--source-revision")
@@ -291,11 +397,19 @@ def main():
     parser.add_argument("--lr-vision", type=float, default=5e-5)
     parser.add_argument("--predict-csv", type=Path,
                         help="with --checkpoint: only predict this csv (image paths start from --data-dir)")
+    parser.add_argument("--teacher", type=Path)
+    parser.add_argument("--teacher-sha256")
     args = parser.parse_args()
     if min(args.wall_seconds, args.joint_epochs, args.train_batch, args.encode_batch) <= 0 or args.unfreeze_epochs < 0:
         parser.error("Invalid time, batch size or epoch count.")
     if args.initial and not args.dino_revision:
         parser.error("Training requires an exact DINO revision.")
+    if args.warm_start or args.teacher or args.teacher_sha256:
+        if not (args.warm_start and args.teacher and args.teacher_sha256) or args.predict_dev:
+            parser.error("Pilot requires a mixed checkpoint, --teacher and --teacher-sha256, without --predict-dev.")
+        settings = json.loads((args.warm_start / "settings.json").read_text())
+        if not settings.get("mixed") or settings.get("unfrozen_blocks"):
+            parser.error("The pilot expects a mixed checkpoint without unfrozen base blocks.")
     vision = args.vision_lora_rank > 0
     if vision and not args.checkpoint:
         parser.error("--vision-lora-rank continues a mixed checkpoint: use --checkpoint.")
@@ -303,6 +417,13 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     torch.manual_seed(3407)
     directory = E.model_dir()
+    if args.warm_start:
+        rows = D.read_csv(args.data_dir / "train.csv")
+        metric = D.load_metric(args.data_dir)
+        dev = D.read_csv(args.data_dir / "dev.csv")
+        teacher = load_teacher(args.teacher, args.teacher_sha256, dev, rows)
+        run_pilot(args, directory, rows, metric, deadline, dev, teacher)
+        return
     if args.predict_csv:
         if not args.checkpoint or vision:
             parser.error("--predict-csv needs --checkpoint and trains nothing.")

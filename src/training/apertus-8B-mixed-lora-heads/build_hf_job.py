@@ -62,7 +62,7 @@ def run_mixed():
     source_repo = os.environ.get("SOURCE_REPO") or UPLOAD_REPO
     source_token = os.environ.get("SOURCE_HF_TOKEN")
     source_api = HfApi(token=source_token)
-    source = source_api.repo_info(source_repo)
+    source = source_api.repo_info(source_repo, revision=os.environ.get("MIXED_SOURCE_REVISION") or None)
     if not api.repo_info(UPLOAD_REPO).private or not source.private:
         raise ValueError("The starting and output model repositories must be private.")
 
@@ -81,6 +81,17 @@ def run_mixed():
     for required in needed:
         if not (initial / required).is_file():
             raise FileNotFoundError(initial / required)
+
+    teacher_file = os.environ.get("MIXED_TEACHER_FILE")
+    teacher_args = []
+    if teacher_file:
+        teacher_sha = os.environ.get("MIXED_TEACHER_SHA256")
+        if not teacher_sha or not (initial / FUSION_NAME).is_file():
+            raise ValueError("Distillation requires a teacher checksum and a saved mixed checkpoint.")
+        teacher = Path(hf_hub_download(source_repo, teacher_file, revision=source.sha, token=source_token))
+        if hashlib.sha256(teacher.read_bytes()).hexdigest() != teacher_sha:
+            raise ValueError("Teacher checksum does not match.")
+        teacher_args = ["--teacher", teacher, "--teacher-sha256", teacher_sha]
 
     ensure_opencv()
     with ThreadPoolExecutor(2) as pool:
@@ -110,24 +121,31 @@ def run_mixed():
                                                          token=source_token)]
                 break
 
-    wall = float(os.environ.get("WALL_MINUTES") or 125) * 60 - (time.time() - START)
+    wall = float(os.environ.get("WALL_MINUTES") or (75 if teacher_args else 125)) * 60 - (time.time() - START)
     if wall < 15 * 60:
         raise TimeoutError("Preparation has consumed most of the training allocation.")
     if vision_rank:
         extra += ["--vision-lora-rank", vision_rank, "--vision-epochs", os.environ.get("VISION_EPOCHS") or "2",
                   "--lr-vision", os.environ.get("LR_VISION") or "5e-5"]
-    run(["@@MIXED@@/train_mixed.py", "--checkpoint" if vision_rank else "--initial", initial,
-         "--data-dir", DATA, "--out", RUN / "mixed",
+    if teacher_args:
+        mode = ["--warm-start", initial, *teacher_args]
+    else:
+        mode = ["--checkpoint" if vision_rank else "--initial", initial, "--predict-dev"]
+    run(["@@MIXED@@/train_mixed.py", *mode, "--data-dir", DATA, "--out", RUN / "mixed",
          "--dino-revision", revision, "--source-id", f"{source_repo}/{INIT_FROM}", "--source-revision", source.sha,
          "--wall-seconds", str(wall), "--upload-repo", UPLOAD_REPO,
-         "--prefix", PREFIX, "--predict-dev", *extra], "mixed.log")
+         "--prefix", PREFIX, *extra], "mixed.log")
 
     best = RUN / "mixed" / "best"
     upload(best, "model/best", ["settings.json", "trainable.pt", FUSION_NAME, PATCH_NAME, "lora/*", "vision_lora/*"])
     selected = json.loads((best / "settings.json").read_text())
     required = {"model/best/settings.json", "model/best/trainable.pt", f"model/best/{FUSION_NAME}",
                 "model/best/lora/adapter_model.safetensors", "model/training.json",
-                "predictions/prompt_test.json", "predictions/dev.csv"}
+                "predictions/prompt_test.json"}
+    if teacher_args:
+        required.add("predictions/baseline_prompt_test.json")
+    else:
+        required.add("predictions/dev.csv")
     if selected.get("unfrozen_blocks"):
         required.add(f"model/best/{PATCH_NAME}")
     if selected.get("vision_lora_rank"):
@@ -153,7 +171,7 @@ def main():
     base = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(base)
     members = [*base.FILES, *(f"{DINO}/{name}" for name in ("pipeline.py", "experiment.py", "base_weights.py")),
-               *(f"{FOLDER}/{name}" for name in ("mixed_model.py", "train_mixed.py"))]
+               *(f"{FOLDER}/{name}" for name in ("mixed_model.py", "distillation.py", "train_mixed.py"))]
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
         for name in members:

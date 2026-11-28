@@ -77,3 +77,20 @@ Rehearsal before 13:00: make a test archive with `src/scripts/make_test_archive.
 output repo, add `--final-archive <path in the repo>` and use the password the script prints.
 
 Then join dev and final predictions of the same model with `src/scripts/final_submission.py`.
+
+## Distillation pilot
+
+Use a saved mixed checkpoint and the private [teacher artifact](RESULTS.md#4-distillazione-sulle-immagini-dev-f1-target-pronti-training-non-lanciato). Build the bundle
+as above, then pass `--source-path`, `--teacher-file`, `--teacher-sha256` and `--source-revision`
+to the Modal entry point. The source revision must contain both the checkpoint and the teacher.
+Pass the same synthetic archive as the source run to retain its supervised augmentation in both
+branches. The pilot has one H200, a 90-minute cap and no automatic retries.
+
+The distillation branch runs half an epoch. The supervised control starts from the same checkpoint
+and uses the same number of sampled views and optimizer updates, replacing dev views with supervised
+views. Human targets retain the focal loss and teacher targets contribute masked soft cross-entropy
+at weight 0.5. The job checks the teacher against the dev CSV before loading the model.
+
+The private export reports both branches on prompt-test, a paired bootstrap by product, and measured
+image-to-CSV throughput before and after the pilot. `model/training.json` records the promotion gate.
+The pilot reads dev images for teacher supervision and exports no dev score.
