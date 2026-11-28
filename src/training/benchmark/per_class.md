@@ -414,6 +414,47 @@ Generato da `src/scripts/benchmark_stats.py`. Solo numeri aggregati. Leggere pri
 | P13 final-abt + sintetici | prompt-test | text_language | Italian | 1.0000 | 0.7500 | 0.8571 | 4 |
 | P13 final-abt + sintetici | prompt-test | text_language | none | 0.9297 | 0.9399 | 0.9348 | 183 |
 | P13 final-abt + sintetici | prompt-test | text_language | other | 0.7778 | 0.7000 | 0.7368 | 10 |
+| P14 SigLIP so400m 512 | prompt-test | subject | accessories | 0.8333 | 0.6667 | 0.7407 | 15 |
+| P14 SigLIP so400m 512 | prompt-test | subject | delivery_scope | 0.9200 | 0.8519 | 0.8846 | 54 |
+| P14 SigLIP so400m 512 | prompt-test | subject | detail_closeup | 0.8941 | 0.8000 | 0.8444 | 95 |
+| P14 SigLIP so400m 512 | prompt-test | subject | energy_label | 1.0000 | 1.0000 | 1.0000 | 40 |
+| P14 SigLIP so400m 512 | prompt-test | subject | full_product | 0.9324 | 0.9510 | 0.9416 | 653 |
+| P14 SigLIP so400m 512 | prompt-test | subject | infographic | 0.7685 | 0.8384 | 0.8019 | 99 |
+| P14 SigLIP so400m 512 | prompt-test | subject | logo | 0.9710 | 1.0000 | 0.9853 | 67 |
+| P14 SigLIP so400m 512 | prompt-test | subject | multipack_trade_unit | 0.7500 | 0.7500 | 0.7500 | 8 |
+| P14 SigLIP so400m 512 | prompt-test | subject | multiview | 0.8235 | 0.7000 | 0.7568 | 20 |
+| P14 SigLIP so400m 512 | prompt-test | subject | package_and_product | 0.9600 | 0.8571 | 0.9057 | 28 |
+| P14 SigLIP so400m 512 | prompt-test | subject | packaging | 0.8108 | 0.8108 | 0.8108 | 37 |
+| P14 SigLIP so400m 512 | prompt-test | subject | placeholder | 1.0000 | 0.9231 | 0.9600 | 13 |
+| P14 SigLIP so400m 512 | prompt-test | subject | product_grouping | 0.9000 | 0.9000 | 0.9000 | 10 |
+| P14 SigLIP so400m 512 | prompt-test | background | color | 0.9268 | 0.7379 | 0.8216 | 103 |
+| P14 SigLIP so400m 512 | prompt-test | background | scene_lifestyle | 0.8333 | 0.8824 | 0.8571 | 51 |
+| P14 SigLIP so400m 512 | prompt-test | background | white | 0.9701 | 0.9915 | 0.9807 | 819 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | back_angle_left | 0.8235 | 0.5600 | 0.6667 | 25 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | back_angle_right | 0.7143 | 0.5769 | 0.6383 | 26 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | back_head_on | 0.9032 | 0.8317 | 0.8660 | 101 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | bottom_up | 0.8148 | 0.8800 | 0.8462 | 25 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | front_angle_left | 0.7111 | 0.7442 | 0.7273 | 86 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | front_angle_right | 0.6923 | 0.7875 | 0.7368 | 80 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | front_head_on | 0.8571 | 0.9164 | 0.8858 | 275 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | left_side | 0.7805 | 0.7273 | 0.7529 | 44 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | right_side | 0.8276 | 0.7500 | 0.7869 | 32 |
+| P14 SigLIP so400m 512 | prompt-test | perspective | top_down | 0.8333 | 0.7246 | 0.7752 | 69 |
+| P14 SigLIP so400m 512 | prompt-test | individuals | individual_present | 0.9608 | 0.9074 | 0.9333 | 54 |
+| P14 SigLIP so400m 512 | prompt-test | individuals | none | 0.9946 | 0.9978 | 0.9962 | 920 |
+| P14 SigLIP so400m 512 | prompt-test | text_classification | certification_seal | 0.7500 | 0.5000 | 0.6000 | 6 |
+| P14 SigLIP so400m 512 | prompt-test | text_classification | none | 0.9719 | 0.9829 | 0.9774 | 879 |
+| P14 SigLIP so400m 512 | prompt-test | text_classification | nutritional_info | 0.9365 | 0.9516 | 0.9440 | 62 |
+| P14 SigLIP so400m 512 | prompt-test | text_classification | other | 0.6562 | 0.5833 | 0.6176 | 36 |
+| P14 SigLIP so400m 512 | prompt-test | text_classification | promotional_text | 0.8636 | 0.8444 | 0.8539 | 45 |
+| P14 SigLIP so400m 512 | prompt-test | text_classification | technical_specs | 0.8780 | 0.8000 | 0.8372 | 45 |
+| P14 SigLIP so400m 512 | prompt-test | text_language | Dutch | 1.0000 | 0.2500 | 0.4000 | 4 |
+| P14 SigLIP so400m 512 | prompt-test | text_language | English | 0.8278 | 0.8013 | 0.8143 | 156 |
+| P14 SigLIP so400m 512 | prompt-test | text_language | French | 0.7500 | 0.6000 | 0.6667 | 30 |
+| P14 SigLIP so400m 512 | prompt-test | text_language | German | 0.8542 | 0.9389 | 0.8945 | 131 |
+| P14 SigLIP so400m 512 | prompt-test | text_language | Italian | 1.0000 | 0.5000 | 0.6667 | 4 |
+| P14 SigLIP so400m 512 | prompt-test | text_language | none | 0.8978 | 0.9126 | 0.9051 | 183 |
+| P14 SigLIP so400m 512 | prompt-test | text_language | other | 0.6000 | 0.6000 | 0.6000 | 10 |
 | Ensemble P11+Nathan media | prompt-test | subject | accessories | 0.9000 | 0.6000 | 0.7200 | 15 |
 | Ensemble P11+Nathan media | prompt-test | subject | delivery_scope | 0.9149 | 0.7963 | 0.8515 | 54 |
 | Ensemble P11+Nathan media | prompt-test | subject | detail_closeup | 0.9512 | 0.8211 | 0.8814 | 95 |

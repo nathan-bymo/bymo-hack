@@ -39,6 +39,8 @@ I risultati del 70B sono riassunti anche in [plain-benchmark/apertus-70B-benchma
 | P11 | LoRA e teste insieme, training completo | 8B + **LoRA + teste**, 256² | 9.344 | coverage, base, prompt-test | H200 | [LoRA + teste](apertus-8B-lora-heads/results_full_h200.md) |
 | P12 | pooling e 512² su LoRA + teste | 8B + LoRA + teste + feature spaziali + attention pooling, 512², 2 epoche | 9.344 | coverage, prompt-test, dev Kaggle | H200 | [P12](apertus-8B-lora-heads/results_p12_512_pooling.md) |
 | P13 | immagini sintetiche sul modello finale | `final-abt` + 1 epoca con sintetiche per lingue rare, sigilli e icone | 9.645 reali + 939 sintetiche | prompt-test, dev Kaggle | H200 (Modal) | [P13](apertus-8B-vadapter-lora-heads/results_p13_synthetic.md) |
+| P14 | encoder di immagini più grande | `final-abt` con SigLIP 2 so400m 512 e 196 token, 2 epoche | 9.645 | prompt-test | H200 (Modal) | [P14](apertus-8B-vadapter-lora-heads/results_p14_p15.md) |
+| P15 | training su tutti i dati | `final-abt` + 1 epoca | 11.876 | dev Kaggle | H200 (Modal) | [P15](apertus-8B-vadapter-lora-heads/results_p14_p15.md) |
 
 Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagini per scegliere layer ed epoca.
 
@@ -78,6 +80,7 @@ Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagi
 | Gemini 4 Argon zero-shot | 0.834 |
 | Gemini 3.8 Flash zero-shot | 0.806 |
 | P11, LoRA + teste | 0.796 |
+| P15, modello finale su tutti i dati | 0.831 |
 | P13, modello finale + sintetiche | 0.829 |
 | P12, LoRA + teste + pooling 512² | 0.806 |
 | Kri, full fine-tuning + teste | 0.805 |
