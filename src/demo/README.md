@@ -62,6 +62,9 @@ modalità *registrato*.
   usati a runtime.
 - I vecchi indirizzi portano alle pagine nuove (`/models` → `/results`, il resto → `/`). Le API del backend sono invariate.
 - Script parlato del video: [docs/demo/SCRIPT_VIDEO.md](../../docs/demo/SCRIPT_VIDEO.md).
+- Foto di esempio con risposte registrate: `scripts/import_probs.py` trasforma i file `*.probs.pt` dei job di
+  valutazione in registrazioni (`data/demo/recorded/`, fuori da git). All'upload di una foto registrata la demo
+  ricompila i dettagli prodotto con cui il modello ha risposto. In Demo compaiono solo i modelli che rispondono.
 
 ## 7. Modalità registrato
 `scripts/export_session.py --session <id>` crea `data/demo/export/<id>/` (immagini + `manifest.json` senza nomi) →

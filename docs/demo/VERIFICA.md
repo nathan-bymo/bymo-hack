@@ -147,3 +147,18 @@ La verifica visiva resta **contro una descrizione**, non contro gli screenshot o
 - Verificato: build, lint (solo avvisi già presenti), test E2E passato, pytest 103 passati e 6 saltati dopo il pull
   di main; prova dal vivo con la chiave vera su una foto sintetica, 70B + 8B in 9,4 s, nessun errore in console.
 - Non verificato: modelli allenati su GPU e registrazioni vere (opzione A ancora da lanciare).
+
+## Aggiornamento 28/11 mattina — tutti i modelli rispondono nella demo
+
+- Registrate le risposte vere di modello finale, P13, P12 e P11 su 13 foto del test held-out, dalle probabilità che
+  i modelli hanno scritto nei job di valutazione su GPU (`src/demo/scripts/import_probs.py`; dati in
+  `data/demo/recorded/`, fuori da git). Ordine delle classi controllato ricalcolando le metriche (prospettiva del
+  modello finale 0.754 contro 0.755 del report).
+- Upload di una foto registrata: i dettagli prodotto usati dal modello si compilano da soli (test
+  `test_upload_of_a_recorded_photo_gets_the_recorded_context`).
+- La pagina Demo mostra solo i modelli che rispondono: niente più "Needs a GPU". Il full fine-tune ha probabilità
+  solo sulle immagini dev, che nella demo non si usano: compare in Results e How it works, non in Demo.
+- P12, P13, P14, P15 e il modello mixed nel registro (P14 anche registrato in Demo); Results con tutti i modelli; How it works con tutte le prove (P0–P15, full fine-tune, mixed,
+  modello finale) divise in quattro fasi, ciascuna con il suo set.
+- Verificato: pytest 104 passati e 6 saltati, E2E passato, prova sul server vero: foto presa dalla scrivania,
+  modello finale + P11 registrati e 70B dal vivo in 4,3 s, nessun errore in console.

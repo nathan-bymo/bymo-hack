@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { AppShell } from '../components/app'
+import { PHASES, SET_NAME, type Experiment } from '../lib/experiments'
 import { DID_NOT_HELP, MATTERED, type Insight } from '../lib/insights'
 
 const SRC = 'src/training/apertus-8B-vadapter-lora-heads/RISULTATI.md'
@@ -78,6 +79,35 @@ function Pipeline() {
   )
 }
 
+const WALK = [
+  { title: 'Read the photo three ways', body: 'SigLIP 2 turns it into 49 image tokens, Apertus’ own image tokenizer into about 256 more, and docTR reads the words printed on it.' },
+  { title: 'Apertus reads everything', body: 'Apertus 8B takes the tokens, the printed words and the product details when there are any. A LoRA adapter teaches it the task; with the classifiers, everything we trained weighs 0.37 GB.' },
+  { title: 'Work out where things are', body: 'Features that change sign when the photo is mirrored, and attention over the 2D grid of image tokens, let it tell left from right.' },
+  { title: 'Answer the six questions', body: 'Six small classifiers give one class each, with its probability, in a single pass: 4.9 photos per second on one L40S GPU.' },
+]
+
+function ExperimentRow({ e }: { e: Experiment }) {
+  return (
+    <li data-testid="experiment" className={`grid gap-x-6 gap-y-1 border-b border-rule py-3 md:grid-cols-[4.5rem_minmax(0,1fr)_17rem] ${e.final ? 'border-l-4 border-l-graphite pl-3' : ''}`}>
+      <span className="text-[15px] font-bold">{e.id}</span>
+      <span>
+        <span className="block text-[16px] font-bold leading-snug">{e.title}</span>
+        <span className="block text-[14px] leading-snug text-slate">{e.what} Training data: {e.data}.</span>
+        {e.note && <span className="mt-0.5 block text-[14px] leading-snug">{e.note}</span>}
+        <span className="mt-0.5 block text-[11px] text-slate">Source: {e.source}</span>
+      </span>
+      <span className="space-y-1">
+        {e.results.map((r) => (
+          <span key={r.set + r.score + (r.label ?? '')} className="flex items-baseline justify-between gap-3">
+            <span className="text-[13px] leading-tight text-slate">{SET_NAME[r.set]}{r.label ? `, ${r.label}` : ''}</span>
+            <span className={`shrink-0 text-[17px] tabular-nums ${r.set === 'kaggle' ? 'font-bold' : ''}`}>{r.score}</span>
+          </span>
+        ))}
+      </span>
+    </li>
+  )
+}
+
 const STEPS = [
   { what: 'Adapter, projector and six classifiers, trained from scratch', data: '8,403 photos, 2 epochs', time: '31 min', cost: '$4.80', macro: '0.750', persp: '0.586' },
   { what: 'Added the OCR text to the prompt, removed random crops', data: 'same photos, +1 epoch', time: '19 min', cost: '$2.70', macro: '0.741', persp: '0.544' },
@@ -89,14 +119,26 @@ export default function HowPage() {
     <AppShell>
       <h1>How it works</h1>
       <p className="lead mt-3">
-        One Apertus 8B, taught to look. Three open-weights readers turn the photo into tokens and text, Apertus reads them
-        together with the product details, and six small classifiers give one answer per question.
+        Galaxus needs six answers for every product photo. We taught Apertus 8B to give them: it reads the photo three ways,
+        and six small classifiers answer the six questions in one pass.
       </p>
 
-      <Pipeline />
+      <section className="mt-12">
+        <h2>The final model</h2>
+        <Pipeline />
+        <ol className="m-0 mt-10 grid list-none gap-x-10 gap-y-6 p-0 md:grid-cols-2 lg:grid-cols-4" data-testid="walkthrough">
+          {WALK.map((w, i) => (
+            <li key={w.title} className="border-t-2 border-graphite pt-3">
+              <span className="block text-[13px] text-slate">Step {i + 1}</span>
+              <h3 className="m-0 mt-0.5 text-[17px] font-bold leading-snug tracking-tight">{w.title}</h3>
+              <p className="m-0 mt-1.5 text-[15px] leading-relaxed">{w.body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section className="mt-16">
-        <h2>How we got there</h2>
+        <h2>Training the final model</h2>
         <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">
           Three training runs, each starting from the one before, on one H200 GPU. Scores are on our held-out test of 1,193 photos.
           About $16 of GPU in total, including one run that ran out of memory.
@@ -132,6 +174,23 @@ export default function HowPage() {
         <p className="m-0 mt-2 text-[12px] text-slate">Source: {SRC}:45-47 and 60-62. Step 3 changed data, layers and epochs together, so its gain cannot be split between them.</p>
       </section>
 
+      <section className="mt-16" data-testid="experiments">
+        <h2>Every experiment we ran</h2>
+        <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">
+          From prompting Apertus as it comes to the final model, in the order we ran them. Each score is on the test set named
+          next to it, and only scores on the same set can be compared. Bold scores are from the Kaggle leaderboard.
+        </p>
+        {PHASES.map((ph, i) => (
+          <div key={ph.title} className="mt-10">
+            <h3 className="m-0 text-[20px] font-bold tracking-tight">{i + 1}. {ph.title}</h3>
+            <p className="m-0 mt-1 max-w-[75ch] text-[15px]">{ph.lesson}</p>
+            <ol className="m-0 mt-3 list-none border-t border-graphite p-0">
+              {ph.items.map((e) => <ExperimentRow key={e.id} e={e} />)}
+            </ol>
+          </div>
+        ))}
+      </section>
+
       <section className="mt-16">
         <h2>What mattered</h2>
         <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">The changes that moved the score most, measured on the same images before and after.</p>
@@ -156,10 +215,10 @@ export default function HowPage() {
             </tr>
           </thead>
           <tbody className="text-[15px]">
-            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">Apertus v1.5 8B</td><td className="py-2.5 pr-4">Reads the image tokens, the OCR text and the product details; the six classifiers sit on top</td><td className="py-2.5 text-slate">Final model, full fine-tune, P11 on our GPU; 8B without training through the Hack Apertus inference API</td></tr>
+            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">Apertus v1.5 8B</td><td className="py-2.5 pr-4">Reads the image tokens, the OCR text and the product details; the six classifiers sit on top</td><td className="py-2.5 text-slate">Final model, P13, P12, P11 and the full fine-tune on our GPU; 8B without training through the Hack Apertus inference API</td></tr>
             <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">Apertus v1.5 70B</td><td className="py-2.5 pr-4">Describes the image and answers the six questions</td><td className="py-2.5 text-slate">70B without training, through the Hack Apertus inference API</td></tr>
-            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">SigLIP 2 base</td><td className="py-2.5 pr-4">Image encoder that feeds Apertus 49 extra image tokens</td><td className="py-2.5 text-slate">Final model</td></tr>
-            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">docTR</td><td className="py-2.5 pr-4">Reads the text printed on the image (OCR)</td><td className="py-2.5 text-slate">Final model</td></tr>
+            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">SigLIP 2 base</td><td className="py-2.5 pr-4">Image encoder that feeds Apertus 49 extra image tokens</td><td className="py-2.5 text-slate">Final model, P13</td></tr>
+            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">docTR</td><td className="py-2.5 pr-4">Reads the text printed on the image (OCR)</td><td className="py-2.5 text-slate">Final model, P13</td></tr>
           </tbody>
         </table>
         <p className="m-0 mt-2 text-[12px] text-slate">Sources: {SRC}:119-120 (google/siglip2-base-patch16-224; docTR fast_base + Felix92/doctr-torch-parseq-multilingual-v1).</p>

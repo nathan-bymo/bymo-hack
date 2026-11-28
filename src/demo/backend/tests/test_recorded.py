@@ -88,3 +88,28 @@ def test_export_session_writes_manifest_without_names(client, settings, session)
     for item in manifest["images"]:
         data = (out / "images" / f"{item['sha256']}.{item['ext']}").read_bytes()
         assert hashlib.sha256(data).hexdigest() == item["sha256"]
+
+
+def test_upload_of_a_recorded_photo_gets_the_recorded_context(client, settings):
+    """La stessa foto caricata senza dettagli riceve il contesto con cui è stata registrata, e la registrazione combacia."""
+    from demo_api import images_io
+
+    context = {"product_title": "Test monitor", "brand": "Demo"}
+    data = make("JPEG", color=(9, 99, 199))
+    sha = hashlib.sha256(data).hexdigest()
+    run = settings.data_dir / "recorded" / MODEL / "run-ctx"
+    run.mkdir(parents=True)
+    (run / "run.json").write_text(json.dumps({"model_id": MODEL, "gpu_name": "TEST-GPU", "finished_at": "2026-11-28T08:00:00Z"}))
+    (run / "predictions.jsonl").write_text(json.dumps({
+        "image_sha256": sha, "context_hash": images_io.context_hash(context), "use_context": True, "context": context,
+        "dimensions": dims({"perspective": "right_side"}), "valid": True}) + "\n")
+    client.post("/api/recorded/rescan")
+    sid = client.post("/api/sessions", json={"name": "t"}).json()["session_id"]
+    image = client.post("/api/images", data={"session_id": sid},
+                        files=[("files", ("photo.jpg", data, "image/jpeg"))]).json()["images"][0]
+    assert image["context"] == context
+    r = client.post("/api/predict", json={"model_id": MODEL, "image_ids": [image["image_id"]], "mode": "recorded"})
+    with client.stream("GET", r.json()["events_url"]) as s:
+        list(s.iter_lines())
+    job = client.get(f"/api/jobs/{r.json()['job_id']}").json()
+    assert job["results"][0]["dimensions"]["perspective"]["label"] == "right_side"

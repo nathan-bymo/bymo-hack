@@ -72,8 +72,8 @@ function PerQuestion({ models }: { models: ModelSummary[] }) {
         </thead>
         <tbody>
           {rows.map((r) => {
-            const values = cols.map((m) => r.value(m) ?? null)
-            const top = Math.max(...values.map((v) => v ?? -1))
+            const values = cols.map((m) => { const v = r.value(m); return v == null ? null : Math.round(v * 1000) / 1000 })
+            const top = Math.max(...values.map((v) => v ?? -1))   // confronto sul valore mostrato: i pari merito sono tutti in grassetto
             return (
               <tr key={r.key} data-testid={`pq-${r.key}`} className={`align-baseline ${r.key === 'macro' ? 'border-t-2 border-graphite' : 'border-b border-rule'}`}>
                 <td className="py-2.5 pr-4">
@@ -130,7 +130,7 @@ export default function ResultsPage() {
         <h2>Question by question</h2>
         <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">
           Our held-out test: 1,193 labelled images that none of these models saw while learning. The Apertus models without
-          training were not submitted to Kaggle, so this is where all four can be compared. Bold is the best in each row.
+          training were not submitted to Kaggle, so this is where all our models can be compared. Bold is the best in each row.
         </p>
         <PerQuestion models={heldOut} />
       </section>
@@ -138,7 +138,7 @@ export default function ResultsPage() {
       <section className="mt-16">
         <h2>Speed and cost</h2>
         <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">
-          Measured from image file to the six answers: trained models on one GPU, the others through the shared Apertus gateway.
+          Measured from image file to the six answers: trained models on one GPU, the others through the Hack Apertus API.
           The challenge asks for at least {target} images per second (✓) and more than 100,000 images a day.
         </p>
         <div className="mt-6 overflow-x-auto">
@@ -165,9 +165,9 @@ export default function ResultsPage() {
                       {s && <span className={`ml-1.5 text-[13px] ${s.images_per_second >= target ? 'text-slate' : 'font-bold text-signal'}`}>{s.images_per_second >= target ? '✓' : `below ${target}`}</span>}
                     </td>
                     <td className="py-3 pr-4 text-right text-[16px] tabular-nums" data-testid="hours-100k">{s ? `${(100_000 / s.images_per_second / 3600).toFixed(1)} h` : '—'}</td>
-                    <td className="py-3 pr-4 text-[15px] text-slate">{zeroShot ? 'Shared Apertus gateway' : s?.gpu_label?.replace(' (HF a100-large)', '').replace(' (HF)', '')}</td>
+                    <td className="py-3 pr-4 text-[15px] text-slate">{zeroShot ? 'Hack Apertus API' : s?.gpu_label?.replace(' (HF a100-large)', '').replace(' (HF)', '')}</td>
                     <td className="py-3 pr-4 text-right text-[18px] font-bold tabular-nums">
-                      {s?.cost_per_100k_usd != null ? usd(s.cost_per_100k_usd) : <span className="text-[14px] font-normal text-slate">{zeroShot ? 'gateway price not public' : 'not measured end to end'}</span>}
+                      {s?.cost_per_100k_usd != null ? usd(s.cost_per_100k_usd) : <span className="text-[14px] font-normal text-slate">{zeroShot ? 'API: no GPU of ours' : '—'}</span>}
                     </td>
                     <td className="py-3 text-[15px] text-slate">{memoryText(m)}</td>
                   </tr>

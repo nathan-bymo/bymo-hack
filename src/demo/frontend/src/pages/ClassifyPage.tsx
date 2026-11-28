@@ -14,10 +14,12 @@ import { DIMENSIONS } from '../strings'
 
 type RunStatus = { state: 'running' | 'done' | 'error'; error?: ApiErrorBody; seconds?: number }
 const UNSURE = 0.6
+/** Scelta iniziale: il modello finale, P11 (stesso Apertus senza le feature sinistra/destra) e il 70B senza training. */
+const DEFAULT_MODELS = ['apertus-8b-vadapter-lora-heads-final', 'apertus-8b-lora-heads-p11', 'apertus-70b-zeroshot-v2']
 
 const SET_PHRASE: Record<string, string> = {
-  kaggle_dev: 'Kaggle leaderboard',
-  'prompt-test': 'our held-out test',
+  kaggle_dev: 'Kaggle',
+  'prompt-test': 'held-out test',
   coverage: 'our rare-class test',
   base: 'our internal test',
   validation_450: 'a small balanced test',
@@ -25,7 +27,7 @@ const SET_PHRASE: Record<string, string> = {
 
 function errorMessage(e: ApiErrorBody | undefined): string {
   if (!e) return 'Something went wrong.'
-  if (e.code === 'RECORDED_MISSING') return 'There is no recorded answer for this photo yet.'
+  if (e.code === 'RECORDED_MISSING') return 'This model answers from GPU recordings, made for the sample photos only.'
   if (e.code === 'MODEL_UNAVAILABLE') return 'This model is not connected in this demo.'
   if (e.code === 'UPSTREAM_ERROR') return 'The Apertus gateway did not answer. Try again in a moment.'
   return e.message
@@ -166,10 +168,7 @@ function ProductDetails({ image, onSaved }: { image: ImageItem; onSaved: () => v
 function statusText(m: ModelSummary): string {
   const av = availability(m)
   if (av.tone === 'live') return 'Runs live'
-  if (av.tone === 'recorded') return 'Recorded on a GPU'
-  if (m.runtime === 'worker_gpu') return 'Needs a GPU'
-  if (m.runtime === 'remote_openai') return 'Needs the API key'
-  return 'Scores only'
+  return 'Recorded on GPU'
 }
 
 export default function ClassifyPage() {
@@ -186,9 +185,10 @@ export default function ClassifyPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
 
   const all = useMemo(() => sortForShow(models.data?.models ?? []), [models.data])
-  const visible = all.filter((m) => m.featured && m.runtime !== 'none')
   const usable = (m: ModelSummary) => m.modes.length > 0
-  const chosen = (selected ?? visible.filter(usable).map((m) => m.model_id)).filter((id) => visible.some((m) => m.model_id === id && usable(m)))
+  const visible = all.filter((m) => m.featured && usable(m))   // solo i modelli che in questa demo rispondono davvero
+  const preferred = visible.filter((m) => DEFAULT_MODELS.includes(m.model_id)).map((m) => m.model_id)
+  const chosen = (selected ?? (preferred.length ? preferred : visible.map((m) => m.model_id))).filter((id) => visible.some((m) => m.model_id === id))
   const chosenModels = visible.filter((m) => chosen.includes(m.model_id))
   const runs = useMemo(() => Object.fromEntries(Object.entries(allRuns).filter(([k]) => k.startsWith(`${imageId}|`))
     .map(([k, v]) => [k.slice(k.indexOf('|') + 1), v])), [allRuns, imageId])
@@ -255,7 +255,7 @@ export default function ClassifyPage() {
       <h1>Six answers for every product photo</h1>
       <p className="lead mt-2 max-w-none">Drop a product photo and pick the Apertus models: each answers the six questions Galaxus asks about every image.</p>
 
-      <div className="mt-7 grid items-start gap-10 lg:grid-cols-[400px_minmax(0,1fr)]">
+      <div className="mt-7 grid items-start gap-10 lg:grid-cols-[360px_minmax(0,1fr)]">
         {/* ---- foto ---- */}
         <div className="lg:sticky lg:top-6">
           <div {...getRootProps()} data-testid="try-dropzone"
@@ -296,22 +296,22 @@ export default function ClassifyPage() {
         <div>
           <fieldset className="m-0 border-0 p-0" data-testid="try-models">
             <legend className="p-0 text-[13px] text-slate">
-              {visible.some((m) => m.runtime === 'worker_gpu' && m.modes.includes('recorded'))
-                ? 'Models: the trained ones answer from recordings made on a GPU, the others run live'
-                : 'Models: the trained ones need a GPU, not connected to this laptop; the others run live through the Apertus API'}
+              {visible.some((m) => m.modes.includes('recorded'))
+                ? 'Models: trained ones answer from GPU recordings of the sample photos, the others run live through the Apertus API'
+                : 'Models: they run live through the Apertus API'}
             </legend>
-            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            <div className="mt-2 grid gap-2 sm:grid-cols-3 xl:grid-cols-4">
               {visible.map((m) => {
                 const head = headlineScore(m)
                 const ok = usable(m)
                 const on = chosen.includes(m.model_id)
                 return (
                   <label key={m.model_id} title={m.description ?? undefined}
-                    className={`flex gap-2.5 border px-3 py-2.5 ${on ? 'border-graphite bg-white shadow-[inset_0_0_0_1px_var(--color-graphite)]' : 'border-rule'} ${ok ? 'cursor-pointer hover:border-graphite' : 'cursor-not-allowed opacity-50'}`}>
+                    className={`flex gap-2 border px-2.5 py-2 ${on ? 'border-graphite bg-white shadow-[inset_0_0_0_1px_var(--color-graphite)]' : 'border-rule'} ${ok ? 'cursor-pointer hover:border-graphite' : 'cursor-not-allowed opacity-50'}`}>
                     <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-signal" disabled={!ok} checked={on}
                       onChange={(e) => toggle(m.model_id, e.target.checked)} data-testid={`try-model-${m.model_id}`} />
                     <span className="min-w-0 leading-tight">
-                      <span className="block text-[15px] font-bold">{m.short_name}</span>
+                      <span className="block text-[14px] font-bold leading-snug">{m.short_name}</span>
                       {head && <span className="mt-0.5 block text-[12px] text-slate">{head.macro_f1!.toFixed(3)} on {SET_PHRASE[head.set] ?? head.set}</span>}
                       <span className={`mt-0.5 block text-[12px] ${ok ? 'font-bold' : 'text-slate'}`}>{statusText(m)}</span>
                     </span>

@@ -42,6 +42,24 @@ def scan(db: Database, recorded_dir: Path) -> int:
     return count
 
 
+def recorded_context(db: Database, sha256: str) -> dict | None:
+    """Contesto prodotto con cui una foto è stata registrata (se la registrazione lo riporta).
+
+    Serve all'upload: la stessa foto, caricata senza dettagli, riceve quelli usati dal modello, così la risposta
+    registrata corrisponde davvero all'input mostrato nella pagina.
+    """
+    for row in db.all("SELECT path FROM recorded_runs ORDER BY recorded_at DESC"):
+        preds = Path(row["path"]) / "predictions.jsonl"
+        if not preds.exists():
+            continue
+        for line in preds.read_text().splitlines():
+            if line.strip() and sha256 in line:
+                rec = json.loads(line)
+                if rec.get("image_sha256") == sha256 and rec.get("context"):
+                    return rec["context"]
+    return None
+
+
 def run_info(row: dict) -> dict:
     meta = json.loads(row.get("meta_json") or "{}")
     return {"run_id": row["run_id"], "recorded_at": row["recorded_at"], "gpu_name": row["gpu_name"],

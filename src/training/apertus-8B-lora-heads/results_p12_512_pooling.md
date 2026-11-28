@@ -122,3 +122,4 @@ Riferimenti sul dev: modello di Nathan 0.832, Gemini 3.8 Flash 0.806, Gemini 4 A
 | predizione, immagini/s (H200) | 13,2 | 3,9 |
 | training, esempi/s | 13,4 | 3,4 (con gradient checkpointing) |
 | memoria di picco in training | 139 GB | 45 GB |
+| memoria di picco in predizione (batch 32, coverage) | 22,0 GB | 32,5 GB |

@@ -60,10 +60,10 @@ export function bestSpeed(model: ModelSummary): SpeedInfo | null {
 }
 
 export function memoryText(model: ModelSummary): string {
-  if (model.runtime === 'remote_openai') return 'remote (gateway)'
+  if (model.runtime === 'remote_openai') return 'none on our side (API)'
   const m = model.memory
-  if (!m) return 'n/a'
-  if (m.gb === null) return 'not reported'
+  if (!m) return '—'
+  if (m.gb === null) return m.what.charAt(0).toUpperCase() + m.what.slice(1)
   return `${m.gb} GB ${m.kind === 'measured' ? 'measured' : 'estimate'}`
 }
 
@@ -75,9 +75,7 @@ export function usd(value: number | null | undefined): string {
 export function availability(model: ModelSummary): { text: string; tone: 'live' | 'recorded' | 'off' } {
   if (model.modes.includes('live')) return { text: 'Live', tone: 'live' }
   if (model.modes.includes('recorded')) return { text: 'Recorded', tone: 'recorded' }
-  if (model.runtime === 'worker_gpu') return { text: 'Needs a GPU', tone: 'off' }
-  if (model.runtime === 'remote_openai') return { text: 'Needs API key', tone: 'off' }
-  return { text: 'Metrics only', tone: 'off' }
+  return { text: 'Scores', tone: 'off' }
 }
 
 /** Ordine di presentazione: prima i modelli con punteggio Kaggle (dal migliore), poi gli altri per punteggio interno. */

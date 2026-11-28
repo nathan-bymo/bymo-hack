@@ -146,6 +146,8 @@ def p11_confusion(path: Path, tables: list[dict], rel: str) -> dict:
 # ---------------------------------------------------------------------------------------------- JSON (P10)
 def json_views(path: Path, rel: str) -> dict[str, dict]:
     data = json.loads(path.read_text())
+    if "views" not in data and "metrics" in data:   # prompt_test_metrics.json dei pesi: una sola vista
+        return {"prompt-test": data["metrics"]}
     return {JSON_VIEWS.get(view, view): payload for view, payload in data["views"].items()}
 
 
@@ -200,8 +202,10 @@ def build_rows(models: dict[str, dict], repo_root: Path) -> list[dict]:
                            per_dimension=parsed["per_dimension"], per_class={"source": rel, "data": parsed["per_class"]})
             elif line:
                 header, cells = row_at(tables_of(rel), int(line))
-                macro = num(cells[header.index("macro F1")]) if "macro F1" in header else None
-                weighted = num(cells[header.index("weighted F1")]) if "weighted F1" in header else None
+                macro_col = next((c for c in ("macro F1", "macro_f1") if c in header), None)
+                weighted_col = next((c for c in ("weighted F1", "weighted_f1") if c in header), None)
+                macro = num(cells[header.index(macro_col)]) if macro_col else None
+                weighted = num(cells[header.index(weighted_col)]) if weighted_col else None
                 if not (_near(macro, ev.get("macro_f1")) and _near(weighted, ev.get("weighted_f1"))):
                     raise ReportedImportError(f"{ev['source']}: i valori in models.yaml non coincidono con la tabella")
                 row["per_dimension"] = {d: {"macro_f1": v, "weighted_f1": None, "support": None}

@@ -54,7 +54,7 @@ models:
                seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
     vram_estimate_gb: null
     memory: {gb: null, kind: not_reported,
-             what: "peak not reported; runs on 1× L40S 48 GB (bf16) and on 2× T4 16 GB (fp16)",
+             what: "fits one 48 GB L40S (bf16) or two 16 GB T4 (fp16)",
              source: "src/training/apertus-8B-vadapter-lora-heads/RISULTATI.md:15"}
     measured:
       - {what: "img/s (end to end, lettura immagini inclusa)", value: 6.2, conditions: "H200, prompt-test, SigLIP + VQ + OCR + Apertus",
@@ -217,6 +217,166 @@ models:
     kaggle_dev: {score: 0.796, submitted_at: "2026-11-27T21:30:00+01:00", source: "src/training/EXPERIMENTS.md:78",
                  source_label: "team submission on Kaggle, 27/11 (59018375)",
                  note: "dev pubblico, submission 59018375 con righe final costanti; anche src/training/apertus-8B-lora-heads/results_full_h200.md:150-162"}
+
+  - id: apertus-8b-vadapter-lora-heads-p13
+    display_name: "Apertus 8B · final model + 1 epoch with synthetic images (P13)"
+    short_name: "Final + synthetic (P13)"
+    description: "The final model trained one more epoch with 939 synthetic images for rare languages, seals and icons."
+    featured: true
+    family: vadapter_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      location_label: "team's private Hugging Face repo"
+      copy_note: "synth-ft-1128-0243/model/best (src/training/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md:15)"
+      requires_base: true
+    code: {root: "src/training/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
+    prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
+    training_label: "final model + 1 epoch, 9,645 real + 939 synthetic images"
+    training: {data: "all_but_test meno validazione interna + 939 sintetiche", phase: 2,
+               seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
+    vram_estimate_gb: null
+    memory: {gb: null, kind: not_reported, what: "same as the final model: fits one 48 GB L40S",
+             source: "src/training/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md:12"}
+    measured:
+      - {what: "img/s (immagine → CSV, OCR compreso)", value: 6.67, conditions: "H200, prompt-test, caricamento escluso",
+         source: "src/training/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md:115", gpu_label: "H200 (HF)", cost_eligible: true}
+    evals:
+      - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.8471, weighted_f1: 0.9219,
+         source: "src/training/benchmark/overall.md:16"}
+    contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
+    kaggle_dev: {score: 0.829, submitted_at: "2026-11-28", source: "src/training/apertus-8B-vadapter-lora-heads/results_p13_synthetic.md:23",
+                 source_label: "team submission on Kaggle, 28/11"}
+
+  - id: apertus-8b-mixed-lora-heads
+    display_name: "Apertus 8B · SigLIP 2 + DINOv3 + VQ + OCR + LoRA + 6 heads (mixed)"
+    short_name: "Two image encoders (mixed)"
+    description: "The final model with a second image encoder, DINOv3, added to SigLIP 2. 10,683 real images plus synthetic text."
+    featured: true
+    family: mixed_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      local_path: weights/apertus-8B-mixed-lora-heads-final
+      location_label: "in our repo (Git LFS), 0.38 GB"
+      copy_note: "anche nel repo HF privato nathan-monzani-bymo/galaxus-vlh-private, mixed-modal-20261128-033303/model/best"
+      size_gb: 0.38
+      requires_base: true
+    code: {root: "src/training/apertus-8B-mixed-lora-heads", reference: "mixed_model.py"}
+    prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
+    training_label: "10,683 real images outside prompt-test + 1,040 synthetic overlays"
+    training: {data: "train.csv tranne prompt-test (10.683) + 1.040 sintetiche", phase: 2,
+               seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
+    vram_estimate_gb: null
+    memory: {gb: null, kind: not_reported, what: "61 GiB peak in training",
+             source: "weights/apertus-8B-mixed-lora-heads-final/README.md:9-10"}
+    measured:
+      - {what: "img/s (end to end)", value: 5.9, conditions: "1× H200, prompt-test",
+         source: "weights/apertus-8B-mixed-lora-heads-final/README.md:9", gpu_label: "H200 (HF)", cost_eligible: true}
+    evals:
+      - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.843, weighted_f1: 0.924,
+         source: "weights/apertus-8B-mixed-lora-heads-final/prompt_test_metrics.json"}
+    contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
+    kaggle_dev: {score: null, note: "non ancora inviato (weights/apertus-8B-mixed-lora-heads-final/README.md:4-5)"}
+
+  - id: apertus-8b-vadapter-lora-heads-p14
+    display_name: "Apertus 8B · final model with SigLIP 2 so400m 512, 196 image tokens (P14)"
+    short_name: "Bigger image encoder (P14)"
+    description: "The final model with a larger, sharper image encoder (SigLIP 2 so400m at 512²) and 196 image tokens."
+    featured: true
+    family: vadapter_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      location_label: "team's private Hugging Face repo"
+      copy_note: "eyes512-run1-1128-0431/model/best (src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md:24)"
+      requires_base: true
+    code: {root: "src/training/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
+    prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
+    training_label: "all train.csv except prompt-test (9,645 images)"
+    training: {data: "all_but_test meno validazione interna (9.645)", phase: 2,
+               seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
+    vram_estimate_gb: null
+    memory: {gb: null, kind: not_reported, what: "80.7 GB peak in its H200 job",
+             source: "src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md:118"}
+    measured:
+      - {what: "img/s (immagine → CSV, OCR compreso)", value: 6.23, conditions: "H200, prompt-test, caricamento escluso",
+         source: "src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md:118", gpu_label: "H200 (HF)", cost_eligible: true}
+    evals:
+      - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.8332, weighted_f1: 0.9217,
+         source: "src/training/benchmark/overall.md:17"}
+    contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
+    kaggle_dev: {score: null, note: "non misurato (results_p14_p15.md:23)"}
+
+  - id: apertus-8b-vadapter-lora-heads-p15
+    display_name: "Apertus 8B · final model + 1 epoch on all 11,876 labelled images (P15)"
+    short_name: "Final, all data (P15)"
+    description: "The final model trained one more epoch on every labelled image, including our held-out test."
+    featured: true
+    family: vadapter_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      location_label: "team's private Hugging Face repo"
+      copy_note: "base224-all-1128-0539/model/last (src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md:128)"
+      requires_base: true
+    code: {root: "src/training/apertus-8B-vadapter-lora-heads", reference: "predict.py"}
+    prompt: {version: "heads-task+ocr", side: 256, use_context_default: true, system_message: false}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: "focal gamma=2 + alpha effective"}
+    training_label: "all 11,876 labelled images"
+    training: {data: "tutto train.csv (11.876)", phase: 2,
+               seen_sets: [coverage, base, prompt-dev-600, validation_450, train_1500]}
+    vram_estimate_gb: null
+    memory: {gb: null, kind: not_reported, what: "same as the final model: fits one 48 GB L40S",
+             source: "src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md:120-129"}
+    measured:
+      - {what: "img/s (predizione del dev)", value: 7.49, conditions: "H200, dev",
+         source: "src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md:135", gpu_label: "H200 (HF)", cost_eligible: true}
+    evals: []
+    contamination_note: "Ha visto tutto il train: nessun set interno è valido, solo il dev Kaggle."
+    kaggle_dev: {score: 0.83144, submitted_at: "2026-11-28", source: "src/training/apertus-8B-vadapter-lora-heads/results_p14_p15.md:133",
+                 source_label: "team submission on Kaggle, 28/11"}
+
+  - id: apertus-8b-lora-heads-p12
+    display_name: "Apertus 8B · LoRA + 6 heads + spatial features + attention pooling, 512² (P12)"
+    short_name: "LoRA + pooling, 512² (P12)"
+    description: "P11 with sharper images (512²), left/right features and 2D attention pooling. 9,344 training images."
+    featured: true
+    family: lora_heads
+    adapter: HeadsAdapter
+    runtime: worker_gpu
+    weights:
+      location_label: "team's private Hugging Face repo"
+      copy_note: "archive/p12_lora_heads_pool_512_coverage0806 (src/training/apertus-8B-lora-heads/results_p12_512_pooling.md:15)"
+      requires_base: true
+    code: {root: "src/training/apertus-8B-lora-heads", reference: "predict.py"}
+    prompt: {version: "heads-task", side: 512, use_context_default: true, system_message: false}
+    dtype: bfloat16
+    confidence: {kind: full_distribution, method: head_softmax, training_loss: cross_entropy}
+    training_label: "phase-1 training rows (9,344 images, no coverage products)"
+    training: {data: "training_rows (9.344)", phase: 1, seen_sets: [training_rows, validation_450]}
+    vram_estimate_gb: 32.5
+    memory: {gb: 32.5, kind: measured, what: "peak GPU memory in prediction, batch 32, H200",
+             source: "src/training/apertus-8B-lora-heads/results_p12_512_pooling.md:125"}
+    measured:
+      - {what: "img/s (predizione)", value: 3.9, conditions: "H200, batch 32, coverage",
+         source: "src/training/apertus-8B-lora-heads/results_p12_512_pooling.md:122", gpu_label: "H200 (HF)", cost_eligible: true}
+    evals:
+      - {set: coverage, validity: phase1_internal, provenance: reported_only, macro_f1: 0.8056, weighted_f1: 0.9162,
+         source: "src/training/benchmark/overall.md:11"}
+      - {set: base, validity: phase1_internal, provenance: reported_only, macro_f1: 0.8000, weighted_f1: 0.9221,
+         source: "src/training/benchmark/overall.md:12"}
+      - {set: prompt-test, validity: phase1_internal, provenance: reported_only, macro_f1: 0.7913, weighted_f1: 0.9211,
+         source: "src/training/benchmark/overall.md:13"}
+    kaggle_dev: {score: 0.806, submitted_at: "2026-11-28", source: "src/training/apertus-8B-lora-heads/results_p12_512_pooling.md:23",
+                 source_label: "team submission on Kaggle, 28/11"}
 
   - id: apertus-8b-fullft-heads
     display_name: "Apertus 8B · full fine-tune 24 layers + 6 heads (all train)"

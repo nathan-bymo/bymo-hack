@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 from .. import images_io
 from .. import predictions as P
 from ..db import now_iso
+from ..adapters.recorded import recorded_context
 from ..errors import ApiError
 
 router = APIRouter()
@@ -85,6 +86,8 @@ def upload_images(
             raw_ctx = contexts[index] if isinstance(contexts, list) and index < len(contexts) else (
                 contexts if isinstance(contexts, dict) else None)
             ctx = images_io.clean_context(raw_ctx)
+            if not ctx:  # foto già registrata: si usano i dettagli prodotto con cui il modello ha risposto
+                ctx = images_io.clean_context(recorded_context(db, item.sha256))
             existing = db.one("SELECT * FROM images WHERE session_id = ? AND sha256 = ?", (session_id, item.sha256))
             if existing:
                 accepted.append(image_dict(existing, duplicate=True))

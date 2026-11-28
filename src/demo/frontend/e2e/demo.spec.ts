@@ -20,9 +20,11 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('try-image')).toBeVisible()
 
   // 3. due modelli registrati (registrazioni segnaposto del test) a confronto sulla stessa foto
-  await expect(page.getByTestId('try-model-apertus-8b-lora-heads-p11')).toBeChecked()
-  await expect(page.getByTestId('try-model-apertus-8b-fullft-heads')).toBeChecked()
-  await expect(page.getByTestId('try-model-apertus-8b-zeroshot-v2')).toBeDisabled()   // nessuna chiave nel test
+  await expect(page.getByTestId('try-model-apertus-8b-lora-heads-p11')).toBeChecked()   // scelta iniziale
+  await expect(page.getByTestId('try-model-apertus-8b-zeroshot-v2')).toHaveCount(0)   // senza chiave non compare
+  await expect(page.getByTestId('try-model-apertus-8b-vadapter-lora-heads-final')).toHaveCount(0)   // nessuna registrazione nel test
+  await expect(page.getByText(/needs a gpu/i)).toHaveCount(0)
+  await page.getByTestId('try-model-apertus-8b-fullft-heads').check()
   await page.getByTestId('try-thumbs').locator('button').first().click()
   await page.getByTestId('try-classify').click()
   await expect(page.getByTestId('try-results')).toBeVisible({ timeout: 30_000 })
@@ -53,7 +55,7 @@ test('percorso completo della demo', async ({ page }) => {
   // 5. Results: classifica Kaggle con il gruppo di valutazione, domanda per domanda, velocità e costo
   await page.getByRole('link', { name: 'Results', exact: true }).click()
   const kaggle = page.getByTestId('board-kaggle_dev')
-  await expect(kaggle.getByTestId('board-row')).toHaveCount(6)   // 3 modelli del team + 3 riferimenti
+  await expect(kaggle.getByTestId('board-row')).toHaveCount(9)   // 6 modelli del team + 3 riferimenti
   await expect(kaggle.getByTestId('board-row').first()).toContainText('0.917')
   await expect(kaggle).toContainText('0.832')
   await expect(page.getByTestId('assessment-group')).toContainText('middle assessment group')
@@ -61,6 +63,8 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('pq-weighted')).toContainText('0.917')
   await expect(page.getByTestId('pq-perspective')).toContainText('0.755')
   await expect(page.getByTestId('pq-perspective')).toContainText('0.198')
+  await expect(page.getByTestId('pq-macro')).toContainText('0.847')   // P13
+  await expect(kaggle).toContainText('0.829')
   await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-fullft-heads"]')).toContainText('$7.27')
   await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-lora-heads-p11"]')).toContainText('22 GB measured')
   await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-fullft-heads"]').getByTestId('hours-100k')).toHaveText('2.9 h')
@@ -73,7 +77,7 @@ test('percorso completo della demo', async ({ page }) => {
   const final = page.locator('[data-testid="model-card"][data-model="apertus-8b-vadapter-lora-heads-final"]')
   await expect(final.getByTestId('card-macro')).toHaveText('0.821')
   await page.getByTestId('set-select').selectOption('coverage')
-  await expect(page.getByTestId('model-card')).toHaveCount(4)   // solo i modelli con un punteggio su questo set
+  await expect(page.getByTestId('model-card')).toHaveCount(5)   // solo i modelli con un punteggio su questo set
   await expect(page.locator('[data-testid="model-card"][data-model="apertus-8b-lora-heads-p11"]').getByTestId('card-macro')).toHaveText('0.781')
   await expect(page.getByTestId('dimension-chart')).toBeVisible()
   await expect(page.getByTestId('per-class')).toBeVisible()
@@ -84,6 +88,9 @@ test('percorso completo della demo', async ({ page }) => {
   // 7. How it works: schema, passi di training, cosa ha contato, modelli a runtime
   await page.getByRole('link', { name: 'How it works', exact: true }).click()
   await expect(page.getByTestId('pipeline')).toContainText('SigLIP 2')
+  await expect(page.getByTestId('walkthrough').locator('li')).toHaveCount(4)
+  await expect(page.getByTestId('experiments').getByTestId('experiment')).toHaveCount(19)   // P0–P15, full fine-tune, modello finale, mixed
+  await expect(page.getByTestId('experiments')).toContainText('P13')
   await expect(page.getByTestId('training-steps').locator('tbody tr')).toHaveCount(3)
   await expect(page.getByTestId('insights-mattered').locator('li')).toHaveCount(5)
   await expect(page.getByTestId('insights-not').locator('li')).toHaveCount(4)

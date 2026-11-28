@@ -7,45 +7,32 @@ pagine della demo.
 ## Prima di registrare
 
 - Avviare la demo: `make -C src/demo demo`, poi aprire `http://127.0.0.1:8010` in Chrome, finestra 1440 × 900
-  (o schermo intero con zoom 90%). Così la tabella delle risposte sta tutta nello schermo.
-- Preparare **una** foto prodotto propria con testo stampato (per esempio una confezione con scritte in tedesco).
-  Mai immagini Kaggle dev o final. Per la challenge si possono mostrare poche immagini di `train.csv`.
-- Controllare che `LLM_API_KEY` sia nel `.env`: senza chiave i modelli senza training sono disattivati.
-- **Versione A (consigliata):** se i modelli allenati sono stati registrati sulla GPU (opzione A, `scripts/record.py`),
-  la casella *Final model* è attiva e risponde dalla registrazione. Registrare la foto usata nel video.
-- **Versione B:** senza registrazioni, *Final model* mostra "Needs a GPU". Si usano 70B e 8B dal vivo e si legge la
-  riga alternativa della scena 2.
+  (o schermo intero con zoom 90%).
+- Sulla scrivania c'è la cartella **"Bymo demo - foto pronte"**: 13 foto del test held-out (`train.csv`, mai viste dal
+  modello finale; la challenge permette di mostrarne poche). Per ognuna ci sono le risposte vere dei modelli allenati
+  (finale, P13, P12, P11), calcolate su GPU durante le valutazioni e registrate nella demo. Trascinando una di queste
+  foto, i dettagli prodotto si compilano da soli e i modelli allenati rispondono subito.
+- Con una foto diversa i modelli allenati non hanno registrazioni: rispondono solo 8B e 70B dal vivo.
+- Controllare che `LLM_API_KEY` sia nel `.env` (70B e 8B dal vivo).
 - Fare una prova completa prima: la prima chiamata al gateway può essere lenta.
-
-## Scena 1: il problema (0:00–0:15), pagina Demo vuota
-
-> Galaxus shows millions of product images, and for every image it needs six answers: what it shows, the
-> background, the perspective, whether a person is in it, which text is printed on it, and in which language.
-> We built this with Apertus.
-
-[Passare il mouse sul titolo, poi sulla zona della foto.]
 
 ## Scena 2: la demo (0:15–0:55), pagina Demo
 
-[Trascinare la foto nel riquadro grigio.]
+[Trascinare `07 monitor side view.jpg` dalla cartella sulla scrivania nel riquadro grigio.]
 
-> I drop a product photo. On the right I pick the models.
+> I drop a product photo. On the right I pick the models: our final model, an earlier version of it, and Apertus
+> 70B as it comes, without training.
 
-**Versione A** [Lasciare spuntati *Final model* e *Apertus 70B, no training*, premere *Classify with 2 models*.]
+[Lasciare spuntati *Final model*, *LoRA + classifiers (P11)* e *Apertus 70B, no training*. Premere *Classify with 3 models*.]
 
-> Our final model, and Apertus 70B as it comes, without training. Each column is a model, each row is one of the
-> six questions. The final model answers in one pass, with a probability for every answer.
+> Each column is a model, each row is one of the six questions. Look at the perspective: the monitor is seen from
+> its right side. The final model gets it right; the earlier version says left. Telling left from right was our
+> hardest problem.
 
-**Versione B** [Spuntare *Apertus 70B* e *Apertus 8B*, premere *Classify with 2 models*.]
+[Indicare la riga della prospettiva, rossa con "Models disagree".]
 
-> Here Apertus 8B and 70B answer live through the Hack Apertus API, without any training. Our trained model runs
-> on a GPU, so on this laptop it is not connected; its scores are on the next page.
-
-[Indicare una riga con "Models disagree" in rosso, se c'è; altrimenti una percentuale.]
-
-> When two models give different answers, the row turns red. A red percentage means the model is less than 60%
-> sure, so a person should take a look. Product details are optional: in production they are often missing, and
-> the model still answers from the photo alone.
+> A red percentage means the model is less than 60% sure, so a person should take a look. Product details are
+> optional: in production they are often missing.
 
 ## Scena 3: i risultati (0:55–1:25), pagina Results
 
