@@ -15,6 +15,7 @@ Generato da `src/scripts/benchmark_stats.py`. Solo numeri aggregati. Leggere pri
 | Nathan vlh finale (final-abt) | prompt-test | 1193 | 0.8214 | 0.9166 | 0.8463 | 0.8810 | 0.7550 | 0.9594 | 0.7665 | 0.7203 |
 | P13 final-abt + sintetici | prompt-test | 1193 | 0.8471 | 0.9219 | 0.8452 | 0.8696 | 0.7829 | 0.9648 | 0.7802 | 0.8399 |
 | P14 SigLIP so400m 512 | prompt-test | 1193 | 0.8332 | 0.9217 | 0.8678 | 0.8865 | 0.7682 | 0.9648 | 0.8050 | 0.7068 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | 1193 | 0.8356 | 0.9234 | 0.8596 | 0.8730 | 0.7774 | 0.9701 | 0.7933 | 0.7404 |
 | Ensemble P11+Nathan media | prompt-test | 1193 | 0.8181 | 0.9257 | 0.8668 | 0.9034 | 0.7516 | 0.9849 | 0.7953 | 0.6068 |
 | Ensemble P11+Nathan, lingua da Nathan | prompt-test | 1193 | 0.8371 | 0.9266 | 0.8668 | 0.9034 | 0.7516 | 0.9849 | 0.7953 | 0.7203 |
 | Teste su Apertus congelato: ce+gradnorm | set di 450 immagini | 450 | 0.5371 | 0.6047 | 0.4623 | 0.7565 | 0.2283 | 0.9017 | 0.5065 | 0.3674 |

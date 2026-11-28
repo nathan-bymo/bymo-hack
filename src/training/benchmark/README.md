@@ -1,6 +1,6 @@
 # Statistiche di tutti i modelli, per i benchmark
 
-Solo numeri aggregati: nessuna immagine, label o predizione individuale. Stato del 28 novembre, ore 06:30 CET.
+Solo numeri aggregati: nessuna immagine, label o predizione individuale. Stato del 28 novembre, ore 09:30 CET.
 
 | file | contenuto |
 |---|---|
@@ -23,7 +23,9 @@ Attenzione:
 
 | modello | punteggio | inviato (UTC) |
 |---|---|---|
-| invio del team `submission_dev.csv` (modello non ancora descritto nel repository) | **0,84700** | 28/11 03:19 |
+| ensemble 50/50 SigLIP+VQ e DINOv3 81 token (2 modelli) | **0,84700** | 28/11 03:19 |
+| mixed SigLIP + DINOv3 + VQ, un solo decoder | 0,84215 | 28/11 06:39 |
+| LoRA su SigLIP, senza DINOv3 | 0,83526 | 28/11 08:20 |
 | P15: `final-abt` + 1 epoca su tutte le 11.876 immagini | 0,83144 | 28/11 05:26 |
 | Nathan: LoRA + teste + SigLIP 2 + OCR + pooling (`final-abt`) | 0,83177 | 27/11 22:40 |
 | P13: `final-abt` + 1 epoca con immagini sintetiche | 0,82872 | 28/11 02:57 |
@@ -43,6 +45,7 @@ Le righe delle immagini final in questi invii hanno i valori di `sample_submissi
 | P13 | 6,7 (H200, prompt-test) | non confrontabile | 1 epoca, job di circa 73 min su Modal | `../apertus-8B-vadapter-lora-heads/results_p13_synthetic.md` |
 | P14 | 6.23 (H200, prompt-test) | 80.7 GB in predizione | 2 epoche su Modal | `../apertus-8B-vadapter-lora-heads/results_p14_p15.md` |
 | P15 | 7.49 (H200, dev) | non confrontabile | 1 epoca, job di circa 46 min su Modal | `../apertus-8B-vadapter-lora-heads/results_p14_p15.md` |
+| LoRA su SigLIP | 6,75 (H200, prompt-test); 7,43 (dev) | 79,8 GB in predizione, 78,7 GB in training | 2 epoche, job di 64 min, circa 5,96 $ | `../apertus-8B-vadapter-lora-heads/results_siglip_lora.md` |
 | 8B zero-shot v2 | 3,8 (API Keera condivisa) | remota | nessuno | report in `plain-benchmark` |
 | 70B zero-shot v2 | 2,8 (API Keera condivisa) | remota | nessuno | report in `plain-benchmark` |
 
@@ -60,6 +63,8 @@ del Mac di Nikola avevano tutti una copia online identica (stesso SHA-256).
 | P13 | — | `MANNIK14/galaxus-vlh-private/synth-ft-1128-0243/model/best` |
 | P14 | — | `MANNIK14/galaxus-vlh-private/eyes512-run1-1128-0431/model/best` |
 | P15 | — | `MANNIK14/galaxus-vlh-private/base224-all-1128-0539/model/last` |
+| LoRA su SigLIP | — | `MANNIK14/galaxus-vlh-private/siglip-lora-1128-0815/model/best` |
+| mixed | `apertus-8B-mixed-lora-heads-final/` | repository privato di Nathan |
 | P11 | `lora_heads_256_p11/` | `MANNIK14/galaxus-lora-heads-private/archive/p11_lora_heads_256_coverage0781` |
 | P12 | — | `MANNIK14/galaxus-lora-heads-private/archive/p12_lora_heads_pool_512_coverage0806` |
 | teste su Apertus congelato, pesi per classe | — | `MANNIK14/galaxus-heads-private` (`small/`, `archive/`) |

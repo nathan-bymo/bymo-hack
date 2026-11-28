@@ -455,6 +455,47 @@ Generato da `src/scripts/benchmark_stats.py`. Solo numeri aggregati. Leggere pri
 | P14 SigLIP so400m 512 | prompt-test | text_language | Italian | 1.0000 | 0.5000 | 0.6667 | 4 |
 | P14 SigLIP so400m 512 | prompt-test | text_language | none | 0.8978 | 0.9126 | 0.9051 | 183 |
 | P14 SigLIP so400m 512 | prompt-test | text_language | other | 0.6000 | 0.6000 | 0.6000 | 10 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | accessories | 0.8571 | 0.8000 | 0.8276 | 15 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | delivery_scope | 0.9556 | 0.7963 | 0.8687 | 54 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | detail_closeup | 0.9146 | 0.7895 | 0.8475 | 95 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | energy_label | 1.0000 | 1.0000 | 1.0000 | 40 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | full_product | 0.9326 | 0.9541 | 0.9432 | 653 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | infographic | 0.7232 | 0.8182 | 0.7678 | 99 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | logo | 0.9155 | 0.9701 | 0.9420 | 67 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | multipack_trade_unit | 0.7143 | 0.6250 | 0.6667 | 8 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | multiview | 0.7778 | 0.7000 | 0.7368 | 20 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | package_and_product | 0.9231 | 0.8571 | 0.8889 | 28 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | packaging | 0.8000 | 0.7568 | 0.7778 | 37 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | placeholder | 1.0000 | 0.9231 | 0.9600 | 13 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | subject | product_grouping | 1.0000 | 0.9000 | 0.9474 | 10 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | background | color | 0.9048 | 0.7379 | 0.8128 | 103 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | background | scene_lifestyle | 0.7759 | 0.8824 | 0.8257 | 51 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | background | white | 0.9735 | 0.9878 | 0.9806 | 819 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | back_angle_left | 0.7619 | 0.6400 | 0.6957 | 25 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | back_angle_right | 0.7083 | 0.6538 | 0.6800 | 26 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | back_head_on | 0.8750 | 0.8317 | 0.8528 | 101 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | bottom_up | 0.7586 | 0.8800 | 0.8148 | 25 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | front_angle_left | 0.6667 | 0.7674 | 0.7135 | 86 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | front_angle_right | 0.7500 | 0.7500 | 0.7500 | 80 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | front_head_on | 0.8786 | 0.8945 | 0.8865 | 275 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | left_side | 0.8182 | 0.8182 | 0.8182 | 44 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | right_side | 0.8800 | 0.6875 | 0.7719 | 32 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | perspective | top_down | 0.8154 | 0.7681 | 0.7910 | 69 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | individuals | individual_present | 0.9615 | 0.9259 | 0.9434 | 54 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | individuals | none | 0.9957 | 0.9978 | 0.9967 | 920 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_classification | certification_seal | 0.5000 | 0.3333 | 0.4000 | 6 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_classification | none | 0.9741 | 0.9841 | 0.9791 | 879 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_classification | nutritional_info | 0.9531 | 0.9839 | 0.9683 | 62 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_classification | other | 0.7407 | 0.5556 | 0.6349 | 36 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_classification | promotional_text | 0.8723 | 0.9111 | 0.8913 | 45 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_classification | technical_specs | 0.9070 | 0.8667 | 0.8864 | 45 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_language | Dutch | 1.0000 | 0.5000 | 0.6667 | 4 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_language | English | 0.8397 | 0.8397 | 0.8397 | 156 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_language | French | 0.7600 | 0.6333 | 0.6909 | 30 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_language | German | 0.8832 | 0.9237 | 0.9030 | 131 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_language | Italian | 1.0000 | 0.5000 | 0.6667 | 4 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_language | none | 0.9086 | 0.9235 | 0.9160 | 183 |
+| LoRA su SigLIP (siglip-lora) | prompt-test | text_language | other | 0.5000 | 0.5000 | 0.5000 | 10 |
 | Ensemble P11+Nathan media | prompt-test | subject | accessories | 0.9000 | 0.6000 | 0.7200 | 15 |
 | Ensemble P11+Nathan media | prompt-test | subject | delivery_scope | 0.9149 | 0.7963 | 0.8515 | 54 |
 | Ensemble P11+Nathan media | prompt-test | subject | detail_closeup | 0.9512 | 0.8211 | 0.8814 | 95 |
