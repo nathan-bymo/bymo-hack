@@ -10,7 +10,7 @@
 #   export DEV_CSV=path/to/dev_predictions.csv      # required: dev rows of your best dev file (local, git-ignored)
 #   bash src/inference/phase-3-model/final_hf.sh
 #
-# Needs the authorised data/train.csv locally (the job generator hashes it) and `git lfs pull` for the weights.
+# Needs the authorised data/train.csv locally (the job generator hashes it) ; the weights are downloaded from the public nathan-monzani-bymo/apertus-8B-mixed repository.
 set -euo pipefail
 : "${HF_TOKEN:?}" "${KAGGLE_API_TOKEN:?}" "${FINAL_PASSPHRASE:?}" "${UPLOAD_REPO:?a private HF model repository}"
 
@@ -23,6 +23,7 @@ RUN_NAME=${RUN_NAME:-final-hf-$(date -u +%Y%m%d-%H%M%S)}
 : "${DEV_CSV:?export DEV_CSV=<your dev predictions csv (image_id + six dimensions, the dev rows of your best dev submission); it is git-ignored, not in the repo>}"
 
 hf repo create "$UPLOAD_REPO" --private --exist-ok
+hf download nathan-monzani-bymo/apertus-8B-mixed --revision 49f4bd8f479f53f1fc232aaee8028e7c2b44161d --local-dir weights/apertus-8B-mixed-lora-heads-final
 hf upload "$UPLOAD_REPO" weights/apertus-8B-mixed-lora-heads-final "$CHECKPOINT" --private \
   --include "settings.json" "trainable.pt" "mixed_fusion.pt" "lora/*"
 cd "$PHASE"

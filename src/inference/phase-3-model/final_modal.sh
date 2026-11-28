@@ -18,7 +18,7 @@ PHASE="$ROOT/src/training/phase-3"            # standalone working root of the d
 MIXED=src/training/apertus-8B-mixed-lora-heads  # relative to $PHASE
 OUTPUT_REPO=${OUTPUT_REPO:-nathan-monzani-bymo/galaxus-vlh-private}    # private: checkpoint in, predictions out
 DATA_REPO=${DATA_REPO:-nathan-monzani-bymo/galaxus-data-private}        # private: competition data + final archive
-CHECKPOINT=${CHECKPOINT:-mixed-modal-20261128-033303/model/best}        # = weights/apertus-8B-mixed-lora-heads-final
+CHECKPOINT=${CHECKPOINT:-mixed-modal-20261128-033303/model/best}        # same files as nathan-monzani-bymo/apertus-8B-mixed
 : "${DEV_CSV:?export DEV_CSV=<your dev predictions csv (image_id + six dimensions, the dev rows of your best dev submission); it is git-ignored, not in the repo>}"
 MODAL=${MODAL:-modal}
 NAME=${NAME:-final-$(date -u +%Y%m%d-%H%M%S)}

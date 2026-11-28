@@ -11,7 +11,7 @@ label cells remain model prelabels, and text language is the most affected (59% 
 Splits: coverage 2,532 images (prompt-dev + prompt-test + 169 rare-class images), base 2,363, prompt-test 1,193; the
 delivered model trained on the 10,683 images outside prompt-test. Source: `src/README.md` §1.1–1.2,
 `src/training/EXPERIMENTS.md` (split table), `paper/paper.tex` (data section, 59%),
-`weights/apertus-8B-mixed-lora-heads-final/training.json` (10,683).
+`training.json` of [nathan-monzani-bymo/apertus-8B-mixed](https://huggingface.co/nathan-monzani-bymo/apertus-8B-mixed) (10,683).
 
 ## 1. Validation power (`validation_power.py`, 2,000 product-bootstrap resamples, seed 3407)
 

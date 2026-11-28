@@ -12,7 +12,7 @@ Apertus decoder trained with LoRA.
 |---|---|
 | Public dev macro F1 | **0.84215** (organiser references: Gemini 3.8 Flash 0.806, fine-tuned Qwen 3.5 9B 0.917) |
 | Delivery inference | 11.7 images/s on one H200 (merged LoRA, TF32, selective perspective TTA) |
-| Weights | [`weights/apertus-8B-mixed-lora-heads-final/`](../weights/apertus-8B-mixed-lora-heads-final/) (Git LFS) |
+| Weights | Hugging Face: [`nathan-monzani-bymo/apertus-8B-mixed`](https://huggingface.co/nathan-monzani-bymo/apertus-8B-mixed) (delivered model) and [`nathan-monzani-bymo/apertus-8B-siglip`](https://huggingface.co/nathan-monzani-bymo/apertus-8B-siglip) (trainable SigLIP LoRA variant) |
 
 The full story is in the [paper](../paper/paper.pdf) and the [technical report](../technical_report.md).
 
@@ -44,7 +44,7 @@ evidence that is still missing.
 ## Quick start: final predictions with the delivered model
 
 ```sh
-git lfs pull
+hf download nathan-monzani-bymo/apertus-8B-mixed --revision 49f4bd8f479f53f1fc232aaee8028e7c2b44161d --local-dir weights/apertus-8B-mixed-lora-heads-final
 export FINAL_PASSPHRASE='...'                        # never write it into a file
 bash src/inference/phase-3-model/final_modal.sh      # Modal, one H200
 # or, with your own Hugging Face account:

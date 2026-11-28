@@ -32,9 +32,10 @@ def plan(registry: Registry, model_id: str) -> list[dict]:
     items = []
     if weights.get("requires_base"):
         items.append({"repo": base["repo"], "revision": base["revision"], "patterns": None, "gb": base.get("size_gb")})
-    if weights.get("local_path"):   # pesi già nel repo (Git LFS): serve solo `git lfs pull`
+    if weights.get("local_path"):   # adapter weights in a local folder (published on Hugging Face, not in git)
         if not (REPO / weights["local_path"]).exists():
-            raise SystemExit(f"pesi locali assenti: {weights['local_path']} (esegui git lfs pull)")
+            source = weights.get("hf_repo", "the team's Hugging Face page")
+            print(f"local weights missing: {weights['local_path']} (hf download {source} --local-dir {weights['local_path']})")
         return items
     items.append({"repo": weights["repo"], "revision": weights["revision"],
                   "patterns": [f"{weights['subfolder']}/*"], "gb": weights.get("size_gb")})

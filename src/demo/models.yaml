@@ -274,7 +274,8 @@ models:
     runtime: worker_gpu
     weights:
       local_path: weights/apertus-8B-mixed-lora-heads-final
-      location_label: "in our repo (Git LFS), 0.38 GB"
+      hf_repo: nathan-monzani-bymo/apertus-8B-mixed
+      location_label: "Hugging Face nathan-monzani-bymo/apertus-8B-mixed, 0.38 GB"
       copy_note: "anche nel repo HF privato nathan-monzani-bymo/galaxus-vlh-private, mixed-modal-20261128-033303/model/best"
       size_gb: 0.38
       requires_base: true
@@ -290,12 +291,12 @@ models:
              source: "src/demo/config/sources/apertus-8B-mixed-lora-heads__RESULTS.md:142"}
     measured:
       - {what: "img/s (end to end)", value: 5.9, conditions: "1× H200, prompt-test",
-         source: "weights/apertus-8B-mixed-lora-heads-final/README.md:9", gpu_label: "H200 (HF)", cost_eligible: true}
+         source: "src/demo/config/sources/apertus-8B-mixed__weights_README.md:9", gpu_label: "H200 (HF)", cost_eligible: true}
       - {what: "img/s (percorso veloce + TF32)", value: 14.34, conditions: "1× H100 80GB, dev, configurazione di consegna",
          source: "src/demo/config/sources/apertus-8B-mixed-lora-heads__RESULTS.md:142", gpu_label: "H100 80GB", cost_eligible: false, preferred: true}
     evals:
       - {set: prompt-test, validity: held_out, provenance: reported_only, macro_f1: 0.843, weighted_f1: 0.924,
-         source: "weights/apertus-8B-mixed-lora-heads-final/prompt_test_metrics.json"}
+         source: "src/demo/config/sources/apertus-8B-mixed__prompt_test_metrics.json"}
     contamination_note: "Allenato su tutto il train tranne prompt-test: coverage e base non sono set validi."
     kaggle_dev: {score: 0.84215, submitted_at: "2026-11-28T06:39:00Z", source: "src/demo/config/sources/apertus-8B-mixed-lora-heads__RESULTS.md:25",
                  source_label: "team submission on Kaggle, 28/11 (59038887)"}

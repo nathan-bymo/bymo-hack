@@ -59,7 +59,6 @@ modalità *registrato*.
   catalogo. Zero-shot live; modelli allenati live (worker GPU) o registrati.
 - Le pagine **Results** e **How it works** sono state tolte (28/11, i contenuti stanno nel paper e nella
   presentazione): `/results`, `/how` e `/models` portano a `/`. Le API delle metriche del backend sono rimaste.
-- Script parlato del video: [docs/demo/SCRIPT_VIDEO.md](../../docs/demo/SCRIPT_VIDEO.md).
 - Foto di esempio con risposte registrate: `scripts/import_probs.py` trasforma i file `*.probs.pt` dei job di
   valutazione in registrazioni (`data/demo/recorded/`, fuori da git). All'upload di una foto registrata la demo
   ricompila i dettagli prodotto con cui il modello ha risposto. In Demo compaiono solo i modelli che rispondono.

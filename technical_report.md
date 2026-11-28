@@ -84,7 +84,7 @@ meets the constraint, and what is still missing:**
 
 | | Build / provisioning time (network needed) | Runtime |
 |---|---|---|
-| Model weights | Hugging Face Hub: Apertus 1.5 8B (gated) `1519de0a…`, SigLIP 2 base, DINOv3 ViT-B/16 (gated) `5931719e…`, docTR recogniser `8bde31c8…`; docTR release host: `fast_base` detector; this repo (Git LFS): our LoRA, projector, fusion and heads | local cache (Hub lookup unless `HF_HUB_OFFLINE=1`) |
+| Model weights | Hugging Face Hub: Apertus 1.5 8B (gated) `1519de0a…`, SigLIP 2 base, DINOv3 ViT-B/16 (gated) `5931719e…`, docTR recogniser `8bde31c8…`; docTR release host: `fast_base` detector; Hugging Face Hub, public: our LoRA, projector, fusion and heads ([nathan-monzani-bymo/apertus-8B-mixed](https://huggingface.co/nathan-monzani-bymo/apertus-8B-mixed), revision `49f4bd8`) | local cache (Hub lookup unless `HF_HUB_OFFLINE=1`) |
 | Code | swiss-ai Transformers fork `3797303d…`, XIELU kernel `nickjbrowning/XIELU@2a55f6b9…`, PyPI: torch 2.8.0, torchvision 0.23.0, peft 0.22.0, accelerate 1.16.0, python-doctr 1.1.0 | installed environment |
 | Data | Kaggle competition files (encrypted final archive + SHA-256 check, `7z`) | local images and CSV |
 | Development only (not part of the system) | Keera API (zero-shot baselines, live demo), Hugging Face Jobs and Modal (training and benchmarks), Kaggle API, ElevenLabs (video voiceover), AI coding assistants | — |
@@ -195,7 +195,7 @@ meets the constraint, and what is still missing:**
 
 ```sh
 # 1. setup (Linux, one CUDA GPU, Python 3.12)
-git lfs pull                                    # our weights: weights/apertus-8B-mixed-lora-heads-final/
+hf download nathan-monzani-bymo/apertus-8B-mixed --revision 49f4bd8f479f53f1fc232aaee8028e7c2b44161d --local-dir weights/apertus-8B-mixed-lora-heads-final   # our weights
 export HF_TOKEN=…            # access to the gated Apertus 1.5 8B and DINOv3 weights
 export KAGGLE_API_TOKEN=…    # competition data
 python src/scripts/db_download.py               # from the repository root: data/ with CSVs, images, final_encrypted.bin
@@ -281,7 +281,7 @@ confident.
 | `google/siglip2-base-patch16-224` | Hub default (not pinned) | **Runtime:** frozen image encoder |
 | `facebook/dinov3-vitb16-pretrain-lvd1689m` | `5931719e67bbdb9737e363e781fb0c67687896bc` | **Runtime:** frozen image encoder |
 | docTR `fast_base` + `Felix92/doctr-torch-parseq-multilingual-v1` | python-doctr 1.1.0; recogniser `8bde31c864bcfa47489140b9dddb25ec70f4fd54` | **Runtime:** OCR |
-| Our weights `weights/apertus-8B-mixed-lora-heads-final/` | run `mixed-modal-20261128-033303`, joint epoch 3 | **Runtime:** LoRA, projector, fusion, heads |
+| Our weights [`nathan-monzani-bymo/apertus-8B-mixed`](https://huggingface.co/nathan-monzani-bymo/apertus-8B-mixed) | run `mixed-modal-20261128-033303`, joint epoch 3 | **Runtime:** LoRA, projector, fusion, heads |
 | `swiss-ai/Apertus-v1.5-70B` and 8B via Keera | gateway revision not recorded | Development: zero-shot baselines |
 | `google/siglip2-so400m-patch16-512` | — | Development: P14 experiment |
 | `facebook/dinov3-vits16-pretrain-lvd1689m` | — | Development: encoder smoke test only |
@@ -303,9 +303,9 @@ For comparison, the 70B zero-shot baseline ran at 2.8 images/s on the shared gat
 model at 6.91 images/s on an H200 ([zero-shot](src/plain-benchmark/RESULTS.md),
 [benchmark](src/training/phase-1/RESULTS.md#h200-benchmark-of-the-three-8b-models-on-public-dev)).
 
-**Commit and weights:** code commit `989dcf8` (final run); this repository at the hand-in commit for the cleaned-up layout. The weights are published in this public repository
-via Git LFS, folder [weights/apertus-8B-mixed-lora-heads-final/](weights/apertus-8B-mixed-lora-heads-final/), added
-in commit `efa299c` and unchanged since. SHA-256 of the weight files:
+**Commit and weights:** code commit `989dcf8` (final run); this repository at the hand-in commit for the cleaned-up layout. The weights are published on Hugging Face:
+[`nathan-monzani-bymo/apertus-8B-mixed`](https://huggingface.co/nathan-monzani-bymo/apertus-8B-mixed), revision `49f4bd8f479f53f1fc232aaee8028e7c2b44161d`. They are the files of run
+`mixed-modal-20261128-033303/model/best` (joint epoch 3), unchanged since commit `efa299c`. SHA-256 of the weight files:
 
 | File | SHA-256 |
 |---|---|
