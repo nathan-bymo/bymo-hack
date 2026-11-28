@@ -76,6 +76,30 @@ def fit_and_validation(all_rows, rows, part, fraction, prompt_test_validation=Fa
     return rows, validation
 
 
+def extra_rows(path, fit):
+    """Extra training rows (a csv with the columns of train.csv, e.g. synthetic overlays) that may join `fit`.
+
+    Only rows whose product_id is a training product are kept: an image made from a photo of the internal validation,
+    of prompt-test or of coverage (in phase 1) would leak that photo into the training.
+    """
+    extra = read_csv(path)
+    missing = set(fit.columns) - set(extra.columns)
+    if missing:
+        raise ValueError(f"{path} lacks the columns {sorted(missing)}")
+    if set(extra.image_id) & set(fit.image_id):
+        raise ValueError(f"{path} repeats image ids of the training rows")
+    return extra[extra.product_id.isin(set(fit.product_id))][list(fit.columns)].reset_index(drop=True)
+
+
+def add_extra(fit, items, extra):
+    """(rows, items): every extra row once as it is, without repeats or mirrors, after the real ones.
+
+    The repeats of the real rows are computed before, so the extra data does not change how often a real image is shown.
+    """
+    items = items + [(len(fit) + k, "") for k in range(len(extra))]
+    return pd.concat([fit, extra], ignore_index=True), items
+
+
 def label_matrix(rows):
     """LongTensor [rows, 6] of class indices, -1 where the cell is not scored (it never reaches the loss)."""
     scored = splits.scored_cells(rows)

@@ -15,6 +15,7 @@ import sys
 import time
 from pathlib import Path
 
+import pandas as pd
 import torch
 
 HERE = Path(__file__).resolve().parent
@@ -44,6 +45,7 @@ def main():
     parser.add_argument("--no-mirrors", action="store_true")
     parser.add_argument("--prompt-test-validation", action="store_true")
     parser.add_argument("--rare-text-only", action="store_true")
+    parser.add_argument("--extra-csv", type=Path, help="extra training rows, the same as train.py")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--shard-size", type=int, default=1024)
     parser.add_argument("--limit", type=int, default=0)
@@ -73,6 +75,11 @@ def main():
     encoding_rows = all_rows if args.prompt_test_validation else rows
     jobs = {D.key(i, ""): (i, p, "") for i, p in zip(encoding_rows.image_id, encoding_rows.image_path)}
     jobs |= {D.key(fit.image_id[i], v): (fit.image_id[i], fit.image_path[i], v) for i, v in items}
+    if args.extra_csv:  # originals only: extra rows have no repeats or mirrors
+        extra = D.extra_rows(args.extra_csv, fit)
+        print(f"{len(extra)} extra images from {args.extra_csv.name}", flush=True)
+        jobs |= {D.key(i, ""): (i, p, "") for i, p in zip(extra.image_id, extra.image_path)}
+        encoding_rows = pd.concat([encoding_rows, extra], ignore_index=True)
     done = set()
     for shard in args.out.glob("shard_*.pt"):
         done.update(torch.load(shard, weights_only=False))

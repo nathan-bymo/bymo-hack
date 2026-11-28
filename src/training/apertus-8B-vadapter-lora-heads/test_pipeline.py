@@ -632,3 +632,15 @@ def test_safe_mode_and_overflow_diagnostics():
         broken.heads.shared.weight.fill_(float("inf"))
     where = M.first_non_finite(broken, ids, attention, siglip)
     assert where and where[0].startswith("heads.shared")
+
+
+def test_extra_rows_only_from_training_products_and_seen_once(tmp_path):
+    fit = D.pd.DataFrame({"image_id": ["a", "b"], "product_id": ["p1", "p2"], "image_path": ["a.jpg", "b.jpg"]})
+    extra = D.pd.DataFrame({"image_id": ["syn_1", "syn_2"], "product_id": ["p1", "held_out"],
+                            "image_path": ["s1.jpg", "s2.jpg"]})
+    extra.to_csv(tmp_path / "synthetic.csv", index=False)
+    kept = D.extra_rows(tmp_path / "synthetic.csv", fit)
+    assert list(kept.image_id) == ["syn_1"]  # a product outside the training rows never enters
+    rows, items = D.add_extra(fit, [(0, ""), (0, "a1"), (1, "")], kept)
+    assert list(rows.image_id) == ["a", "b", "syn_1"]
+    assert items == [(0, ""), (0, "a1"), (1, ""), (2, "")]

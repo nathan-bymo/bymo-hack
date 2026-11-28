@@ -106,6 +106,7 @@ def main():
     parser.add_argument("--cache", type=Path, required=True, help="folder written by encode.py")
     parser.add_argument("--out", type=Path, required=True, help="inside data/ (git-ignored)")
     parser.add_argument("--part", default="training", choices=("training", "all", "all_but_test"))
+    parser.add_argument("--extra-csv", type=Path, help="extra training rows, e.g. data/synthetic/synthetic.csv")
     parser.add_argument("--val-fraction", type=float, default=0.1, help="training products that pick the checkpoint")
     parser.add_argument("--limit", type=int, default=0, help="only the first N rows, for a smoke test")
     parser.add_argument("--max-steps", type=int, default=0, help="for a smoke test")
@@ -183,6 +184,11 @@ def main():
     fit_labels, val_labels = D.label_matrix(fit), D.label_matrix(validation)
     items = D.training_items(fit, fit_labels, repeats=not args.no_repeats, mirrors=not args.no_mirrors,
                              rare_text_only=args.rare_text_only)
+    if args.extra_csv:  # after the repeats of the real rows: each extra image is seen once per epoch
+        extra_data = D.extra_rows(args.extra_csv, fit)
+        log(f"{len(extra_data)} extra images from {args.extra_csv.name} (only products of the training rows)")
+        fit, items = D.add_extra(fit, items, extra_data)
+        fit_labels = D.label_matrix(fit)
     cache = load_cache(args.cache)
     needed = {D.key(fit.image_id[i], v) for i, v in items} | {D.key(i) for i in validation.image_id}
     missing = needed - set(cache)

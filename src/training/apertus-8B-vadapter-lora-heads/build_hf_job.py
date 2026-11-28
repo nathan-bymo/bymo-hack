@@ -30,6 +30,8 @@ Environment of the job (-e NAME=value):
   PART             training (default of phase 1), all_but_test (everything except prompt-test, scored on
                    prompt-test) or all (phase 2)
   INIT_FROM        a checkpoint folder of UPLOAD_REPO (e.g. phase1/model/best): continue its training
+  SYNTHETIC        path in UPLOAD_REPO of a zip holding synthetic/synthetic.csv and synthetic/images/ (made by
+                   src/scripts/make_synthetic_text.py): added to the training rows only
   RUN_NAME         folder of this run in UPLOAD_REPO (default phase1 / phase2): never overwrite a model to keep
   XIELU            1 to build the CUDA xIELU kernel (needs a -devel image: see --upload-job below); kept only if it
                    matches the Python version
@@ -105,6 +107,7 @@ PREFIX = os.environ.get("RUN_NAME", f"phase{PHASE}")
 PREDICT_FROM = os.environ.get("PREDICT_FROM", "")  # e.g. phase1/model/best in UPLOAD_REPO: predictions only
 INIT_FROM = os.environ.get("INIT_FROM", "")  # e.g. phase1/model/best in UPLOAD_REPO: continue its training
 OCR = bool(os.environ.get("OCR"))  # OCR text of the image in the prompt
+SYNTHETIC = os.environ.get("SYNTHETIC", "")  # zip in UPLOAD_REPO with extra training images
 TRAIN_SHA256 = "@@TRAIN_SHA256@@"
 BUNDLE = "@@BUNDLE@@"
 
@@ -168,6 +171,23 @@ def download_data():
         (DATA / "final_encrypted.bin").unlink(missing_ok=True)  # the final images are never used here
     assert hashlib.sha256((DATA / "train.csv").read_bytes()).hexdigest() == TRAIN_SHA256, "train.csv changed"
     log("competition data downloaded")
+
+
+def download_synthetic():
+    """The extra training images, unpacked next to the competition data; returns the arguments of encode and train."""
+    if not SYNTHETIC:
+        return []
+    import zipfile
+
+    from huggingface_hub import hf_hub_download
+
+    archive = hf_hub_download(UPLOAD_REPO, SYNTHETIC, local_dir=WORK / "synthetic_zip")
+    with zipfile.ZipFile(archive) as content:
+        content.extractall(DATA)
+    table = DATA / "synthetic" / "synthetic.csv"
+    assert table.exists(), f"{SYNTHETIC} has no synthetic/synthetic.csv"
+    log("synthetic training data unpacked")
+    return ["--extra-csv", table]
 
 
 def download_model():
@@ -393,11 +413,12 @@ def main():
     fetch_cache(cache, name)
     if part != "training" and not cache.exists():  # the training cache covers most of the images
         fetch_cache(cache, f"training_{SIDE}")
+    synthetic = download_synthetic()
     run([f"{FOLDER}/encode.py", "--part", part, "--side", SIDE, "--out", cache,
-         "--val-fraction", val_fraction, *targeted_flags, *(["--ocr"] if OCR else [])], "encode.log")
+         "--val-fraction", val_fraction, *targeted_flags, *synthetic, *(["--ocr"] if OCR else [])], "encode.log")
     if not targeted:
         store_cache(cache, name)
-    extra = shlex.split(os.environ.get("TRAIN_ARGS", "")) + init_projector()
+    extra = shlex.split(os.environ.get("TRAIN_ARGS", "")) + init_projector() + synthetic
     if targeted:
         extra += [*targeted_flags, "--early-stop", "--spatial", "--attention-pool"]
     if OCR:
