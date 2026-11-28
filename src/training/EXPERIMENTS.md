@@ -38,6 +38,7 @@ I risultati del 70B sono riassunti anche in [plain-benchmark/apertus-70B-benchma
 | P10 | LoRA sullo split piccolo | 8B + **LoRA**, 256², JSON | 1.500 | validation_450, coverage | Kristian, H200 | [confronto LoRA](../micro-training/confronto_lora.md) |
 | P11 | LoRA e teste insieme, training completo | 8B + **LoRA + teste**, 256² | 9.344 | coverage, base, prompt-test | H200 | [LoRA + teste](apertus-8B-lora-heads/results_full_h200.md) |
 | P12 | pooling e 512² su LoRA + teste | 8B + LoRA + teste + feature spaziali + attention pooling, 512², 2 epoche | 9.344 | coverage, prompt-test, dev Kaggle | H200 | [P12](apertus-8B-lora-heads/results_p12_512_pooling.md) |
+| P13 | immagini sintetiche sul modello finale | `final-abt` + 1 epoca con sintetiche per lingue rare, sigilli e icone | 9.645 reali + 939 sintetiche | prompt-test, dev Kaggle | H200 (Modal) | [P13](apertus-8B-vadapter-lora-heads/results_p13_synthetic.md) |
 
 Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagini per scegliere layer ed epoca.
 
@@ -77,6 +78,7 @@ Per le teste, "1.199 + 301" vuol dire: immagini per allenare i pesi, più immagi
 | Gemini 4 Argon zero-shot | 0.834 |
 | Gemini 3.8 Flash zero-shot | 0.806 |
 | P11, LoRA + teste | 0.796 |
+| P13, modello finale + sintetiche | 0.829 |
 | P12, LoRA + teste + pooling 512² | 0.806 |
 | Kri, full fine-tuning + teste | 0.805 |
 | **Nathan, LoRA + teste + SigLIP + OCR + pooling** | **0.832** |

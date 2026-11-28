@@ -27,6 +27,7 @@ CSV_RUNS = {  # name: file under data/
     "P11 LoRA+teste 256": "hf_results_lh/full-predict/predictions/coverage.csv",
     "P12 LoRA+teste+pooling 512": "hf_results_lh512/full-train/predictions/coverage.csv",
     "Nathan vlh finale (final-abt)": "ensemble/pt_nathan.csv",
+    "P13 final-abt + sintetici": "hf_results_synth/synth-ft-1128-0243/predictions/test.csv",
     "Ensemble P11+Nathan media": "ensemble/pt_media-50-50.csv",
     "Ensemble P11+Nathan, lingua da Nathan": "ensemble/pt_mix.csv",
 }

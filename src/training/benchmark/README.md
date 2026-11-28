@@ -1,6 +1,6 @@
 # Statistiche di tutti i modelli, per i benchmark
 
-Solo numeri aggregati: nessuna immagine, label o predizione individuale. Stato del 28 novembre, ore 03:00 CET.
+Solo numeri aggregati: nessuna immagine, label o predizione individuale. Stato del 28 novembre, ore 04:00 CET.
 
 | file | contenuto |
 |---|---|
@@ -24,6 +24,7 @@ Attenzione:
 | modello | punteggio | inviato (UTC) |
 |---|---|---|
 | Nathan: LoRA + teste + SigLIP 2 + OCR + pooling (`final-abt`) | **0,83177** | 27/11 22:40 |
+| P13: `final-abt` + 1 epoca con immagini sintetiche | 0,82872 | 28/11 02:57 |
 | P12: LoRA + teste + pooling, 512² | 0,80566 | 28/11 01:04 |
 | Kristian: full fine-tuning 24 layer + teste | 0,80473 | 27/11 22:02 |
 | P11: LoRA + teste, 256² | 0,79573 | 27/11 20:30 |
@@ -37,6 +38,7 @@ Le righe delle immagini final in questi invii hanno i valori di `sample_submissi
 | P11 | 13,2 (H200) | 22,0 GB in predizione, 139 GB in training | circa 5,19 $ | `../apertus-8B-lora-heads/results_full_h200.md` |
 | P12 | 3,9 (H200) | 32,5 GB in predizione, 45,4 GB in training | circa 14 $ (168 min × 5 $/h) | `../apertus-8B-lora-heads/results_p12_512_pooling.md` |
 | Nathan `final-abt` | 6,2 (H200); 4,9 (L40S) | non riportata | circa 16 $ (tre passi più un tentativo fallito) | `../apertus-8B-vadapter-lora-heads/RISULTATI.md` |
+| P13 | 6,7 (H200, prompt-test) | non confrontabile | 1 epoca, job di circa 73 min su Modal | `../apertus-8B-vadapter-lora-heads/results_p13_synthetic.md` |
 | 8B zero-shot v2 | 3,8 (API Keera condivisa) | remota | nessuno | report in `plain-benchmark` |
 | 70B zero-shot v2 | 2,8 (API Keera condivisa) | remota | nessuno | report in `plain-benchmark` |
 
@@ -51,6 +53,7 @@ del Mac di Nikola avevano tutti una copia online identica (stesso SHA-256).
 | modello | Git LFS (`weights/`) | Hugging Face |
 |---|---|---|
 | Nathan `final-abt` | `apertus-8B-vadapter-lora-heads-final/` | `MANNIK14/galaxus-vlh-private/final-abt/model/best` |
+| P13 | — | `MANNIK14/galaxus-vlh-private/synth-ft-1128-0243/model/best` |
 | P11 | `lora_heads_256_p11/` | `MANNIK14/galaxus-lora-heads-private/archive/p11_lora_heads_256_coverage0781` |
 | P12 | — | `MANNIK14/galaxus-lora-heads-private/archive/p12_lora_heads_pool_512_coverage0806` |
 | teste su Apertus congelato, pesi per classe | — | `MANNIK14/galaxus-heads-private` (`small/`, `archive/`) |

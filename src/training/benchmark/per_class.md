@@ -373,6 +373,47 @@ Generato da `src/scripts/benchmark_stats.py`. Solo numeri aggregati. Leggere pri
 | Nathan vlh finale (final-abt) | prompt-test | text_language | Italian | 1.0000 | 0.5000 | 0.6667 | 4 |
 | Nathan vlh finale (final-abt) | prompt-test | text_language | none | 0.9239 | 0.9290 | 0.9264 | 183 |
 | Nathan vlh finale (final-abt) | prompt-test | text_language | other | 0.6000 | 0.6000 | 0.6000 | 10 |
+| P13 final-abt + sintetici | prompt-test | subject | accessories | 0.8333 | 0.6667 | 0.7407 | 15 |
+| P13 final-abt + sintetici | prompt-test | subject | delivery_scope | 0.9556 | 0.7963 | 0.8687 | 54 |
+| P13 final-abt + sintetici | prompt-test | subject | detail_closeup | 0.9146 | 0.7895 | 0.8475 | 95 |
+| P13 final-abt + sintetici | prompt-test | subject | energy_label | 1.0000 | 1.0000 | 1.0000 | 40 |
+| P13 final-abt + sintetici | prompt-test | subject | full_product | 0.9246 | 0.9571 | 0.9406 | 653 |
+| P13 final-abt + sintetici | prompt-test | subject | infographic | 0.7455 | 0.8283 | 0.7847 | 99 |
+| P13 final-abt + sintetici | prompt-test | subject | logo | 0.9420 | 0.9701 | 0.9559 | 67 |
+| P13 final-abt + sintetici | prompt-test | subject | multipack_trade_unit | 0.6250 | 0.6250 | 0.6250 | 8 |
+| P13 final-abt + sintetici | prompt-test | subject | multiview | 0.8235 | 0.7000 | 0.7568 | 20 |
+| P13 final-abt + sintetici | prompt-test | subject | package_and_product | 0.8889 | 0.8571 | 0.8727 | 28 |
+| P13 final-abt + sintetici | prompt-test | subject | packaging | 0.8065 | 0.6757 | 0.7353 | 37 |
+| P13 final-abt + sintetici | prompt-test | subject | placeholder | 1.0000 | 0.9231 | 0.9600 | 13 |
+| P13 final-abt + sintetici | prompt-test | subject | product_grouping | 0.9000 | 0.9000 | 0.9000 | 10 |
+| P13 final-abt + sintetici | prompt-test | background | color | 0.8721 | 0.7282 | 0.7937 | 103 |
+| P13 final-abt + sintetici | prompt-test | background | scene_lifestyle | 0.8148 | 0.8627 | 0.8381 | 51 |
+| P13 final-abt + sintetici | prompt-test | background | white | 0.9688 | 0.9853 | 0.9770 | 819 |
+| P13 final-abt + sintetici | prompt-test | perspective | back_angle_left | 0.8947 | 0.6800 | 0.7727 | 25 |
+| P13 final-abt + sintetici | prompt-test | perspective | back_angle_right | 0.7826 | 0.6923 | 0.7347 | 26 |
+| P13 final-abt + sintetici | prompt-test | perspective | back_head_on | 0.9213 | 0.8119 | 0.8632 | 101 |
+| P13 final-abt + sintetici | prompt-test | perspective | bottom_up | 0.8148 | 0.8800 | 0.8462 | 25 |
+| P13 final-abt + sintetici | prompt-test | perspective | front_angle_left | 0.7011 | 0.7093 | 0.7052 | 86 |
+| P13 final-abt + sintetici | prompt-test | perspective | front_angle_right | 0.6593 | 0.7500 | 0.7018 | 80 |
+| P13 final-abt + sintetici | prompt-test | perspective | front_head_on | 0.8699 | 0.9236 | 0.8959 | 275 |
+| P13 final-abt + sintetici | prompt-test | perspective | left_side | 0.7949 | 0.7045 | 0.7470 | 44 |
+| P13 final-abt + sintetici | prompt-test | perspective | right_side | 0.7500 | 0.7500 | 0.7500 | 32 |
+| P13 final-abt + sintetici | prompt-test | perspective | top_down | 0.8438 | 0.7826 | 0.8120 | 69 |
+| P13 final-abt + sintetici | prompt-test | individuals | individual_present | 0.9608 | 0.9074 | 0.9333 | 54 |
+| P13 final-abt + sintetici | prompt-test | individuals | none | 0.9946 | 0.9978 | 0.9962 | 920 |
+| P13 final-abt + sintetici | prompt-test | text_classification | certification_seal | 0.5000 | 0.5000 | 0.5000 | 6 |
+| P13 final-abt + sintetici | prompt-test | text_classification | none | 0.9705 | 0.9716 | 0.9710 | 879 |
+| P13 final-abt + sintetici | prompt-test | text_classification | nutritional_info | 0.9375 | 0.9677 | 0.9524 | 62 |
+| P13 final-abt + sintetici | prompt-test | text_classification | other | 0.5676 | 0.5833 | 0.5753 | 36 |
+| P13 final-abt + sintetici | prompt-test | text_classification | promotional_text | 0.8222 | 0.8222 | 0.8222 | 45 |
+| P13 final-abt + sintetici | prompt-test | text_classification | technical_specs | 0.9024 | 0.8222 | 0.8605 | 45 |
+| P13 final-abt + sintetici | prompt-test | text_language | Dutch | 1.0000 | 0.7500 | 0.8571 | 4 |
+| P13 final-abt + sintetici | prompt-test | text_language | English | 0.8750 | 0.8526 | 0.8636 | 156 |
+| P13 final-abt + sintetici | prompt-test | text_language | French | 0.7692 | 0.6667 | 0.7143 | 30 |
+| P13 final-abt + sintetici | prompt-test | text_language | German | 0.8857 | 0.9466 | 0.9151 | 131 |
+| P13 final-abt + sintetici | prompt-test | text_language | Italian | 1.0000 | 0.7500 | 0.8571 | 4 |
+| P13 final-abt + sintetici | prompt-test | text_language | none | 0.9297 | 0.9399 | 0.9348 | 183 |
+| P13 final-abt + sintetici | prompt-test | text_language | other | 0.7778 | 0.7000 | 0.7368 | 10 |
 | Ensemble P11+Nathan media | prompt-test | subject | accessories | 0.9000 | 0.6000 | 0.7200 | 15 |
 | Ensemble P11+Nathan media | prompt-test | subject | delivery_scope | 0.9149 | 0.7963 | 0.8515 | 54 |
 | Ensemble P11+Nathan media | prompt-test | subject | detail_closeup | 0.9512 | 0.8211 | 0.8814 | 95 |
