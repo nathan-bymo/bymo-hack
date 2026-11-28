@@ -6,7 +6,7 @@ intermediate experiments is in the [paper](paper/paper.pdf) ([source](paper/pape
 - **Challenge partner:** Digitec Galaxus
 - **Challenge:** Product image classification (six dimensions)
 - **Event:** On-site Zurich
-- **Team:** BYMO — Nathan Monzani, Nikola Manev, Kristian *(full member list to be confirmed)*
+- **Team:** BYMO — Nathan Monzani, Kristian Kovacev, Nikola Manev
 - **Demo:** *link to video to be added*
 
 ## 1. Summary
