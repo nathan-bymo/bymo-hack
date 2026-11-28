@@ -75,7 +75,7 @@ famiglia finta) → si copiano in `data/demo/recorded/` e si fa `POST /api/recor
 ### Foto di esempio (per il video)
 La pagina **Classify** mostra una fila "Sample photos": un clic e la foto entra come se fosse caricata; se il modello
 scelto ha una risposta registrata per quella foto compare l'etichetta "Ready" e la risposta arriva subito. Le foto sono i
-file di `data/demo/samples/` (fuori da git; solo foto di `prompt-test`, mai dev o final, senza persone). Con una foto
+file di `data/demo/samples/` (fuori da git; senza persone; oggi 7 foto di dev ammesse in `allow.txt`, una per vista). Con una foto
 propria la demo funziona come prima: il modello gira dal vivo (worker GPU o gateway) e ci vuole qualche secondo.
 Per avere le risposte registrate di ogni modello serve una GPU:
 ```sh
@@ -84,9 +84,14 @@ python src/demo/scripts/record.py --model <id> --export data/demo/export/<id ses
 # copiare data/demo/recorded/<modello>/<run>/ sul laptop e POST /api/recorded/rescan
 ```
 `record.py` copre i modelli con un adapter (`vadapter_heads`, `lora_heads`, `fullft_heads`); il modello `mixed` non ne ha
-uno: per quello si usa `import_probs.py` con le probabilità di un job di valutazione. Le foto sono state scelte dalle
-righe di prompt-test, quindi final-abt e P13 non le hanno viste; P15 e il full fine-tune sono allenati su tutto il train
-e le hanno viste (la demo lo dice nella nota della risposta registrata solo se il report del modello lo riporta).
+uno: per quello si usa `import_probs.py` con le probabilità di un job di valutazione.
+Poiché le foto sono di dev, nessun modello le ha viste in training e per ognuno esistono già le probabilità delle
+submission Kaggle: basta `import_probs.py` con il suo `*.probs.pt` di dev, **senza GPU**:
+```sh
+python src/demo/scripts/import_probs.py --model <id> --probs <modello>_dev.probs.pt --rows data/hackapertus-galaxus/dev.csv \
+  --ids ids.json --gpu-name "<GPU del job>" --source "<job o report>"      # ids.json: gli image_id dei sample
+```
+Fatto così: `apertus-8b-fullft-heads` dal file `data/share/fullft_3ep_dev_probs.pt` (A100 80GB, job HF 6b09cdb4).
 
 ## 8. Metriche
 Numeri riportati dai file del repo, riletti con la loro riga (`scripts/import_reported.py`); ogni numero ha set,
@@ -96,7 +101,10 @@ i set visti in training salvo `--allow-contaminated`); l'API legge `data/demo/ev
 per primi (badge "recomputed"). Usa la GPU o il gateway: **solo con ok esplicito**, mai 13:00–14:30 di sabato.
 
 ## 9. Immagini
-Mai immagini dev o final (guardia sugli sha256: `scripts/build_guard_index.py`). Test con immagini sintetiche.
+Mai immagini dev o final (guardia sugli sha256: `scripts/build_guard_index.py`), **tranne** le poche foto di dev
+elencate in `data/demo/guard/allow.txt` (una riga per hash, `#` per i commenti): le regole della challenge permettono di
+mostrare poche foto della competizione in demo e video. Oggi sono 7, usate come sample. Tutte le altre restano
+rifiutate. Test con immagini sintetiche.
 Nessuna immagine, CSV, database o screenshot in git: `scripts/check_no_data.py` prima di ogni commit.
 
 ## 10. Test

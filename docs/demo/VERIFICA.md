@@ -15,6 +15,8 @@ Solo conteggi, esiti e decisioni: nessun ID di immagine, nessuna predizione, nes
 | 27/11 | Q16 installazioni `pip`/`npm` approvate (M0.3, M0.4); download di pesi **non** approvati | risposta del team |
 | 27/11 | Q23 interfaccia in inglese | risposta del team |
 | 27/11 | Altre domande: default del piano (§16) | risposta del team |
+| 28/11 | **Deroga alla guardia dev/final**: 7 foto di dev ammesse come sample della demo (`data/demo/guard/allow.txt`, gli hash soltanto, fuori da git); tutte le altre restano rifiutate. Scelte dalle predizioni del full fine-tune (niente persone, soggetto prodotto, una per vista), non etichettate a mano. Motivo: servono risposte vere dei modelli senza GPU, e per dev esistono già le probabilità delle submission. Le regole ufficiali permettono di mostrare poche foto della competizione (`challenge_description.md` e `FAQ.md`) | richiesta del team |
+| 28/11 | Sample: risposte registrate solo per `apertus-8b-fullft-heads` (probabilità in `data/share/fullft_3ep_dev_probs.pt`, 7 foto su 7, importate con `import_probs.py`); gli altri modelli restano senza risposta finché non arrivano i loro file di probabilità su dev | verifica |
 
 ## Riverifica dei fatti sensibili al tempo (27/11, ~21:30 UTC, solo elenco dei file)
 
