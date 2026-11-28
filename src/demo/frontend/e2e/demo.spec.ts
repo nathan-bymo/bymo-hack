@@ -30,7 +30,15 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('try-dim-perspective').getByTestId('try-disagree')).toBeVisible()
   await expect(page.getByTestId('try-error')).toHaveCount(0)
   await expect(page.getByText(/invalid/i)).toHaveCount(0)
+  await expect(page.getByText('These answers use the photo only')).toBeVisible()
   await shot(page, '02-classify-two-models')
+
+  // 3b. dettagli prodotto facoltativi: si salvano e restano sulla foto
+  await page.getByTestId('product-details').getByRole('button').first().click()
+  await page.getByTestId('ctx-product_title').fill('Ceramic mug 350 ml')
+  await page.getByTestId('ctx-brand').fill('Demo brand')
+  await page.getByTestId('save-context').click()
+  await expect(page.getByTestId('product-details')).toContainText('2 of 5 filled')
 
   // 4. un solo modello su un'altra foto
   await page.getByTestId('try-model-apertus-8b-fullft-heads').uncheck()
@@ -49,6 +57,11 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('board-prompt-test')).toContainText('0.821')
   await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-fullft-heads"]')).toContainText('$7.27')
   await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-lora-heads-p11"]')).toContainText('22 GB measured')
+  await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-fullft-heads"]').getByTestId('hours-100k')).toHaveText('2.9 h')
+  await expect(page.getByTestId('insights-mattered').locator('li')).toHaveCount(5)
+  await expect(page.getByTestId('insights-not').locator('li')).toHaveCount(4)
+  await expect(page.getByTestId('runtime-models')).toContainText('SigLIP 2')
+  await expect(page.getByTestId('board-prompt-test')).toContainText('weighted F1 0.917')
   await expect(page.getByText(/invalid/i)).toHaveCount(0)
   await shot(page, '04-models')
 

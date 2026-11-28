@@ -3,9 +3,24 @@ import { useModels } from '../api/hooks'
 import type { ModelSummary } from '../api/types'
 import { AppShell } from '../components/app'
 import ExpertScores from '../components/ExpertScores'
+import { DID_NOT_HELP, MATTERED, type Insight } from '../lib/insights'
 import { bestSpeed, memoryText, sortForShow, usd } from '../lib/models'
 
 interface Row { key: string; name: string; note: string; score: number; ours: boolean }
+
+function InsightList({ items, testId }: { items: Insight[]; testId: string }) {
+  return (
+    <ul className="m-0 mt-5 grid list-none gap-x-12 gap-y-6 p-0 md:grid-cols-2" data-testid={testId}>
+      {items.map((i) => (
+        <li key={i.title} className="border-t border-graphite pt-3">
+          <h3 className="m-0 text-[17px] font-bold leading-snug tracking-tight">{i.title}</h3>
+          <p className="m-0 mt-1.5 text-[15px] leading-relaxed">{i.body}</p>
+          <p className="m-0 mt-1.5 text-[12px] text-slate">Source: {i.source}</p>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /** Barre orizzontali di un solo set: i numeri di set diversi non finiscono mai nello stesso grafico. */
 function ScoreChart({ rows, testId }: { rows: Row[]; testId: string }) {
@@ -47,7 +62,9 @@ export default function OverviewPage() {
   ]
   const testRows: Row[] = list.flatMap((m) => {
     const s = scoreOn(m, 'prompt-test')
-    return s === null ? [] : [{ key: m.model_id, name: m.short_name, note: m.training_label === 'no training (zero-shot)' ? 'No training' : 'Trained by the team', score: s, ours: true }]
+    const w = m.scores.find((x) => x.set === 'prompt-test')?.weighted_f1
+    const kind = m.training_label === 'no training (zero-shot)' ? 'No training' : 'Trained by the team'
+    return s === null ? [] : [{ key: m.model_id, name: m.short_name, note: w != null ? `${kind}, weighted F1 ${w.toFixed(3)}` : kind, score: s, ours: true }]
   })
   const notOnLeaderboard = list.filter((m) => scoreOn(m, 'kaggle_dev') === null && scoreOn(m, 'prompt-test') !== null)
   const costRows = list.filter((m) => m.speeds.length > 0)
@@ -72,7 +89,8 @@ export default function OverviewPage() {
       <section className="mt-16">
         <h2>Speed and cost</h2>
         <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">
-          Measured from image file to the six answers. The challenge asks for at least {target} images per second; cost counts for 20% of the score.
+          Measured from image file to the six answers: trained models on one GPU, the others through the shared Apertus gateway. The challenge asks for at least {target} images per second (✓) and
+          more than 100,000 images a day: every model gets through them in less than a day.
         </p>
         <div className="mt-6 overflow-x-auto">
           <table className="w-full border-collapse text-left" data-testid="models-table">
@@ -80,6 +98,7 @@ export default function OverviewPage() {
               <tr className="border-b-2 border-graphite text-[13px] text-slate">
                 <th className="py-2 pr-4 font-normal">Model</th>
                 <th className="py-2 pr-4 text-right font-normal">Images per second</th>
+                <th className="py-2 pr-4 text-right font-normal">100,000 images take</th>
                 <th className="py-2 pr-4 font-normal">GPU</th>
                 <th className="py-2 pr-4 text-right font-normal">Cost per 100,000 images</th>
                 <th className="py-2 font-normal">GPU memory</th>
@@ -92,7 +111,11 @@ export default function OverviewPage() {
                 return (
                   <tr key={m.model_id} className="border-b border-rule align-baseline" data-testid="models-row" data-model={m.model_id}>
                     <td className="py-3 pr-4 text-[16px] font-bold">{m.short_name}</td>
-                    <td className="py-3 pr-4 text-right text-[18px]">{s?.images_per_second}</td>
+                    <td className="py-3 pr-4 text-right text-[18px]">
+                      {s?.images_per_second}
+                      {s && <span className={`ml-1.5 text-[13px] ${s.images_per_second >= target ? 'text-slate' : 'font-bold text-signal'}`}>{s.images_per_second >= target ? '✓' : `below ${target}`}</span>}
+                    </td>
+                    <td className="py-3 pr-4 text-right text-[16px]" data-testid="hours-100k">{s ? `${(100_000 / s.images_per_second / 3600).toFixed(1)} h` : '—'}</td>
                     <td className="py-3 pr-4 text-[15px] text-slate">{zeroShot ? 'Shared Apertus gateway' : s?.gpu_label?.replace(' (HF a100-large)', '').replace(' (HF)', '')}</td>
                     <td className="py-3 pr-4 text-right text-[18px] font-bold">
                       {s?.cost_per_100k_usd != null ? usd(s.cost_per_100k_usd) : <span className="text-[14px] font-normal text-slate">{zeroShot ? 'gateway price not public' : 'not measured end to end'}</span>}
@@ -114,13 +137,47 @@ export default function OverviewPage() {
         <h2>Our own test</h2>
         <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">
           1,193 labelled images that these models never saw while learning. They are different images from the leaderboard, so
-          compare these numbers only with each other.
+          compare these numbers only with each other. The bar is the macro F1, where rare classes count as much as frequent ones;
+          the weighted F1 under each name follows how often each class appears in the shop.
           {notOnLeaderboard.length > 0 && ' The Apertus models without training were not submitted to Kaggle: this is where they appear.'}
         </p>
         <ScoreChart rows={testRows} testId="board-prompt-test" />
       </section>
 
       <label className="mt-6 block text-[14px] text-slate"><input type="checkbox" checked={showMore} onChange={(e) => setShowMore(e.target.checked)} data-testid="show-secondary" /> Also show early experiments</label>
+
+      <section className="mt-16">
+        <h2>What mattered</h2>
+        <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">The changes that moved the score most, measured on the same images before and after.</p>
+        <InsightList items={MATTERED} testId="insights-mattered" />
+      </section>
+
+      <section className="mt-14">
+        <h2>What did not help</h2>
+        <InsightList items={DID_NOT_HELP} testId="insights-not" />
+      </section>
+
+      <section className="mt-16" data-testid="runtime-models">
+        <h2>What runs at inference</h2>
+        <p className="m-0 mt-1 max-w-[70ch] text-[15px] text-slate">
+          Only Apertus and open-weights helper models: no closed model and no commercial API. The trained models run on a
+          single GPU, so they can be installed on-premises, on an air-gapped server or in a Swiss cloud.
+        </p>
+        <table className="mt-5 w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b-2 border-graphite text-[13px] text-slate">
+              <th className="py-2 pr-4 font-normal">Model</th><th className="py-2 pr-4 font-normal">Role</th><th className="py-2 font-normal">Used by</th>
+            </tr>
+          </thead>
+          <tbody className="text-[15px]">
+            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">Apertus v1.5 8B</td><td className="py-2.5 pr-4">Classifies the image: with six classifiers on top and an adapter or retrained layers in our models, as it comes in the zero-shot one</td><td className="py-2.5 text-slate">Final model, full fine-tune, P11 on our GPU; 8B without training through the Hack Apertus inference API</td></tr>
+            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">Apertus v1.5 70B</td><td className="py-2.5 pr-4">Describes the image and answers the six questions</td><td className="py-2.5 text-slate">70B without training, through the Hack Apertus inference API</td></tr>
+            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">SigLIP 2 base</td><td className="py-2.5 pr-4">Image encoder that feeds Apertus 49 extra image tokens</td><td className="py-2.5 text-slate">Final model</td></tr>
+            <tr className="border-b border-rule align-baseline"><td className="py-2.5 pr-4 font-bold">docTR</td><td className="py-2.5 pr-4">Reads the text printed on the image (OCR)</td><td className="py-2.5 text-slate">Final model</td></tr>
+          </tbody>
+        </table>
+        <p className="m-0 mt-2 text-[12px] text-slate">Sources: src/apertus-8B-vadapter-lora-heads/RISULTATI.md:119-120 (google/siglip2-base-patch16-224; docTR fast_base + Felix92/doctr-torch-parseq-multilingual-v1); src/AGENTS.md:58-65.</p>
+      </section>
 
       <section className="mt-16 border-t-2 border-graphite pt-4">
         <button type="button" onClick={() => setDetails((d) => !d)} aria-expanded={details} data-testid="toggle-details"

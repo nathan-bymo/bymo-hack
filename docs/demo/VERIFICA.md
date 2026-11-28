@@ -124,3 +124,15 @@ La verifica visiva resta **contro una descrizione**, non contro gli screenshot o
 | Guardia sha256 dev/final | **non costruita su questo Mac**: le cartelle `dev_images`/`final_images` non ci sono (rischio basso: niente immagini dev qui) |
 | Worker `vadapter_heads` (modello finale) e `parity.py` esteso | scritti; **mai eseguiti su GPU**: "parity not verified" |
 | Modelli allenati in modalità registrato con predizioni **vere** | **non fatto**: serve un host GPU (proposta e costo da approvare) |
+
+## Aggiornamento 28/11 — controllo sui requisiti della challenge
+
+| requisito (challenge_description.md) | nella demo | verifica |
+|---|---|---|
+| metodo che funziona anche senza contesto prodotto | Classify: "Product details (optional)", risposte segnate "photo only" se il contesto manca | E2E: salvataggio di 2 campi su 5 |
+| ≥ 2 img/s, > 100.000 immagini al giorno, memoria, costo per 100.000 | Models: colonne ✓ 2 img/s e "100,000 images take" (ore) | E2E: full fine-tune 2,9 h |
+| Insights (15%) e bonus prospettiva | Models: "What mattered" (5) e "What did not help" (4), ognuno con file:riga | fonti rilette riga per riga |
+| weighted F1 | Models, test interno: weighted F1 sotto ogni modello | E2E |
+| solo Apertus + modelli open-weights a runtime, deployabile on-premises | Models: "What runs at inference" | fonti: RISULTATI.md:119-120, AGENTS.md:58-65 |
+| trasparenze composte su bianco | già in `common/images.py` (usato dallo zero-shot) | prova live con PNG trasparente |
+| prova live dal browser, chiave reale | 8B + 70B insieme su un PNG sintetico: 9,5 s, nessun errore in pagina né in console | Playwright su :8010 |

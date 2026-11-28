@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { ApiClientError, api, errorText } from '../api/client'
 import { useImage, useImages, useModels, useSessionId } from '../api/hooks'
 import { subscribeJob } from '../api/sse'
-import type { ApiErrorBody, DimensionResult, ModelSummary, PredictResponse, PredictionResult, UploadResponse } from '../api/types'
+import type { ApiErrorBody, DimensionResult, ImageItem, ModelSummary, PredictResponse, PredictionResult, UploadResponse } from '../api/types'
 import { AppShell } from '../components/app'
 import { QUESTIONS, plainLabel } from '../lib/labels'
 import { availability, headlineScore, sortForShow } from '../lib/models'
@@ -96,6 +96,55 @@ function QuestionBlock({ dimension, models, preds }: { dimension: string; models
         </div>
       )}
     </section>
+  )
+}
+
+const CONTEXT_FIELDS: [string, string][] = [
+  ['product_title', 'Product title'], ['product_type', 'Product type'], ['brand', 'Brand'], ['category', 'Category'], ['subcategory', 'Subcategory'],
+]
+
+/** Contesto prodotto facoltativo: in produzione può mancare, quindi la demo funziona anche senza. */
+function ProductDetails({ image, onSaved }: { image: ImageItem; onSaved: () => void }) {
+  const [open, setOpen] = useState(Object.keys(image.context).length > 0)
+  const [form, setForm] = useState<Record<string, string>>(image.context)
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const filled = Object.values(image.context).filter(Boolean).length
+  const save = async () => {
+    setState('saving')
+    try {
+      await api(`/images/${image.image_id}/context`, { method: 'PUT', json: form })
+      setState('saved')
+      onSaved()
+    } catch {
+      setState('error')
+    }
+  }
+  return (
+    <div className="mt-5 border-t border-rule pt-3" data-testid="product-details">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className="flex w-full items-baseline justify-between border-0 bg-transparent p-0 text-left">
+        <span className="text-[16px] font-bold">Product details <span className="font-normal text-slate">(optional)</span></span>
+        <span className="text-[14px] text-slate">{filled ? `${filled} of 5 filled` : 'None given'}</span>
+      </button>
+      <p className="m-0 mt-1 text-[14px] text-slate">The catalog text that comes with a photo. It can help, but in production it is often missing, so every model also answers from the photo alone.</p>
+      {open && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {CONTEXT_FIELDS.map(([key, label]) => (
+            <label key={key} className="flex flex-col text-[13px] text-slate">{label}
+              <input value={form[key] ?? ''} onChange={(e) => { setForm({ ...form, [key]: e.target.value }); setState('idle') }} data-testid={`ctx-${key}`}
+                className="mt-0.5 border border-rule px-2.5 py-1.5 text-[15px] text-graphite focus:border-graphite" />
+            </label>
+          ))}
+          <div className="flex items-center gap-3 sm:col-span-2">
+            <button type="button" onClick={save} disabled={state === 'saving'} data-testid="save-context"
+              className="border border-graphite bg-white px-4 py-1.5 text-[14px] font-bold hover:bg-canvas">Save details</button>
+            <span className="text-[14px] text-slate" role="status">
+              {state === 'saved' ? 'Saved. Press Classify again to use them.' : state === 'error' ? 'Not saved: check that the demo server is running.' : ''}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -224,6 +273,7 @@ export default function ClassifyPage() {
             )}
           </div>
           {uploadError && <p className="m-0 mt-2 text-[14px] text-signal" role="alert">{uploadError}</p>}
+          {image.data && <ProductDetails key={image.data.image_id} image={image.data} onSaved={() => qc.invalidateQueries({ queryKey: ['image', imageId] })} />}
         </div>
 
         {/* ---- modelli ---- */}
@@ -276,6 +326,7 @@ export default function ClassifyPage() {
               The bar shows how sure the model is. Red means the model is unsure (below {UNSURE * 100}%) or that the models give different answers.
               {shown.length > 1 && ' Live models without training and trained models measure certainty in different ways: compare the answers, not the percentages.'}
               {hasRecorded && ' Answers marked as recorded were computed earlier on a GPU, with the same model.'}
+              {image.data && Object.keys(image.data.context).length === 0 && ' These answers use the photo only, without product details.'}
             </p>
             <div className="mt-8 grid gap-x-12 gap-y-10 md:grid-cols-2" data-testid="try-results">
               {DIMENSIONS.map((d) => <QuestionBlock key={d} dimension={d} models={shown} preds={preds} />)}
