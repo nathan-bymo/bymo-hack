@@ -117,7 +117,7 @@ export default function ShopPage() {
           <p className="m-0 mt-1 text-[14px] leading-relaxed text-slate">
             Subject, background, perspective, people, added text, language: one class and one probability each.
           </p>
-          <Link to="/how" className="mt-2 inline-block text-[14px] font-bold">How it works →</Link>
+          <Link to="/" className="mt-2 inline-block text-[14px] font-bold">See the six answers →</Link>
         </div>
         <div>
           <span className="text-[12px] font-bold uppercase tracking-[0.1em] text-signal">3 · The rules</span>

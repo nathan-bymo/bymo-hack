@@ -52,56 +52,11 @@ test('percorso completo della demo', async ({ page }) => {
   await expect(page.getByTestId('try-disagree')).toHaveCount(0)
   await shot(page, '03-classify-one-model')
 
-  // 5. Results: classifica Kaggle con il gruppo di valutazione, domanda per domanda, velocità e costo
-  await page.getByRole('link', { name: 'Results', exact: true }).click()
-  const kaggle = page.getByTestId('board-kaggle_dev')
-  await expect(kaggle.getByTestId('board-row')).toHaveCount(12)   // 9 punteggi del team + 3 riferimenti
-  await expect(kaggle.getByTestId('board-row').first()).toContainText('0.917')
-  await expect(kaggle).toContainText('0.832')
-  await expect(page.getByTestId('assessment-group')).toContainText('Ensemble of two models (0.847) is in the middle assessment group: above both Gemini references')
-  await expect(kaggle.getByTestId('board-row').nth(1)).toContainText('0.847')
-  await expect(page.getByTestId('pq-macro')).toContainText('0.821')
-  await expect(page.getByTestId('pq-weighted')).toContainText('0.917')
-  await expect(page.getByTestId('pq-perspective')).toContainText('0.755')
-  await expect(page.getByTestId('pq-perspective')).toContainText('0.198')
-  await expect(page.getByTestId('pq-macro')).toContainText('0.847')   // P13
-  await expect(kaggle).toContainText('0.829')
-  await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-fullft-heads"]')).toContainText('$7.27')
-  await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-lora-heads-p11"]')).toContainText('22 GB measured')
-  await expect(page.locator('[data-testid="models-row"][data-model="apertus-8b-fullft-heads"]').getByTestId('hours-100k')).toHaveText('2.9 h')
-  await expect(page.getByText(/invalid/i)).toHaveCount(0)
-  await shot(page, '04-results')
-
-  // 6. dettagli per esperti, chiusi di default
-  await expect(page.getByTestId('expert-scores')).toHaveCount(0)
-  await page.getByTestId('toggle-details').click()
-  const final = page.locator('[data-testid="model-card"][data-model="apertus-8b-vadapter-lora-heads-final"]')
-  await expect(final.getByTestId('card-macro')).toHaveText('0.821')
-  await page.getByTestId('set-select').selectOption('coverage')
-  await expect(page.getByTestId('model-card')).toHaveCount(5)   // solo i modelli con un punteggio su questo set
-  await expect(page.locator('[data-testid="model-card"][data-model="apertus-8b-lora-heads-p11"]').getByTestId('card-macro')).toHaveText('0.781')
-  await expect(page.getByTestId('dimension-chart')).toBeVisible()
-  await expect(page.getByTestId('per-class')).toBeVisible()
-  await expect(page.getByTestId('confusion')).toBeVisible()
-  await expect(page.getByText(/invalid/i)).toHaveCount(0)
-  await shot(page, '05-results-details')
-
-  // 7. How it works: schema, passi di training, cosa ha contato, modelli a runtime
-  await page.getByRole('link', { name: 'How it works', exact: true }).click()
-  await expect(page.getByTestId('pipeline')).toContainText('SigLIP 2')
-  await expect(page.getByTestId('walkthrough').locator('li')).toHaveCount(4)
-  await expect(page.getByTestId('experiments').getByTestId('experiment')).toHaveCount(21)   // P0–P15, full fine-tune, modello finale, mixed, LoRA su SigLIP, ensemble
-  await expect(page.getByTestId('experiments')).toContainText('P13')
-  await expect(page.getByTestId('training-steps').locator('tbody tr')).toHaveCount(3)
-  await expect(page.getByTestId('insights-mattered').locator('li')).toHaveCount(5)
-  await expect(page.getByTestId('insights-not').locator('li')).toHaveCount(4)
-  await expect(page.getByTestId('runtime-models')).toContainText('docTR')
-  await shot(page, '06-how')
-  await shot(page, '06b-how-frame', false)
-
-  // 8. i vecchi indirizzi portano alle pagine nuove
-  await page.goto('/models')
-  await expect(page).toHaveURL(/\/results/)
+  // 5. Results e How it works non esistono più: i vecchi indirizzi portano alla pagina Demo
+  for (const old of ['/models', '/results', '/how']) {
+    await page.goto(old)
+    await expect(page).toHaveURL(/\/(\?.*)?$/)
+  }
   await page.goto('/image-classification')
   await expect(page.getByRole('heading', { name: 'Six answers for every product photo' })).toBeVisible()
 })

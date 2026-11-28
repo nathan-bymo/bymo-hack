@@ -6,11 +6,9 @@ const LINKS = [
   { to: '/shop', label: 'Storefront', end: false },
   { to: '/catalog', label: 'Catalog', end: false },
   { to: '/', label: 'Demo', end: true },
-  { to: '/results', label: 'Results', end: false },
-  { to: '/how', label: 'How it works', end: false },
 ]
 
-/** Guscio dell'app: marchio, le due facce della demo (vetrina e catalogo), le pagine tecniche. */
+/** Guscio dell'app: marchio, le due facce della demo (vetrina e catalogo) e la classificazione. */
 export function AppShell({ children }: { children: ReactNode }) {
   const link = ({ isActive }: { isActive: boolean }) =>
     `border-b-2 pb-1 no-underline ${isActive ? 'border-signal text-graphite' : 'border-transparent text-slate hover:text-graphite'}`
