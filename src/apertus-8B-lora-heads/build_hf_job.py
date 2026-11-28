@@ -18,6 +18,7 @@ Environment of the job (-e NAME=value):
   SIDE          VQ image side, default 256
   SMOKE_STEPS   training steps of MODE=smoke, default 3 (about 30 also measure the step time)
   MODEL_PATH    predict only: folder of the model in UPLOAD_REPO (default full-train/model/final)
+  PREDICT_COVERAGE  predict only: 0 skips coverage (the reload check) and predicts dev only; default 1
 
   python src/apertus-8B-lora-heads/build_hf_job.py
   export HF_TOKEN=$(cat ~/.cache/huggingface/token) KAGGLE_API_TOKEN=$(cat ~/.kaggle/access_token)
@@ -239,11 +240,12 @@ def predict_dev():
     assert (checkpoint / "heads.pt").exists() and (checkpoint / "settings.json").exists(), f"no model in {model_path}"
     log("model downloaded from the private repository:", model_path)
     outputs = RUN / "predictions"
-    run([f"{FOLDER}/predict.py", "--checkpoint", checkpoint, "--part", "coverage", "--out", outputs / "coverage.csv"],
-        "predict_coverage.log")
-    upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])
-    run(["src/scripts/eval_prompt.py", outputs / "coverage.csv", "--split", "coverage", "--bootstrap", "0"],
-        "scores_coverage.log")
+    if os.environ.get("PREDICT_COVERAGE", "1") != "0":
+        run([f"{FOLDER}/predict.py", "--checkpoint", checkpoint, "--part", "coverage", "--out",
+             outputs / "coverage.csv"], "predict_coverage.log")
+        upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])
+        run(["src/scripts/eval_prompt.py", outputs / "coverage.csv", "--split", "coverage", "--bootstrap", "0"],
+            "scores_coverage.log")
     run([f"{FOLDER}/predict.py", "--checkpoint", checkpoint, "--csv", DATA / "dev.csv", "--out", outputs / "dev.csv"],
         "predict_dev.log")
     upload(outputs, "predictions", ["*.csv", "*.json", "*.pt"])
