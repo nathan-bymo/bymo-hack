@@ -55,10 +55,11 @@ test('percorso completo della demo', async ({ page }) => {
   // 5. Results: classifica Kaggle con il gruppo di valutazione, domanda per domanda, velocità e costo
   await page.getByRole('link', { name: 'Results', exact: true }).click()
   const kaggle = page.getByTestId('board-kaggle_dev')
-  await expect(kaggle.getByTestId('board-row')).toHaveCount(9)   // 6 modelli del team + 3 riferimenti
+  await expect(kaggle.getByTestId('board-row')).toHaveCount(10)   // 7 punteggi del team + 3 riferimenti
   await expect(kaggle.getByTestId('board-row').first()).toContainText('0.917')
   await expect(kaggle).toContainText('0.832')
-  await expect(page.getByTestId('assessment-group')).toContainText('middle assessment group')
+  await expect(page.getByTestId('assessment-group')).toContainText('Best team submission (0.847) is in the middle assessment group: above both Gemini references')
+  await expect(kaggle.getByTestId('board-row').nth(1)).toContainText('0.847')
   await expect(page.getByTestId('pq-macro')).toContainText('0.821')
   await expect(page.getByTestId('pq-weighted')).toContainText('0.917')
   await expect(page.getByTestId('pq-perspective')).toContainText('0.755')

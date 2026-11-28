@@ -10,7 +10,7 @@ def test_models_without_env_are_unavailable_with_readable_reasons(client, monkey
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     body = client.get("/api/models").json()
     by_id = {m["model_id"]: m for m in body["models"]}
-    assert len(by_id) == 13
+    assert len(by_id) == 14
     for zid in ("apertus-8b-zeroshot-v2", "apertus-70b-zeroshot-v2"):
         assert by_id[zid]["status"] == "unavailable" and "LLM_API_KEY" in by_id[zid]["status_reason"]
     for mid in ("apertus-8b-lora-p10", "apertus-8b-lora-heads-p11", "apertus-8b-fullft-heads",
@@ -70,7 +70,7 @@ def test_invalid_kaggle_score_fails(settings, tmp_path):
 def test_app_refuses_to_start_with_bad_registry(settings, tmp_path):
     from fastapi.testclient import TestClient
 
-    settings.models_yaml = _write(tmp_path, lambda d: d["models"][1]["evals"][0].update(source="x/y.md:1"))
+    settings.models_yaml = _write(tmp_path, lambda d: next(m for m in d["models"] if m["id"] == "apertus-8b-zeroshot-v2")["evals"][0].update(source="x/y.md:1"))
     with pytest.raises(RegistryError):
         with TestClient(create_app(settings)):
             pass

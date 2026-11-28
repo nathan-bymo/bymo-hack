@@ -38,8 +38,8 @@ pagine della demo.
 
 [Cliccare *Results*. Fermarsi sul grafico della classifica.]
 
-> On the official Kaggle dev set our final model scores 0.832. That puts it in the middle assessment group: above
-> Gemini 3.8 Flash, and level with Gemini 4 Argon.
+> On the official Kaggle dev set our best submission scores 0.847: above both Gemini references, in the middle
+> assessment group, behind only the organisers' own fine-tuned Qwen.
 
 [Scorrere a *Question by question*, indicare la riga della prospettiva.]
 
@@ -74,11 +74,8 @@ pagine della demo.
 
 | numero | dove si vede | fonte |
 |---|---|---|
-| 0.832 Kaggle dev, gruppo centrale | Results, classifica | `src/training/apertus-8B-vadapter-lora-heads/RISULTATI.md:10`, `challenge_description.md:143-145` |
+| 0.847 Kaggle dev (miglior invio del team), gruppo centrale | Results, classifica | `src/training/benchmark/README.md:26`, `challenge_description.md:143-145` |
 | prospettiva 0.198 → 0.755 | Results, *Question by question* | `src/plain-benchmark/apertus-8B-benchmark/prompt_eval_coverage.md:69` e `RISULTATI.md:62` |
 | 4.9 img/s su L40S, 5.7 h, $10.20 per 100.000 | Results, *Speed and cost* | `RISULTATI.md:15`, prezzi HF in `models.yaml` |
 | 0.37 GB di pesi allenati | How it works, legenda dello schema | `weights/apertus-8B-vadapter-lora-heads-final/` (du -sh) |
 | sinistra/destra a caso (55%) | How it works, *What mattered* | `RISULTATI.md:84-87` |
-
-"Level with Gemini 4 Argon": 0.832 contro 0.834, una differenza di 0.002. La challenge dice che differenze di pochi
-decimi di punto non sono decisive (`challenge_description.md:211-212`).

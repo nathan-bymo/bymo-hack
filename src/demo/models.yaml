@@ -71,6 +71,20 @@ models:
                  source_label: "team submission on Kaggle, 27/11",
                  note: "dev pubblico; righe final ancora ai valori di default di sample_submission.csv (RISULTATI.md:15-17)"}
 
+  - id: apertus-team-best-submission
+    display_name: "Best team submission on Kaggle dev (28/11 03:19)"
+    short_name: "Best team submission"
+    description: "Our best public score so far. The model behind it is not yet described in the repository."
+    featured: true
+    family: submission_only
+    adapter: null
+    runtime: none
+    status_override: {status: unavailable, reason: "solo punteggio Kaggle: modello non ancora descritto nel repository"}
+    training_label: "not yet described"
+    evals: []
+    kaggle_dev: {score: 0.847, submitted_at: "2026-11-28T03:19:00Z", source: "src/training/benchmark/README.md:26",
+                 source_label: "team submission on Kaggle, 28/11 03:19"}
+
   - id: apertus-8b-zeroshot-v2
     parity: {verified: true, scope: "corpi delle 7 richieste identici a eval_prompt.run_variant (test, gateway finto); risposte live non confrontate"}
     display_name: "Apertus 8B · zero-shot · prompt v2"

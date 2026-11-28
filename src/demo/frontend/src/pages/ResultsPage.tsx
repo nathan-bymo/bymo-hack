@@ -38,10 +38,13 @@ function scoreOn(m: ModelSummary, set: string) {
 }
 
 /** In quale gruppo di valutazione cade un punteggio: la challenge confronta per gruppi, non per decimali. */
-function groupSentence(best: Row | undefined, flash: Row | undefined, qwen: Row | undefined): string | null {
+function groupSentence(best: Row | undefined, flash: Row | undefined, qwen: Row | undefined, argon: Row | undefined): string | null {
   if (!best || !flash || !qwen) return null
   if (best.score > qwen.score) return `${best.name} is in the top assessment group: above the organisers’ fine-tuned Qwen (${qwen.score.toFixed(3)}).`
-  if (best.score > flash.score) return `${best.name} is in the middle assessment group: above Gemini 3.8 Flash (${flash.score.toFixed(3)}), below the organisers’ fine-tuned Qwen (${qwen.score.toFixed(3)}).`
+  if (best.score > flash.score) {
+    const argonPart = argon && best.score > argon.score ? `above both Gemini references (${argon.score.toFixed(3)} and ${flash.score.toFixed(3)})` : `above Gemini 3.8 Flash (${flash.score.toFixed(3)})`
+    return `${best.name} (${best.score.toFixed(3)}) is in the middle assessment group: ${argonPart}, below the organisers’ fine-tuned Qwen (${qwen.score.toFixed(3)}).`
+  }
   return `${best.name} is below Gemini 3.8 Flash (${flash.score.toFixed(3)}).`
 }
 
@@ -100,11 +103,11 @@ export default function ResultsPage() {
   const target = models.data?.throughput_target_images_per_second ?? 2
 
   const kaggleRows: Row[] = [
-    ...list.flatMap((m) => { const s = scoreOn(m, 'kaggle_dev'); return s === null ? [] : [{ key: m.model_id, name: m.short_name, note: 'Our Apertus model', score: s, ours: true }] }),
+    ...list.flatMap((m) => { const s = scoreOn(m, 'kaggle_dev'); return s === null ? [] : [{ key: m.model_id, name: m.short_name, note: m.runtime === 'none' ? 'Our best Kaggle submission so far' : 'Our Apertus model', score: s, ours: true }] }),
     ...refs.map((r) => ({ key: r.name, name: r.name.replace(" (organisers' baseline)", ''), note: r.name.includes('Qwen') ? 'Organisers’ own fine-tuned model' : 'Organisers’ reference, no training', score: r.score, ours: false })),
   ]
   const bestOurs = kaggleRows.filter((r) => r.ours).sort((a, b) => b.score - a.score)[0]
-  const group = groupSentence(bestOurs, kaggleRows.find((r) => r.name.includes('3.8 Flash')), kaggleRows.find((r) => r.name.includes('Qwen')))
+  const group = groupSentence(bestOurs, kaggleRows.find((r) => r.name.includes('3.8 Flash')), kaggleRows.find((r) => r.name.includes('Qwen')), kaggleRows.find((r) => r.name.includes('Argon')))
   const heldOut = list.filter((m) => scoreOn(m, 'prompt-test') !== null)
   const costRows = list.filter((m) => m.speeds.length > 0)
 
