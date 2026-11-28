@@ -75,10 +75,15 @@ def check_access(output_repo, source_repo, data_repo, source_path):
 
 @app.function(image=training_image, gpu="H200", cpu=8, memory=49152,
               timeout=3 * 60 * 60, retries=0, max_containers=1)
-def train_on_gpu(output_repo, source_repo, data_repo, source_path, name, long_run):
+def train_on_gpu(output_repo, source_repo, data_repo, source_path, name, long_run, synthetic_file, progressive):
     env = job_environment(output_repo, source_repo, data_repo, source_path, name)
     if long_run:
         env.update(DINO_EPOCHS="10", DINO_MAX_MINUTES="205", DINO_TOTAL_MINUTES="230", DINO_EVAL_ONCE="1")
+    if synthetic_file:
+        env.update(DINO_SYNTHETIC_FILE=synthetic_file, DINO_EPOCHS="4", DINO_MAX_MINUTES="80",
+                   DINO_TOTAL_MINUTES="100", DINO_EVAL_ONCE="1")
+    if progressive:
+        env.update(DINO_PROGRESSIVE="1", DINO_MAX_MINUTES="75", DINO_TOTAL_MINUTES="95")
     subprocess.run(["uv", "run", "--locked", "--script", REMOTE_BUNDLE], env=env, check=True)
     return f"{output_repo}/{name}"
 
@@ -87,9 +92,11 @@ def train_on_gpu(output_repo, source_repo, data_repo, source_path, name, long_ru
 def main(output_repo: str, source_repo: str = "", data_repo: str = "",
          source_path: str = "final-abt/model/best", secret: str = "galaxus-dino",
          gpu: str = "H200", preflight: bool = False, long_run: bool = False,
-         local_hf_auth: bool = False):
+         local_hf_auth: bool = False, synthetic_file: str = "", progressive: bool = False):
     if gpu not in {"H100", "H200"}:
         raise ValueError("Select H100 or H200.")
+    if progressive and (gpu != "H200" or not synthetic_file):
+        raise ValueError("Progressive training requires H200 and the original private synthetic archive.")
     if local_hf_auth:
         token_path = Path(os.environ.get("HF_TOKEN_PATH", str(Path.home() / ".cache/huggingface/token")))
         token = os.environ.get("HF_TOKEN") or token_path.read_text().strip()
@@ -103,7 +110,9 @@ def main(output_repo: str, source_repo: str = "", data_repo: str = "",
         print(check_access.with_options(secrets=credentials).remote(*args))
         return
 
-    name = f"dino-no-vq-modal-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
+    prefix = "dino-progressive-modal" if progressive else "dino-synthetic-modal" if synthetic_file else "dino-no-vq-modal"
+    name = f"{prefix}-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
     print(f"Starting one {gpu} container. Results: {output_repo}/{name}", flush=True)
-    timeout = LONG_TIMEOUT if long_run else 3 * 60 * 60
-    print(train_on_gpu.with_options(gpu=gpu, secrets=credentials, timeout=timeout).remote(*args, name, long_run))
+    timeout = 120 * 60 if synthetic_file else LONG_TIMEOUT if long_run else 3 * 60 * 60
+    print(train_on_gpu.with_options(gpu=gpu, secrets=credentials, timeout=timeout).remote(
+        *args, name, long_run, synthetic_file, progressive))

@@ -1,0 +1,314 @@
+{
+  "images": 1193,
+  "images_per_second": 5.930690819869982,
+  "seconds": 201.15700450999975,
+  "gpu": "NVIDIA H200",
+  "visual_tokens": 49,
+  "metrics": {
+    "subject": {
+      "f1_macro": 0.8681342871547291,
+      "f1_weighted": 0.9084435237568308,
+      "precision_macro": 0.903046963031054,
+      "recall_macro": 0.8392368586816913,
+      "support": 1139,
+      "per_class": {
+        "accessories": {
+          "precision": 0.7857142857142857,
+          "recall": 0.7333333333333333,
+          "f1": 0.7586206896551724,
+          "support": 15
+        },
+        "delivery_scope": {
+          "precision": 0.9375,
+          "recall": 0.8333333333333334,
+          "f1": 0.8823529411764706,
+          "support": 54
+        },
+        "detail_closeup": {
+          "precision": 0.9230769230769231,
+          "recall": 0.7578947368421053,
+          "f1": 0.8323699421965319,
+          "support": 95
+        },
+        "energy_label": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 40
+        },
+        "full_product": {
+          "precision": 0.91800878477306,
+          "recall": 0.9601837672281777,
+          "f1": 0.938622754491018,
+          "support": 653
+        },
+        "infographic": {
+          "precision": 0.7961165048543689,
+          "recall": 0.8282828282828283,
+          "f1": 0.8118811881188118,
+          "support": 99
+        },
+        "logo": {
+          "precision": 0.9850746268656716,
+          "recall": 0.9850746268656716,
+          "f1": 0.9850746268656716,
+          "support": 67
+        },
+        "multipack_trade_unit": {
+          "precision": 0.7142857142857143,
+          "recall": 0.625,
+          "f1": 0.6666666666666666,
+          "support": 8
+        },
+        "multiview": {
+          "precision": 1.0,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "support": 20
+        },
+        "package_and_product": {
+          "precision": 0.9230769230769231,
+          "recall": 0.8571428571428571,
+          "f1": 0.888888888888889,
+          "support": 28
+        },
+        "packaging": {
+          "precision": 0.7567567567567568,
+          "recall": 0.7567567567567568,
+          "f1": 0.7567567567567567,
+          "support": 37
+        },
+        "placeholder": {
+          "precision": 1.0,
+          "recall": 0.9230769230769231,
+          "f1": 0.9600000000000001,
+          "support": 13
+        },
+        "product_grouping": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1": 0.9473684210526316,
+          "support": 10
+        }
+      }
+    },
+    "background": {
+      "f1_macro": 0.8748690913197296,
+      "f1_weighted": 0.9542413768517198,
+      "precision_macro": 0.8961749888086814,
+      "recall_macro": 0.8603774760256772,
+      "support": 973,
+      "per_class": {
+        "color": {
+          "precision": 0.9036144578313253,
+          "recall": 0.7281553398058253,
+          "f1": 0.8064516129032259,
+          "support": 103
+        },
+        "scene_lifestyle": {
+          "precision": 0.8148148148148148,
+          "recall": 0.8627450980392157,
+          "f1": 0.838095238095238,
+          "support": 51
+        },
+        "white": {
+          "precision": 0.9700956937799043,
+          "recall": 0.9902319902319903,
+          "f1": 0.9800604229607252,
+          "support": 819
+        }
+      }
+    },
+    "perspective": {
+      "f1_macro": 0.7764235870678791,
+      "f1_weighted": 0.807867789961525,
+      "precision_macro": 0.796885235637953,
+      "recall_macro": 0.7661956604931708,
+      "support": 763,
+      "per_class": {
+        "back_angle_left": {
+          "precision": 0.7619047619047619,
+          "recall": 0.64,
+          "f1": 0.6956521739130435,
+          "support": 25
+        },
+        "back_angle_right": {
+          "precision": 0.7391304347826086,
+          "recall": 0.6538461538461539,
+          "f1": 0.693877551020408,
+          "support": 26
+        },
+        "back_head_on": {
+          "precision": 0.8686868686868687,
+          "recall": 0.8514851485148515,
+          "f1": 0.86,
+          "support": 101
+        },
+        "bottom_up": {
+          "precision": 0.8148148148148148,
+          "recall": 0.88,
+          "f1": 0.8461538461538461,
+          "support": 25
+        },
+        "front_angle_left": {
+          "precision": 0.625,
+          "recall": 0.872093023255814,
+          "f1": 0.7281553398058253,
+          "support": 86
+        },
+        "front_angle_right": {
+          "precision": 0.828125,
+          "recall": 0.6625,
+          "f1": 0.736111111111111,
+          "support": 80
+        },
+        "front_head_on": {
+          "precision": 0.875,
+          "recall": 0.8654545454545455,
+          "f1": 0.870201096892139,
+          "support": 275
+        },
+        "left_side": {
+          "precision": 0.8333333333333334,
+          "recall": 0.7954545454545454,
+          "f1": 0.8139534883720929,
+          "support": 44
+        },
+        "right_side": {
+          "precision": 0.88,
+          "recall": 0.6875,
+          "f1": 0.7719298245614036,
+          "support": 32
+        },
+        "top_down": {
+          "precision": 0.7428571428571429,
+          "recall": 0.7536231884057971,
+          "f1": 0.748201438848921,
+          "support": 69
+        }
+      }
+    },
+    "individuals": {
+      "f1_macro": 0.9695269481061238,
+      "f1_weighted": 0.9937280523375833,
+      "precision_macro": 0.9872943722943723,
+      "recall_macro": 0.9531602254428342,
+      "support": 974,
+      "per_class": {
+        "individual_present": {
+          "precision": 0.98,
+          "recall": 0.9074074074074074,
+          "f1": 0.9423076923076924,
+          "support": 54
+        },
+        "none": {
+          "precision": 0.9945887445887446,
+          "recall": 0.9989130434782608,
+          "f1": 0.9967462039045553,
+          "support": 920
+        }
+      }
+    },
+    "text_classification": {
+      "f1_macro": 0.7694970397621953,
+      "f1_weighted": 0.9483878771692823,
+      "precision_macro": 0.8003895747430788,
+      "recall_macro": 0.7479817811866695,
+      "support": 1073,
+      "per_class": {
+        "certification_seal": {
+          "precision": 0.5,
+          "recall": 0.3333333333333333,
+          "f1": 0.4,
+          "support": 6
+        },
+        "none": {
+          "precision": 0.9707536557930259,
+          "recall": 0.981797497155859,
+          "f1": 0.9762443438914027,
+          "support": 879
+        },
+        "nutritional_info": {
+          "precision": 0.9384615384615385,
+          "recall": 0.9838709677419355,
+          "f1": 0.9606299212598426,
+          "support": 62
+        },
+        "other": {
+          "precision": 0.6428571428571429,
+          "recall": 0.5,
+          "f1": 0.5625000000000001,
+          "support": 36
+        },
+        "promotional_text": {
+          "precision": 0.8478260869565217,
+          "recall": 0.8666666666666667,
+          "f1": 0.8571428571428571,
+          "support": 45
+        },
+        "technical_specs": {
+          "precision": 0.9024390243902439,
+          "recall": 0.8222222222222222,
+          "f1": 0.8604651162790697,
+          "support": 45
+        }
+      }
+    },
+    "text_language": {
+      "f1_macro": 0.7984732302850694,
+      "f1_weighted": 0.885899802346008,
+      "precision_macro": 0.8783035359325561,
+      "recall_macro": 0.7503673546659406,
+      "support": 518,
+      "per_class": {
+        "Dutch": {
+          "precision": 1.0,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "support": 4
+        },
+        "English": {
+          "precision": 0.8918918918918919,
+          "recall": 0.8461538461538461,
+          "f1": 0.868421052631579,
+          "support": 156
+        },
+        "French": {
+          "precision": 0.8,
+          "recall": 0.6666666666666666,
+          "f1": 0.7272727272727272,
+          "support": 30
+        },
+        "German": {
+          "precision": 0.8785714285714286,
+          "recall": 0.9389312977099237,
+          "f1": 0.9077490774907749,
+          "support": 131
+        },
+        "Italian": {
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6666666666666666,
+          "support": 4
+        },
+        "none": {
+          "precision": 0.9109947643979057,
+          "recall": 0.9508196721311475,
+          "f1": 0.9304812834224598,
+          "support": 183
+        },
+        "other": {
+          "precision": 0.6666666666666666,
+          "recall": 0.6,
+          "f1": 0.631578947368421,
+          "support": 10
+        }
+      }
+    },
+    "overall": {
+      "f1_macro": 0.8428206972826211,
+      "f1_weighted": 0.9235302517961537,
+      "support": 5440
+    }
+  }
+}

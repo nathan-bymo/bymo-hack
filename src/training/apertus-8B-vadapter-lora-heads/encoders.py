@@ -113,7 +113,8 @@ class ImageEncoder:
     @torch.inference_mode()
     def siglip_features(self, pil_images):
         """[batch, pooled_side^2, channels] float16: SigLIP patch grid average-pooled to pooled_side x pooled_side."""
-        pixels = self.siglip_processor(images=pil_images, return_tensors="pt")["pixel_values"]
+        pixels = self.siglip_processor(images=pil_images, input_data_format="channels_first",
+                                       return_tensors="pt")["pixel_values"]
         patches = self.siglip(pixel_values=pixels.to(self.device, self.siglip_dtype)).last_hidden_state.float()
         batch, count, channels = patches.shape
         side = int(count**0.5)

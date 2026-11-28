@@ -4,6 +4,7 @@ import pytest
 import torch
 from PIL import Image, ImageDraw
 
+from base_weights import BaseMasters, block_parameters, restore_blocks
 from experiment import EarlyStop
 from pipeline import D, E, M, DinoPrompt, fit_image, make_model, model_inputs, pool_dino
 
@@ -14,6 +15,8 @@ def test_patch_pool_removes_class_and_register_tokens():
         pooled = pool_dino(hidden, side, 4)
         assert pooled.shape == (2, 81, 8)
         assert torch.equal(pooled, torch.ones_like(pooled))
+        larger = pool_dino(hidden, side, 4, grid_side=12)
+        assert larger.shape == (2, 144, 8) and torch.equal(larger, torch.ones_like(larger))
     with pytest.raises(ValueError, match="patch grid"):
         pool_dino(hidden, 288, 4)
 
@@ -92,11 +95,48 @@ def test_no_native_vq_and_real_decoder_warm_start_roundtrip(tmp_path, monkeypatc
     assert any(p.grad is not None and p.grad.abs().sum() > 0
                for name, p in model.language_model.named_parameters() if "lora_" in name)
 
-    settings["dino_revision"] = "test"
+    settings.update(dino_revision="test", soft_side=12)
+    model.soft_side = 12
+    builder.prefix_tokens = 144
+    ids, mask, features = model_inputs(builder, records, torch.randn(1, 144, 768), ocr, "cpu")
     M.save(model.eval(), settings, tmp_path / "dino")
     restored, _, _ = make_model(None, tmp_path / "dino", device="cpu")
+    assert restored.soft_side == 12 and ids.eq(E.PREFIX_SLOT).sum() == 144
     for before, after in zip(model(ids, mask, features), restored.eval()(ids, mask, features), strict=True):
         torch.testing.assert_close(before, after)
+
+
+def test_progressive_blocks_take_fp32_steps_and_reload(tmp_path):
+    from transformers.models.apertus1p5.configuration_apertus1p5 import Apertus1p5TextConfig
+    from transformers.models.apertus1p5.modeling_apertus1p5 import Apertus1p5TextModel
+
+    config = Apertus1p5TextConfig(vocab_size=32, hidden_size=16, intermediate_size=32,
+                                 num_hidden_layers=6, num_attention_heads=2, num_key_value_heads=1, head_dim=8)
+    torch.manual_seed(6)
+    decoder = M.add_lora(Apertus1p5TextModel(config).bfloat16().requires_grad_(False), 4, 4)
+    weights = BaseMasters(decoder, 6)
+    for blocks in (2, 4, 6):
+        newly_trainable = weights.expand(blocks)
+        assert newly_trainable and all(p.dtype == torch.float32 for p in newly_trainable)
+        assert all(not p.requires_grad for p in block_parameters(decoder, 6, blocks, adapters=True).values())
+        assert set(weights.base) == set(block_parameters(decoder, 6, blocks))
+    name = next(iter(weights.base))
+    base, master = weights.base[name], weights.master[name]
+    original = master.detach().clone()
+    optimizer = torch.optim.SGD([master], lr=2e-6)
+    for _ in range(40):
+        base.grad = torch.ones_like(base)
+        weights.transfer_gradients()
+        assert base.grad is None and master.grad.dtype == torch.float32
+        optimizer.step()
+        weights.sync()
+    assert not torch.equal(master, original)
+    assert torch.equal(base, master.bfloat16())
+    weights.save(tmp_path)
+    with torch.no_grad():
+        base.zero_()
+    restore_blocks(decoder, tmp_path, {"layers": 6, "unfrozen_blocks": 6})
+    assert torch.equal(base, master.bfloat16())
 
 
 def test_early_stop_uses_multiple_observations():

@@ -8,6 +8,8 @@ import torch
 from PIL import Image, ImageOps
 from torch.nn import functional as F
 
+from base_weights import restore_blocks
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "apertus-8B-vadapter-lora-heads"))
 import data as D  # noqa: E402
 import encoders as E  # noqa: E402
@@ -25,20 +27,21 @@ def fit_image(path, side):
     return ImageOps.pad(image, (side, side), method=Image.Resampling.LANCZOS, color="white")
 
 
-def pool_dino(hidden, side, register_count):
+def pool_dino(hidden, side, register_count, grid_side=GRID_SIDE):
     width = side // PATCH_SIZE
     if hidden.shape[1] != 1 + register_count + width * width:
         raise ValueError(f"Unexpected DINO patch grid for side {side}: {tuple(hidden.shape)}")
     patches = hidden[:, 1 + register_count:]
     grid = patches.transpose(1, 2).reshape(hidden.shape[0], hidden.shape[-1], width, width)
-    return F.adaptive_avg_pool2d(grid.float(), GRID_SIDE).flatten(2).transpose(1, 2).contiguous()
+    return F.adaptive_avg_pool2d(grid.float(), grid_side).flatten(2).transpose(1, 2).contiguous()
 
 
 class DinoEncoder:
-    def __init__(self, revision, device="cuda", model_folder=None):
+    def __init__(self, revision, device="cuda", model_folder=None, grid_side=GRID_SIDE):
         from transformers import AutoImageProcessor, AutoModel
 
         self.device = torch.device(device)
+        self.grid_side = grid_side
         source = model_folder or DINO_ID
         self.processor = AutoImageProcessor.from_pretrained(source, revision=revision)
         dtype = torch.bfloat16 if self.device.type == "cuda" else torch.float32
@@ -57,7 +60,7 @@ class DinoEncoder:
         if pixels.shape[-2:] != (side, side):
             raise ValueError(f"DINO preprocessing changed the requested {side}px image size.")
         hidden = self.model(pixel_values=pixels.to(self.device, self.model.dtype)).last_hidden_state
-        features = pool_dino(hidden, side, self.register_count).to("cpu", torch.float16)
+        features = pool_dino(hidden, side, self.register_count, self.grid_side).to("cpu", torch.float16)
         if not features.isfinite().all():
             raise ValueError("DINO produced non-finite features.")
         return features
@@ -82,21 +85,22 @@ def make_model(directory, folder, device="cuda", warm_start=False):
                 or settings.get("vision_dim") != 768 or settings.get("layers") != 24):
             raise ValueError("Warm start requires the matching 24-layer SigLIP + OCR checkpoint.")
     elif (settings.get("vision_encoder") != DINO_ID or settings.get("vq") is not False
-          or settings.get("soft_side") != GRID_SIDE):
+          or settings.get("soft_side") not in (GRID_SIDE, 12)):
         raise ValueError("Expected a saved DINOv3 checkpoint without VQ.")
 
     classifier = M.build(directory, settings, device)
     M.load_weights(classifier, folder, settings)
+    restore_blocks(classifier.language_model, folder, settings)
     if warm_start:
         classifier.projector = M.Projector(768, classifier.language_model.config.hidden_size).to(device)
         settings.pop("siglip", None)
         settings.update(vision_encoder=DINO_ID, vq=False, side=IMAGE_SIDE,
                         soft_side=GRID_SIDE, init_checkpoint=str(folder))
-    classifier.soft_side = GRID_SIDE
+    classifier.soft_side = settings["soft_side"]
     # Keep the old head widths for weight transfer. The absent VQ features are zeros.
     classifier.image_range = (0, 0)
     tokenizer = AutoTokenizer.from_pretrained(directory)
-    builder = DinoPrompt(tokenizer, image_token_offset=0, prefix_tokens=GRID_SIDE**2,
+    builder = DinoPrompt(tokenizer, image_token_offset=0, prefix_tokens=classifier.soft_side**2,
                          language_hint=settings.get("language_hint", False))
     return classifier, settings, builder
 

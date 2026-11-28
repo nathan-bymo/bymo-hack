@@ -76,6 +76,21 @@ The original images and labels are downloaded directly from the authorized priva
 For this private HF dataset route, `--local-hf-auth` can inject the authenticated local HF token
 only into the selected Modal function instead of maintaining a named Modal secret.
 
+For a continuation, set `--source-path` to a saved DINO checkpoint and pass `--synthetic-file`
+with a private dataset archive containing `synthetic/synthetic.csv` and `synthetic/images/`.
+The continuation keeps the DINO projector and starts a new optimizer at lower learning rates.
+At step zero it measures and retains the source checkpoint. Synthetic examples can contribute only
+to the two text heads, at one quarter of the real-example weight. Validation stays on the original
+prompt-test and rejects training overlays from any product outside the training split.
+
+For the final resolution and unfreezing experiment, add `--progressive` on H200 and use the best
+81-token synthetic checkpoint as `--source-path`. The job reproduces the 81-token baseline, then
+evaluates after each half-epoch stage at 144 tokens with 0, 2, 4 and 6 base blocks active. It opens
+more blocks only when the previous unfreezing stage yields a meaningful gain. The best checkpoint
+can include `apertus_blocks.pt`, the FP32 master weights for the modified blocks. The job reloads
+the winner and checks its probabilities before timing inference and exporting predictions. The
+Modal timeout for this experiment is 120 minutes, with one container and no retries.
+
 ## Fine-tuning method
 
 This experiment keeps the original LoRA scaling and tensors to isolate the change in image representation.

@@ -67,6 +67,21 @@ def run_dino():
                 "revision": E.OCR_RECOGNIZER_REVISION, "min_confidence": E.OCR_MIN_CONFIDENCE,
                 "max_chars": E.OCR_MAX_CHARS}
     import json
+    synthetic_file = os.environ.get("DINO_SYNTHETIC_FILE")
+    continuation = []
+    if synthetic_file:
+        if not DATA_REPO:
+            raise ValueError("Synthetic training requires the private HF dataset repo.")
+        synthetic_tar = hf_hub_download(DATA_REPO, synthetic_file, repo_type="dataset")
+        with tarfile.open(synthetic_tar) as archive:
+            archive.extractall(DATA, filter="data")
+        initial_settings = json.loads((initial / "settings.json").read_text())
+        dino_revision = initial_settings["dino_revision"]
+        continuation = ["--resume-dino", "--synthetic", DATA / "synthetic/synthetic.csv"]
+    if os.environ.get("DINO_PROGRESSIVE") == "1":
+        if not synthetic_file:
+            raise ValueError("Progressive training requires the synthetic archive used by the source run.")
+        continuation.append("--progressive")
     files = set(source_api.list_repo_files(source_repo, revision=source_revision))
     for cache_name in ("all_but_test_256", "training_256"):
         prefix = f"cache/{cache_name}"
@@ -86,12 +101,19 @@ def run_dino():
          "--initial", initial, "--dino-revision", dino_revision, "--epochs", os.environ.get("DINO_EPOCHS", "5"),
          "--source-id", f"{source_repo}/{INIT_FROM}", "--source-revision", source_revision,
          "--max-minutes", os.environ.get("DINO_MAX_MINUTES", "110"), "--wall-seconds", str(wall),
-         "--upload-repo", UPLOAD_REPO, "--prefix", PREFIX, "--predict-dev", *cache_args, *cadence], "dino.log")
-    if not api.file_exists(UPLOAD_REPO, f"{PREFIX}/model/best/lora/adapter_model.safetensors"):
-        upload(RUN / "dino" / "best", "model/best", ["settings.json", "trainable.pt", "lora/*"])
+         "--upload-repo", UPLOAD_REPO, "--prefix", PREFIX, "--predict-dev", *cache_args, *cadence, *continuation], "dino.log")
+    best_folder = RUN / "dino" / "best"
+    include = ["settings.json", "trainable.pt", "apertus_blocks.pt", "lora/*"]
+    need_patch = json.loads((best_folder / "settings.json").read_text()).get("unfrozen_blocks", 0) > 0
+    if os.environ.get("DINO_PROGRESSIVE") == "1":
+        upload(best_folder, "model/best", include)
     required = ("model/best/settings.json", "model/best/trainable.pt", "model/best/lora/adapter_model.safetensors",
                 "model/training.json", "predictions/prompt_test.json", "predictions/dev.csv")
+    required += ("model/best/apertus_blocks.pt",) if need_patch else ()
     missing = set(f"{PREFIX}/{path}" for path in required) - set(api.list_repo_files(UPLOAD_REPO))
+    if any(path.startswith(f"{PREFIX}/model/best/") for path in missing):
+        upload(best_folder, "model/best", include)
+        missing -= set(api.list_repo_files(UPLOAD_REPO))
     if missing:
         raise RuntimeError(f"Missing artifacts in the private repository: {sorted(missing)}")
     upload(RUN, "logs", ["*.log"])
@@ -110,7 +132,7 @@ def main():
     spec = importlib.util.spec_from_file_location("base_hf_builder", BASE_BUILDER)
     base = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(base)
-    files = [*base.FILES, *(f"{FOLDER}/{name}" for name in ("pipeline.py", "experiment.py"))]
+    files = [*base.FILES, *(f"{FOLDER}/{name}" for name in ("pipeline.py", "experiment.py", "base_weights.py"))]
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
         for name in files:
